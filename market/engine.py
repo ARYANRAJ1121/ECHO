@@ -94,7 +94,7 @@ class MarketEngine:
         self.profit_history: list[list[float]] = []
         self.records: list[RoundRecord] = []
 
-    def run(self, n_rounds: int) -> list[RoundRecord]:
+    def run(self, n_rounds: int, db_logger=None, sim_id: int | None = None) -> list[RoundRecord]:
         """
         Run the full simulation for n_rounds.
 
@@ -105,6 +105,7 @@ class MarketEngine:
         4. Feed prices into demand model -> get market outcome
         5. Compute Lambda (collusion index)
         6. Store the record
+        7. (Optional) Save to PostgreSQL via db_logger
 
         Returns the full list of round records.
         """
@@ -119,6 +120,24 @@ class MarketEngine:
             self.records.append(record)
             self.price_history.append(record.prices)
             self.profit_history.append(record.profits)
+
+            # Save to database if logger is provided
+            if db_logger and sim_id is not None:
+                # Collect scratchpads from LLM agents (if any)
+                scratchpads = {}
+                response_times = {}
+                for agent in self.agents:
+                    if hasattr(agent, "scratchpad_history") and agent.scratchpad_history:
+                        scratchpads[agent.firm_id] = agent.scratchpad_history[-1]
+                    if hasattr(agent, "response_times") and agent.response_times:
+                        response_times[agent.firm_id] = agent.response_times[-1]
+
+                db_logger.log_round(
+                    sim_id=sim_id,
+                    record=record,
+                    scratchpads=scratchpads if scratchpads else None,
+                    response_times=response_times if response_times else None,
+                )
 
             # Print progress every 10 rounds (or last round)
             if round_num % 10 == 0 or round_num == n_rounds:

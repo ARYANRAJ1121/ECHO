@@ -1,0 +1,68 @@
+# =============================================================
+# ECHO -- Docker Compose Configuration
+# =============================================================
+#
+# WHY THIS FILE?
+# One command (`docker-compose up`) starts everything:
+#   - PostgreSQL database (stores all simulation data)
+#   - Ollama server (runs Llama 3 for LLM agents)
+#   - The simulation itself (Python app)
+#
+# HOW TO USE:
+#   docker-compose up -d          # start everything in background
+#   docker-compose logs -f app    # watch simulation output
+#   docker-compose down           # stop everything
+#
+# For now during development, we'll run the Python app OUTSIDE
+# Docker (directly in VS Code terminal) and only containerize
+# PostgreSQL and Ollama. This is faster for debugging.
+# =============================================================
+
+services:
+
+  # ----- Container 1: PostgreSQL + pgvector -----
+  # Stores ALL simulation data: prices, profits, scratchpads, Lambda.
+  # pgvector extension enables vector similarity search for RAG (Phase 4).
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: echo_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: echo
+      POSTGRES_USER: echo_user
+      POSTGRES_PASSWORD: echo_pass_2026
+    ports:
+      - "5433:5432"               # mapped to 5433 to avoid conflict with local PostgreSQL
+    volumes:
+      - echo_pgdata:/var/lib/postgresql/data    # persist data across restarts
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql  # auto-run on first start
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U echo_user -d echo"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----- Container 2: Ollama (LLM server) -----
+  # Runs Llama 3 8B for LLM pricing agents.
+  # Mounts host Ollama models so you don't re-download.
+  # COMMENT THIS OUT if you prefer running `ollama serve` on host.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: echo_ollama
+  #   restart: unless-stopped
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - echo_ollama:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+
+# Named volumes -- data persists even after `docker-compose down`
+volumes:
+  echo_pgdata:
+  echo_ollama:

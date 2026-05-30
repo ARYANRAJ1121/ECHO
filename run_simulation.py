@@ -128,11 +128,13 @@ if __name__ == "__main__":
                         help="Agent type: 'llm' (Ollama) or 'dummy' (heuristic)")
     parser.add_argument("--rounds", type=int, default=10,
                         help="Number of rounds to simulate")
+    parser.add_argument("--db", action="store_true",
+                        help="Save results to PostgreSQL (requires docker-compose up)")
     args = parser.parse_args()
 
     print("=" * 80)
     print("ECHO -- Emergent Collusion in Heterogeneous Oligopolies")
-    print(f"Mode: {args.mode.upper()} agents | Rounds: {args.rounds}")
+    print(f"Mode: {args.mode.upper()} agents | Rounds: {args.rounds} | DB: {'ON' if args.db else 'OFF'}")
     print("=" * 80)
 
     if args.mode == "llm":
@@ -140,5 +142,27 @@ if __name__ == "__main__":
     else:
         engine, n_rounds = build_dummy_simulation(args.rounds)
 
-    engine.run(n_rounds=n_rounds)
+    # Database logging (optional)
+    db_logger = None
+    sim_id = None
+
+    if args.db:
+        from database.db import DatabaseLogger
+        db_logger = DatabaseLogger()
+        sim_id = db_logger.start_simulation({
+            "mode": args.mode,
+            "n_firms": 5,
+            "n_rounds": args.rounds,
+            "mu": 0.5,
+            "marginal_cost": 1.0,
+            "nash_price": engine.benchmarks.nash_price,
+            "monopoly_price": engine.benchmarks.monopoly_price,
+        })
+
+    engine.run(n_rounds=n_rounds, db_logger=db_logger, sim_id=sim_id)
+
+    if db_logger:
+        db_logger.end_simulation(sim_id)
+        db_logger.close()
+
     print_results(engine, show_scratchpads=(args.mode == "llm"))

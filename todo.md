@@ -67,7 +67,7 @@ pricing patterns in Amazon product markets."
 
 ---
 
-## Phase 2: Infrastructure (Week 3-4) -- NEXT
+## Phase 2: Infrastructure (Week 3-4) -- DONE
 
 **Goal:** Dockerize everything so it runs anywhere with one command.
 
@@ -75,21 +75,23 @@ Right now, the simulation prints to terminal and data disappears. This phase
 adds PostgreSQL so every round is saved permanently, and Docker so anyone
 can reproduce the setup.
 
-- [ ] Docker Compose configuration
-  - Container 1: Python simulation app
-  - Container 2: PostgreSQL 16 + pgvector extension
-  - Container 3: Ollama server (Llama 3 8B)
-- [ ] PostgreSQL schema design
+- [x] Docker Compose configuration (`docker-compose.yml`)
+  - Container 1: Python simulation app (runs on host for dev)
+  - Container 2: PostgreSQL 16 + pgvector extension (port 5433)
+  - Container 3: Ollama server (runs on host for GPU access)
+- [x] PostgreSQL schema design (`database/schema.sql`)
   - `simulations` table -- metadata for each experiment run
   - `rounds` table -- one row per round (round_id, sim_id, timestamp)
   - `firm_rounds` table -- per-firm data (firm_id, price, profit, share)
   - `scratchpads` table -- LLM reasoning text (firm_id, round_id, text)
-  - `collusion_metrics` table -- Lambda, shock results per round
-- [ ] pgvector extension installed (needed for Phase 4 RAG)
-- [ ] Database logger -- auto-saves every round to PostgreSQL
-- [ ] Environment config (.env file for DB credentials, Ollama URL)
+  - `collusion_alerts` table -- detection alerts (Phase 5)
+  - `embeddings` table -- pgvector for RAG (Phase 4)
+- [x] pgvector extension installed (needed for Phase 4 RAG)
+- [x] Database logger (`database/db.py`) -- auto-saves every round to PostgreSQL
+- [x] `--db` CLI flag in `run_simulation.py`
+- [x] First DB test: 50 rounds, 250 firm records saved successfully
 
-**Deliverable:** `docker-compose up` starts everything. Data appears in PostgreSQL.
+**Deliverable:** `docker compose up -d db` + `python run_simulation.py --db` works.
 
 **Why this phase matters:** Without persistent storage, running 10,000 rounds
 is pointless -- you can't analyze what you can't save. PostgreSQL also enables
