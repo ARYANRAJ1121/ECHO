@@ -1,143 +1,301 @@
-from __future__ import annotations
+"""
+market/demand.py -- Multinomial Logit Demand Model
 
+This is the ECONOMICS ENGINE of the entire ECHO project.
+It answers: "Given 5 firms each posting a price, who buys what,
+and how much profit does each firm make?"
+
+=== THE THREE CORE EQUATIONS ===
+
+1) Market Share (softmax over products):
+   s_i(p) = exp((a_i - p_i) / mu) / [sum_j exp((a_j - p_j) / mu) + exp(a0 / mu)]
+
+2) Profit:
+   pi_i = (p_i - c_i) * s_i(p) * M
+
+3) Collusion Index (Lambda -- the #1 metric of the project):
+   Lambda = (avg_price - nash_price) / (monopoly_price - nash_price)
+   Lambda = 0 -> fair competition | Lambda = 1 -> full cartel
+
+=== REFERENCES ===
+- Anderson, de Palma, Thisse (1992). Discrete Choice Theory. MIT Press.
+- Calvano et al. (2020). AI, Algorithmic Pricing, and Collusion. AER.
+"""
+
+import numpy as np
+from scipy.optimize import minimize_scalar
 from dataclasses import dataclass
-from math import exp
+
+
+# ----------------------------------------------------------------
+# Data containers -- simple structs to hold computation results
+# ----------------------------------------------------------------
+
+@dataclass
+class DemandResult:
+    """Everything that happens in one round after all firms post prices."""
+    prices: np.ndarray          # shape (N,) -- what each firm charged
+    shares: np.ndarray          # shape (N,) -- fraction of customers each firm got
+    profits: np.ndarray         # shape (N,) -- how much money each firm made
+    outside_share: float        # fraction of customers who didn't buy anything
+    total_profit: float         # sum of all firms' profits
 
 
 @dataclass
-class DemandOutcome:
-    prices: list[float]
-    shares: list[float]
-    units_sold: list[float]
-    profits: list[float]
-    outside_share: float
-    total_profit: float
-    avg_price: float
+class Benchmarks:
+    """
+    Pre-computed reference points for measuring collusion.
+    Computed ONCE at simulation start, then reused every round.
+    """
+    nash_price: float           # the "fair competition" price
+    nash_profit: float          # per-firm profit under fair competition
+    monopoly_price: float       # the "full cartel" price
+    monopoly_profit: float      # per-firm profit under full cartel
 
 
-@dataclass
-class BenchmarkPrices:
-    nash_price: float
-    monopoly_price: float
-
+# ----------------------------------------------------------------
+# The Demand Model
+# ----------------------------------------------------------------
 
 class LogitDemandModel:
     """
-    Simple multinomial-logit demand model.
+    Multinomial logit demand for N-firm Bertrand oligopoly.
 
-    Idea:
-    - lower prices make a firm more attractive
-    - buyers choose probabilistically across firms
-    - some buyers pick the outside option and do not buy at all
+    Think of this as a "market simulator." You give it prices,
+    it tells you who bought what and how much profit everyone made.
+
+    Parameters
+    ----------
+    n_firms : int
+        Number of competing firms. Default = 5.
+    mu : float
+        Price sensitivity. Lower = customers care more about price.
+        Calvano et al. (2020) use 0.25. That's our default.
+    marginal_cost : float
+        Cost to produce one unit. Same for all firms (symmetric market).
+    quality : list or None
+        Product quality for each firm. None = all equal = [0, 0, 0, 0, 0].
+    outside_quality : float
+        Quality of "not buying." Controls total market coverage.
+    market_size : float
+        Total potential customers. 1.0 = normalized.
     """
 
     def __init__(
         self,
-        market_size: float,
-        price_sensitivity: float,
-        qualities: list[float],
-        marginal_costs: list[float],
-        outside_option_utility: float = 0.0,
-    ) -> None:
+        n_firms: int = 5,
+        mu: float = 0.25,
+        marginal_cost: float = 1.0,
+        quality: list | None = None,
+        outside_quality: float = 0.0,
+        market_size: float = 1.0,
+    ):
+        self.n_firms = n_firms
+        self.mu = mu
         self.market_size = market_size
-        self.price_sensitivity = price_sensitivity
-        self.qualities = qualities
-        self.marginal_costs = marginal_costs
-        self.outside_option_utility = outside_option_utility
-        self.n_firms = len(qualities)
+        self.outside_quality = outside_quality
 
-    def compute(self, prices: list[float]) -> DemandOutcome:
-        utilities = []
-        for quality, price in zip(self.qualities, prices):
-            utilities.append(quality - self.price_sensitivity * price)
+        # All firms have the same cost (symmetric Bertrand benchmark)
+        self.costs = np.full(n_firms, marginal_cost)
 
-        exp_values = [exp(value) for value in utilities]
-        exp_outside = exp(self.outside_option_utility)
-        denominator = sum(exp_values) + exp_outside
+        # All firms have the same quality unless specified
+        if quality is None:
+            self.quality = np.zeros(n_firms)
+        else:
+            self.quality = np.array(quality, dtype=float)
+            assert len(self.quality) == n_firms
 
-        shares = [value / denominator for value in exp_values]
-        outside_share = exp_outside / denominator
-        units_sold = [self.market_size * share for share in shares]
+        # Cache for benchmarks -- computed once, reused forever
+        self._benchmarks: Benchmarks | None = None
 
-        profits = []
-        for price, cost, units in zip(prices, self.marginal_costs, units_sold):
-            profits.append((price - cost) * units)
+    # ----------------------------------------------------------------
+    # EQUATION 1: Market shares (who buys from whom)
+    # ----------------------------------------------------------------
 
-        avg_price = sum(prices) / len(prices)
+    def compute_shares(self, prices: np.ndarray) -> tuple[np.ndarray, float]:
+        """
+        Given a price vector, compute each firm's market share.
 
-        return DemandOutcome(
-            prices=prices,
+        This is a SOFTMAX over utilities: u_i = (quality_i - price_i) / mu
+        Higher utility -> more customers choose that firm.
+
+        The log-sum-exp trick prevents numerical overflow when mu is small.
+
+        Returns: (shares, outside_share)
+        """
+        prices = np.asarray(prices, dtype=float)
+
+        # Utility each customer gets from buying from firm i
+        utilities = (self.quality - prices) / self.mu  # shape (N,)
+        outside_utility = self.outside_quality / self.mu  # scalar
+
+        # LOG-SUM-EXP TRICK: subtract max to prevent exp() overflow
+        # Math: exp(x - max) / sum(exp(x - max)) = exp(x) / sum(exp(x))
+        # Same result, but no numbers like exp(40) = 2.35e17
+        all_utils = np.append(utilities, outside_utility)
+        max_u = all_utils.max()
+
+        exp_firms = np.exp(utilities - max_u)      # safe exponentials
+        exp_outside = np.exp(outside_utility - max_u)
+        denominator = exp_firms.sum() + exp_outside
+
+        shares = exp_firms / denominator           # shape (N,)
+        outside_share = exp_outside / denominator  # scalar
+
+        return shares, float(outside_share)
+
+    # ----------------------------------------------------------------
+    # EQUATION 2: Full round computation (shares + profits)
+    # ----------------------------------------------------------------
+
+    def compute(
+        self,
+        prices: np.ndarray,
+        demand_shock: np.ndarray | None = None,
+    ) -> DemandResult:
+        """
+        Full market computation for one round.
+
+        Parameters
+        ----------
+        prices : array of N prices
+        demand_shock : optional array of N quality adjustments
+            Used by the Antitrust Regulator to test if agents
+            respond to shocks targeting OTHER firms (= cartel signal).
+
+        Returns
+        -------
+        DemandResult with shares, profits, etc.
+        """
+        prices = np.asarray(prices, dtype=float)
+
+        # If there's a demand shock, temporarily adjust quality
+        if demand_shock is not None:
+            original_quality = self.quality.copy()
+            self.quality = self.quality + np.asarray(demand_shock)
+            shares, outside_share = self.compute_shares(prices)
+            self.quality = original_quality  # restore
+        else:
+            shares, outside_share = self.compute_shares(prices)
+
+        # Profit = markup x share x market_size
+        # markup = price - cost (how much above cost you're charging)
+        profits = (prices - self.costs) * shares * self.market_size
+
+        return DemandResult(
+            prices=prices.copy(),
             shares=shares,
-            units_sold=units_sold,
             profits=profits,
             outside_share=outside_share,
-            total_profit=sum(profits),
-            avg_price=avg_price,
+            total_profit=float(profits.sum()),
         )
 
-    def estimate_profit(self, firm_id: int, candidate_price: float, rival_prices: list[float]) -> float:
-        prices = rival_prices[:]
-        prices[firm_id] = candidate_price
-        outcome = self.compute(prices)
-        return outcome.profits[firm_id]
+    # ----------------------------------------------------------------
+    # BENCHMARK: Nash Equilibrium (the "fair competition" price)
+    # ----------------------------------------------------------------
 
-    def compute_benchmarks(self, price_floor: float, price_ceiling: float, step: float = 0.25) -> BenchmarkPrices:
-        nash_price = self._find_symmetric_nash_price(price_floor, price_ceiling, step)
-        monopoly_price = self._find_symmetric_monopoly_price(price_floor, price_ceiling, step)
-        return BenchmarkPrices(nash_price=nash_price, monopoly_price=monopoly_price)
+    def compute_nash_equilibrium(self, max_iter: int = 10_000, tol: float = 1e-8) -> np.ndarray:
+        """
+        Find the Nash Equilibrium prices via fixed-point iteration.
 
-    def collusion_index(self, avg_price: float, benchmarks: BenchmarkPrices) -> float:
-        gap = benchmarks.monopoly_price - benchmarks.nash_price
-        if gap <= 0:
+        Nash Equilibrium = the price vector where NO firm wants to
+        unilaterally change its price. Everyone is best-responding.
+
+        The first-order condition (setting d(profit)/d(price) = 0) gives:
+            p_i* = c_i + mu / (1 - s_i(p*))
+
+        But s_i depends on all prices (including p_i itself)!
+        So we iterate: guess prices -> compute shares -> update prices -> repeat.
+
+        This is guaranteed to converge for logit demand (contraction mapping).
+        """
+        # Initial guess: cost + small markup
+        p = self.costs + self.mu
+
+        for i in range(max_iter):
+            shares, _ = self.compute_shares(p)
+            # Best-response formula (from the first-order condition)
+            p_new = self.costs + self.mu / (1.0 - shares + 1e-12)
+            # Check convergence
+            if np.abs(p_new - p).max() < tol:
+                break
+            p = p_new
+
+        return p
+
+    # ----------------------------------------------------------------
+    # BENCHMARK: Monopoly Price (the "full cartel" price)
+    # ----------------------------------------------------------------
+
+    def compute_monopoly_price(self) -> float:
+        """
+        Find the price that maximizes TOTAL industry profit.
+        This is what a cartel would charge if all 5 firms cooperated.
+
+        Assumes symmetric firms -> all charge the same price.
+        Uses scipy's bounded scalar optimizer.
+        """
+        def negative_total_profit(p):
+            prices = np.full(self.n_firms, p)
+            result = self.compute(prices)
+            return -result.total_profit  # negative because we minimize
+
+        c_mean = self.costs.mean()
+        result = minimize_scalar(
+            negative_total_profit,
+            bounds=(c_mean, c_mean + 20 * self.mu),
+            method="bounded",
+        )
+        return float(result.x)
+
+    # ----------------------------------------------------------------
+    # BENCHMARKS: Compute + cache both reference prices
+    # ----------------------------------------------------------------
+
+    def get_benchmarks(self) -> Benchmarks:
+        """
+        Compute Nash and Monopoly benchmarks. Called once at simulation start.
+        Results are cached -- no recomputation on subsequent calls.
+        """
+        if self._benchmarks is not None:
+            return self._benchmarks
+
+        # Nash equilibrium
+        nash_prices = self.compute_nash_equilibrium()
+        nash_result = self.compute(nash_prices)
+
+        # Joint monopoly
+        mono_price = self.compute_monopoly_price()
+        mono_result = self.compute(np.full(self.n_firms, mono_price))
+
+        self._benchmarks = Benchmarks(
+            nash_price=float(nash_prices.mean()),
+            nash_profit=float(nash_result.profits.mean()),
+            monopoly_price=mono_price,
+            monopoly_profit=float(mono_result.profits.mean()),
+        )
+
+        print(f"  Nash price:     {self._benchmarks.nash_price:.4f}")
+        print(f"  Monopoly price: {self._benchmarks.monopoly_price:.4f}")
+        print(f"  Nash profit:    {self._benchmarks.nash_profit:.6f}")
+        print(f"  Monopoly profit: {self._benchmarks.monopoly_profit:.6f}")
+
+        return self._benchmarks
+
+    # ----------------------------------------------------------------
+    # EQUATION 3: Collusion Index (Lambda)
+    # ----------------------------------------------------------------
+
+    def collusion_index(self, avg_price: float) -> float:
+        """
+        THE key metric. Maps current average price to [0, 1]:
+          0 = competitive (Nash)
+          1 = full cartel (Monopoly)
+
+        Lambda = (avg_price - nash_price) / (monopoly_price - nash_price)
+        """
+        b = self.get_benchmarks()
+        denominator = b.monopoly_price - b.nash_price
+        if abs(denominator) < 1e-10:
             return 0.0
-
-        raw_value = (avg_price - benchmarks.nash_price) / gap
-        return max(0.0, min(1.0, raw_value))
-
-    def _find_symmetric_nash_price(self, price_floor: float, price_ceiling: float, step: float) -> float:
-        current_price = price_floor + 1.0
-
-        for _ in range(40):
-            candidate_prices = self._price_grid(price_floor, price_ceiling, step)
-            best_price = current_price
-            best_profit = float("-inf")
-
-            rival_prices = [current_price] * self.n_firms
-            for candidate_price in candidate_prices:
-                profit = self.estimate_profit(
-                    firm_id=0,
-                    candidate_price=candidate_price,
-                    rival_prices=rival_prices,
-                )
-                if profit > best_profit:
-                    best_profit = profit
-                    best_price = candidate_price
-
-            if abs(best_price - current_price) < step / 2:
-                return best_price
-
-            current_price = best_price
-
-        return current_price
-
-    def _find_symmetric_monopoly_price(self, price_floor: float, price_ceiling: float, step: float) -> float:
-        best_price = price_floor
-        best_total_profit = float("-inf")
-
-        for candidate_price in self._price_grid(price_floor, price_ceiling, step):
-            prices = [candidate_price] * self.n_firms
-            total_profit = self.compute(prices).total_profit
-            if total_profit > best_total_profit:
-                best_total_profit = total_profit
-                best_price = candidate_price
-
-        return best_price
-
-    @staticmethod
-    def _price_grid(price_floor: float, price_ceiling: float, step: float) -> list[float]:
-        prices = []
-        current = price_floor
-        while current <= price_ceiling + 1e-9:
-            prices.append(round(current, 2))
-            current += step
-        return prices
+        return (avg_price - b.nash_price) / denominator
