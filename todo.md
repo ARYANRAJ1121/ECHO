@@ -40,6 +40,33 @@ math engine that computes: "given 5 prices, who sells how much, and who profits?
 
 ---
 
+## Phase 1.5: Real Data Validation (After Phase 5)
+
+**Goal:** Ground the simulation in real-world pricing data.
+
+Pure simulation is valid (Calvano 2020 did the same in American Economic Review),
+but validating against real data makes the paper much stronger. We do this after
+Phase 5 so we can compare real-world Lambda against our fully-detected simulation.
+
+- [ ] Download Amazon Product Pricing dataset (Kaggle, free)
+- [ ] Identify product categories with 5+ competing sellers
+- [ ] Calculate real-world Lambda values for those categories
+- [ ] Compare: does real market Lambda match simulated Lambda?
+- [ ] Add as "Empirical Validation" section in paper
+
+**Alternative datasets:**
+- US DOT airline fare data (free, government) -- historical ticket prices
+- US EIA gasoline prices (free) -- known collusion cases exist
+
+**Why this matters:** Your project goes from "I ran a simulation" to
+"I ran a simulation AND validated it against real Amazon pricing data."
+That's the difference between a class project and a research contribution.
+
+**Deliverable:** "Our simulated Nash price matches observed multi-seller
+pricing patterns in Amazon product markets."
+
+---
+
 ## Phase 2: Infrastructure (Week 3-4) -- NEXT
 
 **Goal:** Dockerize everything so it runs anywhere with one command.
