@@ -1,86 +1,114 @@
+<div align="center">
+
 # ECHO
 
-### Emergent Collusion in Heterogeneous Oligopolies
+**Emergent Collusion in Heterogeneous Oligopolies**
 
-A research framework that studies whether autonomous AI pricing agents spontaneously develop **illegal cartel behavior** without explicit communication or instruction.
+A simulation framework for studying tacit coordination among autonomous AI pricing agents in repeated Bertrand competition.
 
----
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
+[![Ollama](https://img.shields.io/badge/Ollama-Llama_3_8B-000000?logo=ollama)](https://ollama.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## The Problem
-
-Companies already deploy AI pricing bots (Amazon, Uber, airlines). In 2024, the DOJ sued landlords whose AI software ([RealPage](https://www.justice.gov/opa/pr/justice-department-sues-realpage-algorithmic-pricing-scheme-harms-millions-renters)) was autonomously fixing rents. The question nobody can answer yet:
-
-> **When you put multiple AI agents in a competitive market and tell each one "maximize your profit," do they independently learn to form a cartel?**
-
-ECHO answers this computationally.
+</div>
 
 ---
 
-## What ECHO Does
+## Overview
 
-1. **Simulates a market** with 5 competing firms using a Multinomial Logit Demand model
-2. **Deploys AI agents** (LLM-powered via Llama 3 8B) that independently set prices each round
-3. **Measures collusion** using the Lambda index, NLP scratchpad analysis, and demand shock tests
-4. **Compares agent types**: LLM agents vs Q-Learning RL agents vs rule-based heuristics
+ECHO investigates whether large language model (LLM) agents, when deployed as independent pricing managers in a simulated oligopoly, develop **tacit coordination strategies** — a phenomenon of growing regulatory concern as algorithmic pricing becomes prevalent across industries.
 
----
+The framework implements a repeated Bertrand pricing game where heterogeneous AI agents (LLM-based, reinforcement learning, and rule-based) compete by simultaneously setting prices. Market outcomes are evaluated through the Multinomial Logit demand model, and emergent pricing behaviors are analyzed against Nash equilibrium and joint monopoly benchmarks.
 
-## Key Finding (Preliminary)
+### Motivation
 
-| Agent Type | Lambda (Collusion Index) | Interpretation |
-|-----------|--------------------------|----------------|
-| Heuristic (rule-based) | **0.06** | Competitive. No collusion. |
-| LLM (Llama 3 8B) | **20.6** | Prices far above cartel level. |
-
-> After just 3 rounds, LLM agents priced at **2x-3x** the competitive equilibrium. Their scratchpads revealed reasoning like: *"I notice competitors tend to set similar prices... I'll set mine just below theirs"* -- textbook tacit collusion, without any instruction to collude.
+Algorithmic pricing systems are already deployed at scale (Amazon, Uber, airlines, rental markets). Recent regulatory actions — including the [DOJ lawsuit against RealPage (2024)](https://www.justice.gov/opa/pr/justice-department-sues-realpage-algorithmic-pricing-scheme-harms-millions-renters) for AI-enabled rent coordination — highlight the urgency of understanding how autonomous agents interact in competitive markets. ECHO provides a controlled experimental environment to study these dynamics.
 
 ---
 
-## The Collusion Index (Lambda)
+## Key Results (Preliminary)
 
-The single most important metric in the project:
+| Agent Type | Collusion Index (λ) | Avg. Price | Interpretation |
+|-----------|---------------------|------------|----------------|
+| Heuristic (rule-based) | 0.06 | 1.525 | Competitive — near Nash equilibrium |
+| LLM (Llama 3 8B) | 20.61 | 3.200 | Supra-competitive — significant price inflation |
+
+> In preliminary experiments (3 rounds, 5 agents), LLM agents priced at approximately **2× the Nash equilibrium** level. Scratchpad analysis revealed strategic reasoning patterns: agents monitored competitor pricing and adjusted upward, consistent with tacit coordination behavior described in the algorithmic pricing literature.
+
+---
+
+## Research Contributions
+
+1. **LLM Tacit Coordination** — Demonstrating that LLM-based pricing agents develop supra-competitive pricing without explicit coordination instructions
+2. **RAG Memory Ablation** — Investigating whether retrieval-augmented episodic memory accelerates or dampens emergent coordination (novel contribution)
+3. **Heterogeneous Agent Comparison** — Controlled comparison of LLM, Q-Learning RL, and rule-based agents under identical market conditions
+4. **Multi-Method Detection Pipeline** — Three independent detection methods: λ-index monitoring, scratchpad NLP similarity analysis, and demand shock perturbation testing
+5. **Scratchpad Reasoning Analysis** — Extracting and analyzing agent decision rationale via structured prompting to identify coordination signals
+
+---
+
+## Methodology
+
+### Market Model
+
+The simulation uses a **Multinomial Logit (MNL) demand model** with N symmetric firms competing in a differentiated-product Bertrand game.
+
+**Demand (market share for firm i):**
 
 ```
-Lambda = (avg_price - nash_price) / (monopoly_price - nash_price)
+sᵢ(p) = exp((aᵢ - pᵢ) / μ) / Σⱼ exp((aⱼ - pⱼ) / μ)
 ```
 
-| Lambda | Market State |
-|--------|-------------|
-| 0.0 | Bertrand-Nash Equilibrium (healthy competition) |
-| 0.3 | Mild coordination |
-| 0.7 | Collusion threshold (detection trigger) |
-| 1.0 | Joint Monopoly (full cartel) |
-| > 1.0 | Agents overshooting monopoly price |
+**Collusion Index (λ):**
+
+```
+λ = (p̄ - p_Nash) / (p_Monopoly - p_Nash)
+```
+
+Where `λ = 0` corresponds to the Nash equilibrium (full competition) and `λ = 1` corresponds to the joint monopoly outcome (full coordination). Values above 1 indicate prices exceeding the theoretical joint profit maximum.
+
+### Agent Architecture
+
+| Agent | Description | Decision Mechanism |
+|-------|------------|-------------------|
+| **LLM Agent** | Llama 3 8B via Ollama | Structured prompting with `<scratchpad>` reasoning + `<price>` output |
+| **RL Agent** | Tabular Q-Learning | Bellman equation over discretized price–state space |
+| **Heuristic** | Rule-based baselines | Fixed markup, market-following, undercutting strategies |
+
+### Detection Methods
+
+| Method | Signal | Mechanism |
+|--------|--------|-----------|
+| λ Monitor | Price levels | Continuous tracking against Nash/Monopoly benchmarks |
+| NLP Clustering | Reasoning similarity | Embedding-based cosine similarity across agent scratchpads |
+| Demand Shocks | Coordinated response | Exogenous perturbation to one firm; measure cross-firm reaction |
 
 ---
 
 ## Architecture
 
 ```
-ECHO Framework
-
-+---------------------------------------------+
-|           ANTITRUST REGULATOR                |
-|   Lambda Monitor                             |
-|   Scratchpad NLP Clustering                  |
-|   Demand Shock Perturbation Tests            |
-+----------------------+-----------------------+
-                       | observes
-+----------------------v-----------------------+
-|          BERTRAND MARKET ENGINE               |
-|   Logit Demand -> Shares -> Profits -> L     |
-+--------+------------------------+------------+
-         | prices                 | results
-+--------v------------------------v------------+
-|             AGENT SWARM                       |
-|   5 x Heterogeneous Pricing Agents            |
-|   LLM (Llama 3) | RL (Q-Learning) | Rules   |
-+----------------------------------------------+
-         |                        |
-+--------v---------+   +----------v-----------+
-|   RAG Memory     |   |    PostgreSQL         |
-|   (pgvector)     |   |    + pgvector         |
-+------------------+   +----------------------+
+┌─────────────────────────────────────────┐
+│          Antitrust Regulator            │
+│  λ Monitor │ NLP Analysis │ Shocks     │
+└──────────────────┬──────────────────────┘
+                   │ observes
+┌──────────────────▼──────────────────────┐
+│          Bertrand Market Engine          │
+│  MNL Demand → Shares → Profits → λ     │
+└────────┬───────────────────┬────────────┘
+         │ prices            │ observations
+┌────────▼───────────────────▼────────────┐
+│            Agent Pool (N=5)             │
+│  LLM (Llama 3) │ RL (Q-Learn) │ Rules  │
+└────────┬───────────────────┬────────────┘
+         │                   │
+┌────────▼────────┐ ┌───────▼─────────────┐
+│  RAG Memory     │ │  PostgreSQL 16      │
+│  (pgvector)     │ │  + pgvector         │
+└─────────────────┘ └─────────────────────┘
 ```
 
 ---
@@ -89,99 +117,94 @@ ECHO Framework
 
 ```
 echo/
-|-- market/
-|   |-- demand.py            # Logit demand model + Nash/Monopoly solvers
-|   |-- engine.py            # Bertrand game simulation loop
-|
-|-- agents/
-|   |-- base_agent.py        # Abstract pricing agent interface
-|   |-- heuristic_agent.py   # Rule-based agents (Steady, Follower, Undercut)
-|   |-- llm_agent.py         # LLM-powered agent (Ollama + Llama 3)
-|   |-- rl_agent.py          # Q-Learning baseline agent (planned)
-|   |-- rag_agent.py         # RAG-enhanced LLM agent (planned)
-|
-|-- regulator/               # Collusion detection pipeline (planned)
-|   |-- detector.py          # Lambda monitoring + alerts
-|   |-- nlp_cluster.py       # Scratchpad semantic analysis
-|   |-- perturbation.py      # Demand shock causal testing
-|
-|-- database/                # PostgreSQL integration (planned)
-|-- analysis/                # Research-grade plotting (planned)
-|-- api/                     # FastAPI backend (planned)
-|-- dashboard/               # Streamlit live dashboard (planned)
-|
-|-- run_simulation.py        # Main entry point
-|-- todo.md                  # Development roadmap
-|-- docker-compose.yml       # One-command deployment (planned)
+├── market/
+│   ├── demand.py              # MNL demand model, Nash & Monopoly solvers
+│   └── engine.py              # Bertrand game loop, round management
+│
+├── agents/
+│   ├── base_agent.py          # Abstract agent interface (PricingAgent ABC)
+│   ├── heuristic_agent.py     # Steady, Follower, Undercut strategies
+│   ├── llm_agent.py           # LLM agent (Ollama API, scratchpad parsing)
+│   ├── rl_agent.py            # Q-Learning agent (planned)
+│   └── rag_agent.py           # RAG-enhanced LLM agent (planned)
+│
+├── regulator/                 # Detection pipeline (planned)
+│   ├── detector.py            # λ monitoring and alerts
+│   ├── nlp_cluster.py         # Scratchpad embedding similarity
+│   └── perturbation.py        # Demand shock experiments
+│
+├── database/
+│   ├── schema.sql             # PostgreSQL schema (6 tables)
+│   └── db.py                  # Database logger
+│
+├── analysis/                  # Visualization and statistics (planned)
+├── api/                       # FastAPI backend (planned)
+├── dashboard/                 # Streamlit dashboard (planned)
+│
+├── run_simulation.py          # CLI entry point
+├── docker-compose.yml         # PostgreSQL + pgvector container
+└── todo.md                    # Development roadmap
 ```
 
 ---
 
-## Quick Start
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10+
+- [Ollama](https://ollama.com/) with Llama 3 8B (`ollama pull llama3`)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for PostgreSQL)
+
+### Installation
 
 ```bash
-# Clone
 git clone https://github.com/ARYANRAJ1121/ECHO.git
 cd ECHO
-
-# Run with dummy agents (no GPU needed, instant)
-python run_simulation.py --mode dummy --rounds 50
-
-# Run with LLM agents (requires Ollama + Llama 3)
-# Terminal 1: start Ollama server
-ollama serve
-
-# Terminal 2: run simulation
-python run_simulation.py --mode llm --rounds 10
+pip install numpy scipy requests psycopg2-binary
 ```
 
-### Requirements
-- Python 3.10+
-- NumPy, SciPy, Requests
-- [Ollama](https://ollama.com/) (for LLM agents)
-- Llama 3 8B model (`ollama pull llama3`)
+### Usage
 
----
+```bash
+# Heuristic agents (no GPU required)
+python run_simulation.py --mode dummy --rounds 50
 
-## Research Contributions
+# LLM agents (requires Ollama running)
+ollama serve                                          # Terminal 1
+python run_simulation.py --mode llm --rounds 10       # Terminal 2
 
-1. **LLM Tacit Collusion**: Demonstrating that language model agents autonomously develop cartel-like pricing without instruction
-2. **RAG vs No-RAG Ablation**: First study testing whether episodic memory accelerates AI collusion
-3. **Heterogeneous Agent Comparison**: LLM vs RL vs heuristic agents in identical market conditions
-4. **Causal Detection**: Demand shock perturbation tests that provide causal evidence of coordination
-5. **Scratchpad Analysis**: Using NLP to detect convergent reasoning across independent agents
+# With database persistence (requires Docker)
+docker compose up -d db
+python run_simulation.py --mode dummy --rounds 50 --db
+```
 
 ---
 
 ## Theoretical Foundation
 
-- **Demand Model**: Multinomial Logit (Anderson, de Palma, Thisse 1992)
-- **Equilibrium Concepts**: Bertrand-Nash for competition, Joint Monopoly for cartel benchmark
-- **Collusion Metric**: Lambda index (Calvano et al. 2020)
-- **Agent Architecture**: Structured prompting with scratchpad reasoning (Fish et al. 2025)
-
-### References
-
-- Calvano, E., Calzolari, G., Denicolo, V., & Pastorello, S. (2020). *Artificial Intelligence, Algorithmic Pricing, and Collusion.* American Economic Review, 110(10), 3267-3297.
-- Anderson, S., de Palma, A., & Thisse, J. (1992). *Discrete Choice Theory of Product Differentiation.* MIT Press.
-- Fish, S., et al. (2025). *Algorithmic Collusion by Large Language Models.* arXiv preprint.
+| Component | Reference |
+|-----------|-----------|
+| Demand Model | Anderson, de Palma & Thisse (1992). *Discrete Choice Theory of Product Differentiation.* MIT Press. |
+| Collusion Metric | Calvano, Calzolari, Denicolo & Pastorello (2020). *Artificial Intelligence, Algorithmic Pricing, and Collusion.* AER, 110(10), 3267–3297. |
+| LLM Agent Design | Fish et al. (2025). *Algorithmic Collusion by Large Language Models.* arXiv preprint. |
 
 ---
 
 ## Development Roadmap
 
-See [todo.md](todo.md) for the full development plan.
+See [`todo.md`](todo.md) for detailed task breakdowns.
 
 | Phase | Description | Status |
 |-------|------------|--------|
-| 1. Foundation | Market engine + heuristic agents | Done |
-| 2. Infrastructure | Docker + PostgreSQL + pgvector | Next |
-| 3. LLM Agents | Llama 3 via Ollama | Done |
-| 4. RAG Memory | Episodic memory + A/B testing | Planned |
-| 5. Antitrust Detective | 3-method detection pipeline | Planned |
-| 6. RL Baseline | Q-Learning comparison agents | Planned |
-| 7. Analysis | Research-grade figures | Planned |
-| 8. Dashboard | FastAPI + Streamlit live demo | Planned |
+| 1 | Market simulation engine | ✅ Complete |
+| 2 | Docker + PostgreSQL infrastructure | ✅ Complete |
+| 3 | LLM pricing agents (Ollama) | ✅ Complete |
+| 4 | RAG episodic memory + A/B testing | In Progress |
+| 5 | Collusion detection pipeline (3 methods) | Planned |
+| 6 | Q-Learning RL baseline agents | Planned |
+| 7 | Analysis and visualization | Planned |
+| 8 | FastAPI + Streamlit dashboard | Planned |
 
 ---
 
@@ -191,4 +214,4 @@ See [todo.md](todo.md) for the full development plan.
 
 ## License
 
-MIT
+[MIT](LICENSE)
