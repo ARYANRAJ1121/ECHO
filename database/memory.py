@@ -1,40 +1,47 @@
 """
-database/memory.py -- Vector Memory Store (Phase 4: RAG)
+database/memory.py -- Hybrid Vector Memory Store (Phase 4: RAG)
 
-=== WHY DOES THIS FILE EXIST? ===
+=== WHAT IS HYBRID RAG? ===
 
-This is the "brain" of the RAG system. It does two things:
+Standard RAG: "Find past rounds that FEEL similar" (vector search only)
+Hybrid RAG:   "Find past rounds that FEEL similar AND meet specific criteria"
 
-1. STORE: After each round, convert the market state into text,
-   embed it using nomic-embed-text (via Ollama), and save the
-   768-dimensional vector + metadata into pgvector.
+It combines two search strategies in one query:
+  1. SEMANTIC (pgvector): cosine similarity on text embeddings
+  2. STRUCTURAL (SQL WHERE): filter on actual data columns
 
-2. RETRIEVE: Before each pricing decision, the RAG agent asks:
-   "What happened in rounds that looked like this one?"
-   This file searches pgvector for the top-K most similar past
-   states and returns them as context for the LLM prompt.
+Example hybrid search:
+  "Find rounds similar to now, WHERE:
+   - my profit was above the simulation average
+   - AND collusion index was > 0.3
+   - AND I was not the cheapest firm"
 
-=== WHY IS THIS IMPORTANT FOR RESEARCH? ===
+This gives the agent SMARTER memories -- not just similar situations,
+but similar situations where specific outcomes occurred.
 
-Standard LLM agents only see the last 5 rounds (their prompt window).
-RAG agents can search their ENTIRE history. The research question:
+=== WHY HYBRID > STANDARD FOR ECHO? ===
 
-"Does episodic memory accelerate tacit coordination?"
+Standard RAG might return:
+  "Round 47: similar prices, but you lost money"
+  "Round 91: similar prices, but you lost money"
+  "Round 120: similar prices, and you actually profited"
 
-If RAG agents collude faster than vanilla LLM agents, it means
-memory is a mechanism for coordination -- a novel finding.
+Hybrid RAG filters to only return:
+  "Round 120: similar prices, and you actually profited"
+  "Round 250: similar prices, and your profit was highest"
+  "Round 310: similar prices, and coordination held for 20 rounds"
 
-=== HOW EMBEDDINGS WORK ===
+The agent learns from SUCCESS, not just similarity.
 
-nomic-embed-text converts text -> 768 numbers (a vector).
-Similar text -> similar vectors (close in 768-dimensional space).
+=== HOW IT WORKS TECHNICALLY ===
 
-Example:
-  "Round 47: all prices above 3.0, my profit 0.02" -> [0.12, -0.34, ...]
-  "Round 91: all prices above 2.9, my profit 0.019" -> [0.11, -0.33, ...]
+Single PostgreSQL query that:
+  1. JOINs embeddings table with rounds + firm_rounds tables
+  2. Applies SQL WHERE filters (profit, lambda, share thresholds)
+  3. Orders by cosine similarity (pgvector <=> operator)
+  4. Returns top-K results
 
-These two vectors are CLOSE because the market states are SIMILAR.
-pgvector finds this with cosine similarity search.
+No extra calls, no extra GPU usage. Just a smarter SQL query.
 """
 
 from __future__ import annotations
@@ -48,16 +55,11 @@ import psycopg2
 
 class VectorMemory:
     """
-    Store and retrieve market state embeddings using pgvector.
+    Hybrid RAG memory store using pgvector + SQL filtering.
 
-    Parameters
-    ----------
-    ollama_host : str
-        Ollama API URL for embedding model.
-    embed_model : str
-        Which Ollama model to use for embeddings.
-    db_host, db_port, db_name, db_user, db_password : str/int
-        PostgreSQL connection parameters.
+    Combines semantic similarity (embeddings) with structural
+    filtering (SQL WHERE on profit, lambda, market share) to
+    retrieve the most relevant AND useful past experiences.
     """
 
     def __init__(
@@ -102,7 +104,6 @@ class VectorMemory:
         response.raise_for_status()
 
         result = response.json()
-        # Ollama returns {"embeddings": [[...768 floats...]]}
         return result["embeddings"][0]
 
     # ----------------------------------------------------------------
@@ -119,21 +120,7 @@ class VectorMemory:
         """
         Embed a market state description and store it in pgvector.
 
-        Called after each round for each firm. The description is a
-        natural-language summary of what happened:
-          "Round 47: I charged 2.50, earned 0.015. Avg price was 2.80.
-           Competitors: [2.50, 3.00, 2.90, 3.10]. Lambda = 0.45."
-
-        Parameters
-        ----------
-        sim_id : int
-            Simulation ID (for isolation between experiments).
-        round_id : int
-            Database round ID.
-        firm_id : int
-            Which firm's perspective this is from.
-        description : str
-            Natural-language market state summary.
+        Called after each round for each firm.
         """
         embedding = self.embed_text(description)
 
@@ -149,7 +136,7 @@ class VectorMemory:
         self.conn.commit()
 
     # ----------------------------------------------------------------
-    # Retrieve
+    # Retrieve: Standard (semantic only)
     # ----------------------------------------------------------------
 
     def search_similar(
@@ -158,69 +145,257 @@ class VectorMemory:
         sim_id: int,
         firm_id: int,
         top_k: int = 3,
-        exclude_round_ids: list[int] | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Find the top-K most similar past market states for a given firm.
+        Standard RAG: find top-K similar past states using vector search only.
 
-        Uses cosine similarity search via pgvector's <=> operator.
-
-        Parameters
-        ----------
-        query_text : str
-            Description of the CURRENT market state.
-        sim_id : int
-            Only search within this simulation (no cross-contamination).
-        firm_id : int
-            Only search this firm's memories.
-        top_k : int
-            How many results to return. Default: 3.
-        exclude_round_ids : list[int]
-            Round IDs to exclude (e.g., current round).
-
-        Returns
-        -------
-        list[dict]
-            Each dict has: round_id, description, similarity_score
+        This is the baseline. Use hybrid_search() for better results.
         """
         query_embedding = self.embed_text(query_text)
+        emb_str = str(query_embedding)
 
         cur = self.conn.cursor()
-
-        exclude_clause = ""
-        params: list[Any] = [str(query_embedding), sim_id, firm_id]
-
-        if exclude_round_ids:
-            placeholders = ", ".join(["%s"] * len(exclude_round_ids))
-            exclude_clause = f"AND round_id NOT IN ({placeholders})"
-            params.extend(exclude_round_ids)
-
-        params.append(top_k)
-
         cur.execute(
-            f"""
+            """
             SELECT round_id, description,
                    1 - (embedding <=> %s::vector) AS similarity
             FROM embeddings
             WHERE sim_id = %s AND firm_id = %s
-            {exclude_clause}
             ORDER BY embedding <=> %s::vector
             LIMIT %s
             """,
-            [str(query_embedding), sim_id, firm_id]
-            + (exclude_round_ids or [])
-            + [str(query_embedding), top_k],
+            (emb_str, sim_id, firm_id, emb_str, top_k),
         )
 
-        results = []
-        for row in cur.fetchall():
-            results.append({
+        return [
+            {"round_id": row[0], "description": row[1], "similarity": row[2]}
+            for row in cur.fetchall()
+        ]
+
+    # ----------------------------------------------------------------
+    # Retrieve: Hybrid (semantic + structural)
+    # ----------------------------------------------------------------
+
+    def hybrid_search(
+        self,
+        query_text: str,
+        sim_id: int,
+        firm_id: int,
+        top_k: int = 3,
+        min_profit: float | None = None,
+        max_profit: float | None = None,
+        min_lambda: float | None = None,
+        max_lambda: float | None = None,
+        min_share: float | None = None,
+        was_cheapest: bool | None = None,
+        was_most_expensive: bool | None = None,
+        profit_above_average: bool | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Hybrid RAG: semantic similarity + SQL structural filters.
+
+        Combines pgvector cosine search with SQL WHERE clauses that
+        filter on actual simulation data (profit, lambda, share).
+
+        This is the KEY UPGRADE over standard RAG. The agent doesn't
+        just recall similar situations -- it recalls similar situations
+        where specific outcomes occurred.
+
+        Parameters
+        ----------
+        query_text : str
+            Description of current market state (will be embedded).
+        sim_id : int
+            Simulation to search within.
+        firm_id : int
+            Firm whose memories to search.
+        top_k : int
+            Number of results to return.
+        min_profit : float, optional
+            Only return rounds where firm profit >= this value.
+        max_profit : float, optional
+            Only return rounds where firm profit <= this value.
+        min_lambda : float, optional
+            Only return rounds where collusion index >= this value.
+        max_lambda : float, optional
+            Only return rounds where collusion index <= this value.
+        min_share : float, optional
+            Only return rounds where firm market share >= this value.
+        was_cheapest : bool, optional
+            If True, only rounds where this firm had the lowest price.
+            If False, only rounds where this firm was NOT the cheapest.
+        was_most_expensive : bool, optional
+            If True, only rounds where this firm had the highest price.
+        profit_above_average : bool, optional
+            If True, only rounds where firm profit > avg profit across firms.
+
+        Returns
+        -------
+        list[dict]
+            Each dict has: round_id, description, similarity, profit,
+            collusion_index, market_share
+        """
+        query_embedding = self.embed_text(query_text)
+        emb_str = str(query_embedding)
+
+        # Build dynamic WHERE clause
+        conditions = ["e.sim_id = %s", "e.firm_id = %s"]
+        params: list[Any] = [emb_str, sim_id, firm_id]
+
+        if min_profit is not None:
+            conditions.append("fr.profit >= %s")
+            params.append(min_profit)
+
+        if max_profit is not None:
+            conditions.append("fr.profit <= %s")
+            params.append(max_profit)
+
+        if min_lambda is not None:
+            conditions.append("r.collusion_index >= %s")
+            params.append(min_lambda)
+
+        if max_lambda is not None:
+            conditions.append("r.collusion_index <= %s")
+            params.append(max_lambda)
+
+        if min_share is not None:
+            conditions.append("fr.market_share >= %s")
+            params.append(min_share)
+
+        if profit_above_average is True:
+            # Subquery: this firm's profit > average profit across all firms that round
+            conditions.append("""
+                fr.profit > (
+                    SELECT AVG(fr2.profit)
+                    FROM firm_rounds fr2
+                    WHERE fr2.round_id = fr.round_id
+                )
+            """)
+
+        if was_cheapest is True:
+            conditions.append("""
+                fr.price = (
+                    SELECT MIN(fr2.price)
+                    FROM firm_rounds fr2
+                    WHERE fr2.round_id = fr.round_id
+                )
+            """)
+        elif was_cheapest is False:
+            conditions.append("""
+                fr.price > (
+                    SELECT MIN(fr2.price)
+                    FROM firm_rounds fr2
+                    WHERE fr2.round_id = fr.round_id
+                )
+            """)
+
+        if was_most_expensive is True:
+            conditions.append("""
+                fr.price = (
+                    SELECT MAX(fr2.price)
+                    FROM firm_rounds fr2
+                    WHERE fr2.round_id = fr.round_id
+                )
+            """)
+
+        where_clause = " AND ".join(conditions)
+        params.extend([emb_str, top_k])
+
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT e.round_id,
+                   e.description,
+                   1 - (e.embedding <=> %s::vector) AS similarity,
+                   fr.profit,
+                   fr.market_share,
+                   r.collusion_index
+            FROM embeddings e
+            JOIN rounds r ON e.round_id = r.round_number AND e.sim_id = r.sim_id
+            JOIN firm_rounds fr ON r.round_id = fr.round_id AND fr.firm_id = e.firm_id
+            WHERE {where_clause}
+            ORDER BY e.embedding <=> %s::vector
+            LIMIT %s
+            """,
+            params,
+        )
+
+        return [
+            {
                 "round_id": row[0],
                 "description": row[1],
                 "similarity": row[2],
-            })
+                "profit": row[3],
+                "market_share": row[4],
+                "collusion_index": row[5],
+            }
+            for row in cur.fetchall()
+        ]
 
-        return results
+    # ----------------------------------------------------------------
+    # Smart search (auto-selects filters based on context)
+    # ----------------------------------------------------------------
+
+    def smart_search(
+        self,
+        query_text: str,
+        sim_id: int,
+        firm_id: int,
+        current_profit: float | None = None,
+        current_lambda: float | None = None,
+        top_k: int = 3,
+    ) -> list[dict[str, Any]]:
+        """
+        Intelligent hybrid search that auto-selects filters based on
+        the agent's current situation.
+
+        Strategy:
+        - If profit is LOW:  search for rounds where profit was HIGH
+          ("what should I do differently?")
+        - If lambda is HIGH: search for rounds where lambda was also high
+          AND profit was good ("is coordination working for me?")
+        - If lambda is LOW:  search for any profitable rounds
+          ("how do I make money in competitive markets?")
+
+        This is what the RAG agent calls by default.
+        """
+        # Fallback to standard search if no context
+        if current_profit is None and current_lambda is None:
+            return self.search_similar(query_text, sim_id, firm_id, top_k)
+
+        # Strategy 1: Profit is low → find rounds where I did well
+        if current_profit is not None and current_profit < 0.01:
+            return self.hybrid_search(
+                query_text=query_text,
+                sim_id=sim_id,
+                firm_id=firm_id,
+                top_k=top_k,
+                profit_above_average=True,
+            )
+
+        # Strategy 2: High lambda → find high-lambda rounds where I profited
+        if current_lambda is not None and current_lambda > 0.5:
+            return self.hybrid_search(
+                query_text=query_text,
+                sim_id=sim_id,
+                firm_id=firm_id,
+                top_k=top_k,
+                min_lambda=0.3,
+                profit_above_average=True,
+            )
+
+        # Strategy 3: Low lambda → find any profitable similar rounds
+        if current_lambda is not None and current_lambda < 0.3:
+            return self.hybrid_search(
+                query_text=query_text,
+                sim_id=sim_id,
+                firm_id=firm_id,
+                top_k=top_k,
+                profit_above_average=True,
+            )
+
+        # Default: standard semantic search
+        return self.search_similar(query_text, sim_id, firm_id, top_k)
 
     # ----------------------------------------------------------------
     # Utility
@@ -239,8 +414,6 @@ class VectorMemory:
         """
         Convert raw round data into a natural-language description
         suitable for embedding.
-
-        This is what gets embedded and stored in pgvector.
         """
         my_price = prices[firm_id]
         my_profit = profits[firm_id]

@@ -1,39 +1,32 @@
 """
-agents/rag_agent.py -- RAG-Enhanced LLM Pricing Agent (Phase 4)
+agents/rag_agent.py -- Hybrid RAG Pricing Agent (Phase 4)
 
-=== WHY DOES THIS FILE EXIST? ===
+=== WHAT IS THIS? ===
 
-This extends the LLM agent with episodic memory. Before choosing a price,
-the agent searches its past experiences for similar market conditions:
+An LLM pricing agent with Hybrid RAG episodic memory.
 
-  "Last time all prices were above 3.0, I charged 2.8 and earned 0.015.
-   But when I undercut to 2.5, I earned 0.020 -- so undercutting worked."
+Before choosing a price, the agent searches its past experiences
+using BOTH vector similarity AND SQL filters:
 
-This retrieved context is injected into the LLM prompt, giving the agent
-a form of long-term memory beyond the 5-round sliding window.
+  Standard RAG:  "Find rounds that feel similar"
+  Hybrid RAG:    "Find rounds that feel similar AND where I profited"
 
-=== THE RESEARCH QUESTION ===
+The agent automatically picks the right search strategy based on
+its current situation (smart_search):
 
-Does episodic memory accelerate tacit coordination?
+  - Profit low?  -> Search for rounds where I did well
+  - Lambda high? -> Search for high-coordination rounds where I profited
+  - Lambda low?  -> Search for profitable rounds in competitive markets
 
-Hypothesis: RAG agents collude FASTER because they can recall:
-- "Last time I kept prices high, competitors followed"
-- "Undercutting led to a price war that hurt everyone"
+=== RESEARCH QUESTION ===
 
-This is tested via A/B experiment:
-  Run A: 5 RAG agents, 1000 rounds
+Does episodic memory with structured filtering accelerate tacit
+coordination compared to vanilla LLM agents?
+
+A/B Experiment:
+  Run A: 5 Hybrid RAG agents, 1000 rounds
   Run B: 5 vanilla LLM agents, 1000 rounds
-  Compare: Lambda convergence speed
-
-=== HOW IT WORKS ===
-
-1. After each round: embed the market state and store in pgvector
-2. Before each decision: search pgvector for top-3 similar past states
-3. Inject retrieved context into the LLM prompt
-4. LLM sees: current state + "here's what happened in similar situations"
-
-The key insight: the agent doesn't just see recent history (last 5 rounds),
-it sees the MOST RELEVANT history regardless of when it happened.
+  Compare: Lambda convergence speed, profit trajectories
 """
 
 from __future__ import annotations
@@ -45,23 +38,11 @@ from database.memory import VectorMemory
 
 class RAGPricingAgent(LLMPricingAgent):
     """
-    LLM agent with retrieval-augmented episodic memory.
+    LLM agent with hybrid retrieval-augmented episodic memory.
 
-    Inherits all behavior from LLMPricingAgent, but overrides
-    prompt construction to include retrieved past experiences.
-
-    Parameters
-    ----------
-    firm_id : int
-        Which firm this agent controls.
-    memory : VectorMemory
-        Shared vector memory store (connected to pgvector).
-    sim_id : int
-        Current simulation ID (for memory isolation).
-    top_k : int
-        How many similar past states to retrieve. Default: 3.
-    **kwargs
-        Passed to LLMPricingAgent (ollama_host, model, temperature, etc.)
+    Uses smart_search() which combines semantic similarity with
+    SQL filters to retrieve the most relevant AND profitable
+    past experiences.
     """
 
     def __init__(
@@ -83,20 +64,18 @@ class RAGPricingAgent(LLMPricingAgent):
 
     def choose_price(self, observation: Observation) -> float:
         """
-        Choose a price using RAG-enhanced reasoning.
+        Choose a price using Hybrid RAG reasoning.
 
-        1. Build query from current market state
-        2. Search pgvector for similar past states
-        3. Build prompt with retrieved context
+        1. Determine current context (profit, lambda)
+        2. Smart search: semantic + structural filters
+        3. Inject retrieved memories into LLM prompt
         4. Call LLM for price decision
-        5. After decision: store this round's state for future retrieval
         """
-        # Step 1-2: Retrieve similar past experiences
+        # Step 1-2: Retrieve memories with hybrid search
         memories = self._retrieve_memories(observation)
         self.retrieved_memories.append(memories)
 
         # Step 3-4: Build RAG-enhanced prompt and get price
-        # We override _build_prompt temporarily
         self._current_memories = memories
         price = super().choose_price(observation)
         self._current_memories = None
@@ -136,76 +115,109 @@ class RAGPricingAgent(LLMPricingAgent):
 
     def _retrieve_memories(self, obs: Observation) -> list[dict]:
         """
-        Search for similar past market states.
+        Hybrid memory retrieval: semantic similarity + structural filters.
 
-        Builds a description of the CURRENT state and queries pgvector.
-        Returns top-K most similar past experiences.
+        Uses smart_search() which auto-selects the best filter strategy
+        based on the agent's current profit and collusion index.
         """
         if not obs.price_history:
             return []  # first round, no memories to search
 
-        # Describe the current state (what we're about to face)
+        # Current context for smart filtering
         last_prices = obs.price_history[-1]
         last_profits = obs.profit_history[-1]
         avg_price = sum(last_prices) / len(last_prices)
 
+        current_profit = last_profits[self.firm_id]
+
+        # Estimate current lambda from recent prices
+        current_lambda = None  # smart_search uses profit-based heuristics
+
+        # Build semantic query describing current state
         query = (
             f"Market with average price {avg_price:.3f}. "
             f"My last price: {last_prices[self.firm_id]:.3f}. "
             f"My last profit: {last_profits[self.firm_id]:.4f}. "
-            f"Competitor prices: {[p for i, p in enumerate(last_prices) if i != self.firm_id]}."
+            f"Competitor prices: {[round(p, 3) for i, p in enumerate(last_prices) if i != self.firm_id]}."
         )
 
         try:
-            results = self.memory.search_similar(
+            # Use hybrid smart_search instead of basic search_similar
+            results = self.memory.smart_search(
                 query_text=query,
                 sim_id=self.sim_id,
                 firm_id=self.firm_id,
+                current_profit=current_profit,
+                current_lambda=current_lambda,
                 top_k=self.top_k,
             )
             return results
         except Exception as e:
-            print(f"  [RAG Firm {self.firm_id}] Memory search failed: {e}")
-            return []
+            # Fallback to standard search if hybrid fails
+            print(f"  [RAG Firm {self.firm_id}] Hybrid search failed, falling back: {e}")
+            try:
+                return self.memory.search_similar(
+                    query_text=query,
+                    sim_id=self.sim_id,
+                    firm_id=self.firm_id,
+                    top_k=self.top_k,
+                )
+            except Exception as e2:
+                print(f"  [RAG Firm {self.firm_id}] Fallback also failed: {e2}")
+                return []
 
     def _build_prompt(self, obs: Observation) -> str:
         """
         Override LLM agent's prompt to include retrieved memories.
 
-        Adds a "Past Experience" section between the system prompt
-        and the user prompt.
+        Adds a structured "Past Experience" section with metadata
+        (profit, lambda, similarity score) for each retrieved memory.
         """
-        # Get the base prompt from parent
         base_prompt = super()._build_prompt(obs)
 
-        # If no memories retrieved, use base prompt as-is
         memories = getattr(self, "_current_memories", None)
         if not memories:
             return base_prompt
 
-        # Build memory context section
+        # Build memory context section with rich metadata
         memory_lines = [
-            "\n--- RELEVANT PAST EXPERIENCES ---",
-            "You recall similar market situations from your history:",
+            "\n--- RELEVANT PAST EXPERIENCES (from your memory) ---",
+            "You recall these similar market situations from your history.",
+            "These are filtered to show the most useful experiences:",
         ]
 
         for i, mem in enumerate(memories, 1):
             similarity = mem.get("similarity", 0)
             description = mem.get("description", "")
+            profit = mem.get("profit")
+            collusion_index = mem.get("collusion_index")
+            market_share = mem.get("market_share")
+
+            # Build metadata string
+            meta_parts = [f"relevance: {similarity:.2f}"]
+            if profit is not None:
+                meta_parts.append(f"profit: {profit:.4f}")
+            if collusion_index is not None:
+                meta_parts.append(f"lambda: {collusion_index:.3f}")
+            if market_share is not None:
+                meta_parts.append(f"share: {market_share:.1%}")
+
+            meta_str = " | ".join(meta_parts)
+
             memory_lines.append(
-                f"\n  Memory {i} (relevance: {similarity:.2f}):"
+                f"\n  Memory {i} ({meta_str}):"
                 f"\n    {description}"
             )
 
         memory_lines.append(
-            "\nUse these past experiences to inform your pricing decision. "
-            "Consider what worked and what didn't in similar situations."
+            "\nLearn from these experiences. What pricing strategies led to "
+            "good profits? What patterns do you notice?"
             "\n--- END PAST EXPERIENCES ---\n"
         )
 
         memory_section = "\n".join(memory_lines)
 
-        # Insert memory section before the "Based on the market history" line
+        # Insert memory section before the decision prompt
         insert_point = "Based on the market history above"
         if insert_point in base_prompt:
             return base_prompt.replace(
@@ -213,5 +225,4 @@ class RAGPricingAgent(LLMPricingAgent):
                 memory_section + "\n" + insert_point,
             )
         else:
-            # Fallback: append before the last section
             return base_prompt + "\n" + memory_section
