@@ -3,9 +3,9 @@ run_simulation.py -- ECHO Orchestrator
 
 === HOW TO RUN ===
 
-    python run_simulation.py              # LLM agents (default, 10 rounds)
-    python run_simulation.py --mode dummy  # heuristic agents (fast test)
-    python run_simulation.py --rounds 50   # change number of rounds
+    python run_simulation.py --mode dummy --rounds 50      # heuristic (fast)
+    python run_simulation.py --mode llm --rounds 10        # LLM agents
+    python run_simulation.py --mode rag --rounds 10 --db   # RAG agents (needs DB)
 """
 
 from __future__ import annotations
@@ -30,6 +30,50 @@ def build_llm_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
 
     agents = [
         LLMPricingAgent(firm_id=i, model="llama3", temperature=0.7)
+        for i in range(5)
+    ]
+
+    engine = MarketEngine(
+        demand_model=demand_model,
+        agents=agents,
+        price_floor=1.0,
+        price_ceiling=5.0,
+    )
+
+    return engine, n_rounds
+
+
+def build_rag_simulation(n_rounds: int, sim_id: int) -> tuple[MarketEngine, int]:
+    """
+    Wire up 5 RAG-enhanced LLM agents.
+
+    Requires PostgreSQL running (for pgvector) and Ollama running
+    (for both LLM inference and nomic-embed-text embeddings).
+    """
+    from agents.rag_agent import RAGPricingAgent
+    from database.memory import VectorMemory
+
+    demand_model = LogitDemandModel(
+        n_firms=5,
+        mu=0.5,
+        marginal_cost=1.0,
+        quality=None,
+        outside_quality=0.0,
+        market_size=1.0,
+    )
+
+    # Shared memory store (all agents write/read from same pgvector)
+    memory = VectorMemory()
+
+    agents = [
+        RAGPricingAgent(
+            firm_id=i,
+            memory=memory,
+            sim_id=sim_id,
+            top_k=3,
+            model="llama3",
+            temperature=0.7,
+        )
         for i in range(5)
     ]
 
@@ -110,45 +154,71 @@ def print_results(engine: MarketEngine, show_scratchpads: bool = False) -> None:
     print(f"  Convergence round (>0.7): {summary['convergence_round']}")
     print("=" * 80)
 
-    # If LLM agents, show last round's scratchpads
+    # Show last round's scratchpads for LLM/RAG agents
     if show_scratchpads:
         print("\n" + "=" * 80)
-        print("LAST ROUND SCRATCHPADS (LLM reasoning)")
+        print("LAST ROUND SCRATCHPADS (Agent reasoning)")
         print("=" * 80)
         for agent in engine.agents:
             if hasattr(agent, "scratchpad_history") and agent.scratchpad_history:
-                print(f"\n--- Firm {agent.firm_id} ---")
+                print(f"\n--- {agent.name} ---")
                 print(agent.scratchpad_history[-1])
         print("=" * 80)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ECHO Simulation")
-    parser.add_argument("--mode", choices=["llm", "dummy"], default="llm",
-                        help="Agent type: 'llm' (Ollama) or 'dummy' (heuristic)")
+    parser.add_argument("--mode", choices=["llm", "dummy", "rag"], default="llm",
+                        help="Agent type: 'llm', 'rag' (with memory), or 'dummy' (heuristic)")
     parser.add_argument("--rounds", type=int, default=10,
                         help="Number of rounds to simulate")
     parser.add_argument("--db", action="store_true",
-                        help="Save results to PostgreSQL (requires docker-compose up)")
+                        help="Save results to PostgreSQL (required for --mode rag)")
     args = parser.parse_args()
+
+    # RAG mode requires database
+    if args.mode == "rag" and not args.db:
+        print("RAG mode requires --db flag (needs PostgreSQL for pgvector).")
+        print("Usage: python run_simulation.py --mode rag --rounds 10 --db")
+        exit(1)
 
     print("=" * 80)
     print("ECHO -- Emergent Collusion in Heterogeneous Oligopolies")
     print(f"Mode: {args.mode.upper()} agents | Rounds: {args.rounds} | DB: {'ON' if args.db else 'OFF'}")
     print("=" * 80)
 
-    if args.mode == "llm":
-        engine, n_rounds = build_llm_simulation(args.rounds)
-    else:
-        engine, n_rounds = build_dummy_simulation(args.rounds)
-
-    # Database logging (optional)
+    # Database logging (optional, required for RAG)
     db_logger = None
     sim_id = None
 
     if args.db:
         from database.db import DatabaseLogger
         db_logger = DatabaseLogger()
+
+    # Build simulation
+    if args.mode == "rag":
+        # RAG needs sim_id upfront (agents need it for memory isolation)
+        sim_id = db_logger.start_simulation({
+            "mode": "rag",
+            "n_firms": 5,
+            "n_rounds": args.rounds,
+            "mu": 0.5,
+            "marginal_cost": 1.0,
+        })
+        engine, n_rounds = build_rag_simulation(args.rounds, sim_id=sim_id)
+        # Update benchmarks after engine is created
+        db_logger.conn.cursor().execute(
+            "UPDATE simulations SET nash_price=%s, monopoly_price=%s WHERE sim_id=%s",
+            (engine.benchmarks.nash_price, engine.benchmarks.monopoly_price, sim_id),
+        )
+        db_logger.conn.commit()
+    elif args.mode == "llm":
+        engine, n_rounds = build_llm_simulation(args.rounds)
+    else:
+        engine, n_rounds = build_dummy_simulation(args.rounds)
+
+    # Start sim in DB (for non-RAG modes)
+    if args.db and sim_id is None:
         sim_id = db_logger.start_simulation({
             "mode": args.mode,
             "n_firms": 5,
@@ -165,4 +235,4 @@ if __name__ == "__main__":
         db_logger.end_simulation(sim_id)
         db_logger.close()
 
-    print_results(engine, show_scratchpads=(args.mode == "llm"))
+    print_results(engine, show_scratchpads=(args.mode in ("llm", "rag")))

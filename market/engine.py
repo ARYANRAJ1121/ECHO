@@ -139,6 +139,31 @@ class MarketEngine:
                     response_times=response_times if response_times else None,
                 )
 
+            # Store in RAG memory for agents that support it
+            for agent in self.agents:
+                if hasattr(agent, "store_round_memory"):
+                    try:
+                        obs = Observation(
+                            round_number=round_num,
+                            firm_id=agent.firm_id,
+                            marginal_cost=float(self.demand_model.costs[0]),
+                            price_floor=self.price_floor,
+                            price_ceiling=self.price_ceiling,
+                            price_history=self.price_history,
+                            profit_history=self.profit_history,
+                        )
+                        # round_id from DB or use round_num as fallback
+                        agent.store_round_memory(
+                            round_id=round_num,
+                            observation=obs,
+                            prices=record.prices,
+                            profits=record.profits,
+                            shares=record.shares,
+                            collusion_index=record.collusion_index,
+                        )
+                    except Exception as e:
+                        print(f"  [RAG] Memory store failed for Firm {agent.firm_id}: {e}")
+
             # Print progress every 10 rounds (or last round)
             if round_num % 10 == 0 or round_num == n_rounds:
                 print(
