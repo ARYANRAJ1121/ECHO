@@ -157,7 +157,7 @@ No existing paper tests this with LLM agents.
 
 ---
 
-## Phase 5: Antitrust Detective (Week 9-10)
+## Phase 5: Antitrust Detective (Week 9-10) -- DONE
 
 **Goal:** Build an automated system that detects collusion using 3 independent methods.
 
@@ -166,23 +166,23 @@ This phase builds a 3-method detection pipeline inspired by real antitrust
 enforcement techniques.
 
 ### Method 1: Lambda Monitor (`regulator/detector.py`)
-- [ ] Track Lambda every round
-- [ ] Raise alert when Lambda > 0.7 for 10+ consecutive rounds
-- [ ] Compute rolling average Lambda (window = 50 rounds)
-- [ ] Store alerts in PostgreSQL
+- [x] Track Lambda every round with 3-tier alerts (watch/warning/alert)
+- [x] Raise alert when Lambda > 0.7 for 10+ consecutive rounds
+- [x] Compute rolling average Lambda (window = 50 rounds)
+- [x] Trend detection (rising/falling/stable)
+- [x] Auto-runs after every simulation, prints Regulator Report
 
 ### Method 2: Scratchpad NLP Clustering (`regulator/nlp_cluster.py`)
-- [ ] Every 10 rounds: embed all 5 agents' scratchpads
-- [ ] Compute pairwise cosine similarity
-- [ ] If avg similarity > 0.6: agents are "thinking alike" (suspicious)
-- [ ] Track similarity over time -- does it increase as collusion emerges?
+- [x] Embed agents' scratchpads using nomic-embed-text
+- [x] Compute pairwise cosine similarity across all agent pairs
+- [x] Flag as suspicious if avg similarity > 0.6
+- [x] Track similarity trend (converging/diverging/stable)
 
 ### Method 3: Demand Shock Perturbation (`regulator/perturbation.py`)
-- [ ] Every 500 rounds: secretly reduce one firm's quality by 30%
-- [ ] Observe: do OTHER firms change their prices?
-- [ ] Competitive market: other firms don't react (they don't care)
-- [ ] Cartel: other firms raise prices to maintain the deal
-- [ ] This is a CAUSAL test -- strongest evidence of coordination
+- [x] Reduce one firm's quality by 30% mid-simulation
+- [x] Measure whether OTHER firms change their prices in response
+- [x] run_full_test() shocks each firm one at a time
+- [x] Provides CAUSAL evidence of coordination (strongest method)
 
 **Deliverable:** 3-stream automated collusion detection pipeline.
 
