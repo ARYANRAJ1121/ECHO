@@ -236,3 +236,30 @@ if __name__ == "__main__":
         db_logger.close()
 
     print_results(engine, show_scratchpads=(args.mode in ("llm", "rag")))
+
+    # --- Antitrust Regulator: Lambda Monitor ---
+    from regulator.detector import LambdaMonitor
+
+    monitor = LambdaMonitor()
+    for record in engine.records:
+        alerts = monitor.observe(record.round_number, record.collusion_index)
+        for alert in alerts:
+            print(f"  *** {alert.detail}")
+
+    report = monitor.report()
+    print("\n" + "=" * 80)
+    print("REGULATOR REPORT (Lambda Monitor)")
+    print("=" * 80)
+    print(f"  Rounds analyzed:     {report['total_rounds']}")
+    print(f"  Mean Lambda:         {report['mean_lambda']:.4f}")
+    print(f"  Peak Lambda:         {report['peak_lambda']:.4f}")
+    print(f"  Final Lambda:        {report['final_lambda']:.4f}")
+    print(f"  Rolling avg (50r):   {report['rolling_avg']:.4f}")
+    print(f"  Trend:               {report['trend']}")
+    print(f"  Total alerts:        {report['total_alerts']}")
+    print(f"    Watch (low):       {report['alert_breakdown']['watch']}")
+    print(f"    Warning (medium):  {report['alert_breakdown']['warning']}")
+    print(f"    Alert (high):      {report['alert_breakdown']['alert']}")
+    if report['first_alert_round']:
+        print(f"  First alert round:   {report['first_alert_round']}")
+    print("=" * 80)
