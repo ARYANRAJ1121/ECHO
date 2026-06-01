@@ -101,10 +101,12 @@ class LLMPricingAgent(PricingAgent):
 
         for attempt in range(1, self.max_retries + 1):
             try:
+                print(f"  [Firm {self.firm_id}] Thinking... ", end="", flush=True)
                 start_time = time.time()
                 response_text = self._call_ollama(prompt)
                 elapsed = time.time() - start_time
                 self.response_times.append(elapsed)
+                print(f"done ({elapsed:.1f}s)")
 
                 price, scratchpad = self._parse_response(response_text, observation)
                 self.scratchpad_history.append(scratchpad)
@@ -225,7 +227,7 @@ class LLMPricingAgent(PricingAgent):
             },
         }
 
-        response = requests.post(url, json=payload, timeout=60)
+        response = requests.post(url, json=payload, timeout=180)  # 3 min: first call loads model into GPU
         response.raise_for_status()
 
         result = response.json()
