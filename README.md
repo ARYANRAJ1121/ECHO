@@ -18,7 +18,7 @@ A simulation framework for studying tacit coordination among autonomous AI prici
 
 ## Overview
 
-ECHO investigates whether large language model (LLM) agents, when deployed as independent pricing managers in a simulated oligopoly, develop **tacit coordination strategies** — a phenomenon of growing regulatory concern as algorithmic pricing becomes prevalent across industries.
+ECHO investigates whether large language model (LLM) agents, when deployed as independent pricing managers in a simulated oligopoly, develop **tacit coordination strategies**  a phenomenon of growing regulatory concern as algorithmic pricing becomes prevalent across industries.
 
 The framework implements a repeated Bertrand pricing game where heterogeneous AI agents (LLM-based, reinforcement learning, and rule-based) compete by simultaneously setting prices. Market outcomes are evaluated through the Multinomial Logit demand model, and emergent pricing behaviors are analyzed against Nash equilibrium and joint monopoly benchmarks.
 
