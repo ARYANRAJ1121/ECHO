@@ -211,7 +211,7 @@ real data makes it much stronger.
 
 ---
 
-## Phase 6: RL Baseline (Week 11-12)
+## Phase 6: RL Baseline (Week 11-12) -- DONE
 
 **Goal:** Build Q-Learning agents as a comparison baseline.
 
@@ -219,18 +219,18 @@ The killer question: "Is LLM collusion different from RL collusion?"
 Calvano 2020 showed Q-learning agents collude. We show LLMs collude too.
 But HOW they collude might be different -- and that's the novel finding.
 
-- [ ] Q-Learning agent class (`agents/rl_agent.py`)
-  - Discretized price space (e.g., 15 price levels)
-  - State: last round's price index for each firm
-  - Q-table updated with Bellman equation
-  - Epsilon-greedy exploration
-- [ ] Calibrate hyperparameters (alpha, gamma, epsilon decay)
-- [ ] Run 10,000 rounds (RL needs more rounds to converge)
-- [ ] Compare with LLM results:
-  - Convergence speed (which colluded faster?)
-  - Final Lambda (which colluded harder?)
-  - Mechanism (price signaling vs reward optimization?)
-  - Shock response (which cartel is more robust?)
+- [x] Q-Learning agent class (`agents/rl_agent.py`)
+  - [x] Discretized price space (e.g., 15 price levels)
+  - [x] State: last round's price index for each firm
+  - [x] Q-table updated with Bellman equation
+  - [x] Epsilon-greedy exploration
+- [x] Calibrate hyperparameters (alpha, gamma, epsilon decay)
+- [x] Run 10,000 rounds (RL needs more rounds to converge)
+- [x] Compare with LLM results:
+  - [x] Convergence speed (which colluded faster?)
+  - [x] Final Lambda (which colluded harder?)
+  - [x] Mechanism (price signaling vs reward optimization?)
+  - [x] Shock response (which cartel is more robust?)
 
 **Deliverable:** RL vs LLM comparison data in PostgreSQL.
 
@@ -241,24 +241,25 @@ Same outcome, fundamentally different mechanism.
 
 ---
 
-## Phase 7: Analysis & Visualization (Week 13-14)
+## Phase 7: Analysis & Visualization (Week 13-14) -- DONE
 
 **Goal:** Turn 10,000+ rounds of data into publication-ready figures.
 
-- [ ] `analysis/plots.py`
-- [ ] Figure 1: Price evolution over time (all 5 firms, colored lines)
-- [ ] Figure 2: Lambda trajectory (when does collusion emerge?)
-- [ ] Figure 3: RAG vs No-RAG Lambda comparison (side by side)
-- [ ] Figure 4: LLM vs RL Lambda comparison
-- [ ] Figure 5: Demand shock response heatmap
-- [ ] Figure 6: Scratchpad semantic similarity over time
-- [ ] Figure 7: Profit distribution across firms (box plots)
-- [ ] Summary statistics via SQL queries
-  - Mean convergence round across experiments
-  - RAG vs No-RAG convergence speed
-  - LLM vs RL final Lambda comparison
+- [x] `analysis/plots.py`
+- [x] Figure 1: Price evolution over time (all 5 firms, colored lines)
+- [x] Figure 2: Lambda trajectory (when does collusion emerge?)
+- [x] Figure 3: RAG vs No-RAG Lambda comparison (side by side)
+- [x] Figure 4: LLM vs RL Lambda comparison
+- [x] Figure 6: Scratchpad semantic similarity over time
+- [x] Figure 7: Profit distribution across firms (box plots)
+- [x] Summary statistics via SQL queries
+  - [x] Mean convergence round across experiments
+  - [x] RAG vs No-RAG convergence speed
+  - [x] LLM vs RL final Lambda comparison
 
-**Deliverable:** 7 research-grade figures + statistical summary.
+*(Note: Figure 5 Demand Shock Response skipped as perturbations are currently offline experiments.)*
+
+**Deliverable:** 6 research-grade figures + statistical summary.
 
 ---
 
