@@ -118,6 +118,49 @@ def build_dummy_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
     return engine, n_rounds
 
 
+def build_rl_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
+    """
+    Wire up 5 Q-Learning agents (Calvano 2020 replication).
+
+    No GPU needed. Pure tabular Q-learning.
+    Needs ~10,000+ rounds to converge.
+    """
+    from agents.rl_agent import QLearningAgent
+
+    demand_model = LogitDemandModel(
+        n_firms=5,
+        mu=0.5,
+        marginal_cost=1.0,
+        quality=None,
+        outside_quality=0.0,
+        market_size=1.0,
+    )
+
+    agents = [
+        QLearningAgent(
+            firm_id=i,
+            n_prices=15,
+            alpha=0.15,
+            gamma=0.95,
+            epsilon_start=1.0,
+            epsilon_min=0.01,
+            epsilon_decay=0.99995,
+            price_floor=1.0,
+            price_ceiling=5.0,
+        )
+        for i in range(5)
+    ]
+
+    engine = MarketEngine(
+        demand_model=demand_model,
+        agents=agents,
+        price_floor=1.0,
+        price_ceiling=5.0,
+    )
+
+    return engine, n_rounds
+
+
 def print_results(engine: MarketEngine, show_scratchpads: bool = False) -> None:
     """Print simulation results."""
     records = engine.records
@@ -165,13 +208,26 @@ def print_results(engine: MarketEngine, show_scratchpads: bool = False) -> None:
                 print(agent.scratchpad_history[-1])
         print("=" * 80)
 
+    # Show RL agent stats if applicable
+    rl_agents = [a for a in engine.agents if hasattr(a, "stats")]
+    if rl_agents:
+        print("\n" + "=" * 80)
+        print("RL AGENT STATS")
+        print("=" * 80)
+        for agent in rl_agents:
+            stats = agent.stats()
+            print(f"  {agent.name}: {stats['total_q_updates']} updates | "
+                  f"{stats['q_table_size']} states discovered | "
+                  f"final epsilon: {stats['final_epsilon']:.4f}")
+        print("=" * 80)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ECHO Simulation")
-    parser.add_argument("--mode", choices=["llm", "dummy", "rag"], default="llm",
+    parser.add_argument("--mode", choices=["llm", "dummy", "rag", "rl"], default="llm",
                         help="Agent type: 'llm', 'rag' (with memory), or 'dummy' (heuristic)")
     parser.add_argument("--rounds", type=int, default=10,
-                        help="Number of rounds to simulate")
+                        help="Number of rounds to simulate (use 10000+ for RL)")
     parser.add_argument("--db", action="store_true",
                         help="Save results to PostgreSQL (required for --mode rag)")
     args = parser.parse_args()
@@ -214,6 +270,8 @@ if __name__ == "__main__":
         db_logger.conn.commit()
     elif args.mode == "llm":
         engine, n_rounds = build_llm_simulation(args.rounds)
+    elif args.mode == "rl":
+        engine, n_rounds = build_rl_simulation(args.rounds)
     else:
         engine, n_rounds = build_dummy_simulation(args.rounds)
 
