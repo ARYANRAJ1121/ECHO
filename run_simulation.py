@@ -230,6 +230,8 @@ if __name__ == "__main__":
                         help="Number of rounds to simulate (use 10000+ for RL)")
     parser.add_argument("--db", action="store_true",
                         help="Save results to PostgreSQL (required for --mode rag)")
+    parser.add_argument("--validate", action="store_true",
+                        help="Run Phase 1.5 empirical validation after simulation")
     args = parser.parse_args()
 
     # RAG mode requires database
@@ -321,3 +323,10 @@ if __name__ == "__main__":
     if report['first_alert_round']:
         print(f"  First alert round:   {report['first_alert_round']}")
     print("=" * 80)
+
+    # --- Phase 1.5: Empirical Validation ---
+    if args.validate:
+        from analysis.real_data import run_validation
+        summary = engine.summary()
+        sim_lambda = summary['converged_collusion_index']
+        run_validation(sim_lambda=sim_lambda)
