@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECHO Antitrust Dashboard</title>
+    <!-- Modern Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="glass-panel">
+            <div class="logo">
+                <span class="logo-icon">▲</span>
+                <h1>ECHO <span class="accent">Antitrust Simulation</span></h1>
+            </div>
+            <div class="header-controls">
+                <div class="control-group">
+                    <label for="agent-mode">Agent Mode:</label>
+                    <select id="agent-mode">
+                        <option value="dummy">Dummy (Baseline)</option>
+                        <option value="rl">Q-Learning (RL)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="rounds">Rounds:</label>
+                    <input type="number" id="rounds" value="1000" min="10" max="100000">
+                </div>
+                <button id="start-btn" class="primary-btn">Start Simulation</button>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="dashboard-grid">
+            <!-- Left Column: Charts -->
+            <div class="left-col">
+                <div class="card glass-panel chart-container">
+                    <div class="card-header">
+                        <h2>Real-Time Price Trajectory</h2>
+                        <div id="status-badge" class="badge idle">Idle</div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card glass-panel validation-panel">
+                    <div class="card-header">
+                        <h2>Empirical Validation (Phase 1.5)</h2>
+                        <button id="load-validation" class="secondary-btn">Load Real Data</button>
+                    </div>
+                    <div id="validation-content" class="hidden">
+                        <div class="validation-stats">
+                            <div class="stat-box">
+                                <span class="stat-label">US Gasoline (EIA) Lambda</span>
+                                <span class="stat-value text-blue" id="val-gas">--</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-label">Amazon Electronics Lambda</span>
+                                <span class="stat-value text-orange" id="val-amz">--</span>
+                            </div>
+                        </div>
+                        <p class="validation-note" id="val-note"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Regulator & Metrics -->
+            <div class="right-col">
+                <div class="card glass-panel regulator-panel">
+                    <div class="card-header">
+                        <h2>Regulator Dashboard</h2>
+                    </div>
+                    
+                    <div class="gauge-container">
+                        <svg class="gauge" viewBox="0 0 100 50">
+                            <path class="gauge-bg" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" />
+                            <path class="gauge-fill" id="lambda-gauge" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke-dasharray="125.6" stroke-dashoffset="125.6" />
+                        </svg>
+                        <div class="gauge-value">
+                            <span id="lambda-value">0.00</span>
+                            <span class="gauge-label">Coordination Index (Λ)</span>
+                        </div>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-box">
+                            <span class="metric-label">Round</span>
+                            <span class="metric-value" id="current-round">0</span>
+                        </div>
+                        <div class="metric-box">
+                            <span class="metric-label">Avg Price</span>
+                            <span class="metric-value" id="current-avg-price">$0.00</span>
+                        </div>
+                        <div class="metric-box">
+                            <span class="metric-label">Nash Price</span>
+                            <span class="metric-value text-muted" id="nash-price">--</span>
+                        </div>
+                        <div class="metric-box">
+                            <span class="metric-label">Monopoly Price</span>
+                            <span class="metric-value text-muted" id="monopoly-price">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card glass-panel alerts-panel">
+                    <div class="card-header">
+                        <h2>Live Alerts</h2>
+                    </div>
+                    <div class="alerts-feed" id="alerts-feed">
+                        <div class="empty-state">No alerts triggered yet.</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
