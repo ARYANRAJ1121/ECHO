@@ -3,41 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECHO Antitrust Dashboard</title>
-    <!-- Modern Typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <title>ECHO — Antitrust Simulation Dashboard</title>
+    <meta name="description" content="Real-time AI collusion detection dashboard for the ECHO antitrust simulation project.">
+
+    <!-- Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Annotation plugin for shock lines -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Header -->
+
+        <!-- ═══════ HEADER ═══════ -->
         <header class="glass-panel">
             <div class="logo">
-                <span class="logo-icon">▲</span>
+                <span class="logo-icon">◆</span>
                 <h1>ECHO <span class="accent">Antitrust Simulation</span></h1>
             </div>
             <div class="header-controls">
                 <div class="control-group">
-                    <label for="agent-mode">Agent Mode:</label>
+                    <label for="agent-mode">Mode</label>
                     <select id="agent-mode">
-                        <option value="dummy">Dummy (Baseline)</option>
+                        <option value="dummy">Heuristic (Fast)</option>
                         <option value="rl">Q-Learning (RL)</option>
+                        <option value="llm">LLM — Llama 3</option>
                     </select>
                 </div>
                 <div class="control-group">
-                    <label for="rounds">Rounds:</label>
-                    <input type="number" id="rounds" value="1000" min="10" max="100000">
+                    <label for="rounds">Rounds</label>
+                    <input type="number" id="rounds" value="100" min="10" max="100000">
                 </div>
-                <button id="start-btn" class="primary-btn">Start Simulation</button>
+                <button id="start-btn" class="primary-btn">▶ Start Simulation</button>
             </div>
         </header>
 
-        <!-- Main Content Grid -->
+        <!-- Progress Bar -->
+        <div class="progress-bar-container" id="progress-container" style="margin-top:-0.75rem;">
+            <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+
+        <!-- ═══════ MAIN GRID ═══════ -->
         <main class="dashboard-grid">
-            <!-- Left Column: Charts -->
+
+            <!-- ──── LEFT COLUMN: Charts + Table ──── -->
             <div class="left-col">
+
+                <!-- Price Trajectory Chart -->
                 <div class="card glass-panel chart-container">
                     <div class="card-header">
                         <h2>Real-Time Price Trajectory</h2>
@@ -48,41 +63,56 @@
                     </div>
                 </div>
 
-                <div class="card glass-panel validation-panel">
+                <!-- Lambda Trajectory Chart -->
+                <div class="card glass-panel">
                     <div class="card-header">
-                        <h2>Empirical Validation (Phase 1.5)</h2>
-                        <button id="load-validation" class="secondary-btn">Load Real Data</button>
+                        <h2>Collusion Index (Λ) Over Time</h2>
                     </div>
-                    <div id="validation-content" class="hidden">
-                        <div class="validation-stats">
-                            <div class="stat-box">
-                                <span class="stat-label">US Gasoline (EIA) Lambda</span>
-                                <span class="stat-value text-blue" id="val-gas">--</span>
-                            </div>
-                            <div class="stat-box">
-                                <span class="stat-label">Amazon Electronics Lambda</span>
-                                <span class="stat-value text-orange" id="val-amz">--</span>
-                            </div>
-                        </div>
-                        <p class="validation-note" id="val-note"></p>
+                    <div class="lambda-chart-wrapper">
+                        <canvas id="lambdaChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Firm Performance Table -->
+                <div class="card glass-panel">
+                    <div class="card-header">
+                        <h2>Firm Performance</h2>
+                    </div>
+                    <div class="firm-table-container">
+                        <table class="firm-table" id="firm-table">
+                            <thead>
+                                <tr>
+                                    <th>Firm</th>
+                                    <th>Price</th>
+                                    <th>Profit</th>
+                                    <th>Share</th>
+                                    <th>Δ Profit</th>
+                                </tr>
+                            </thead>
+                            <tbody id="firm-table-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Column: Regulator & Metrics -->
+            <!-- ──── RIGHT COLUMN: Regulator + Alerts ──── -->
             <div class="right-col">
+
+                <!-- Regulator Dashboard -->
                 <div class="card glass-panel regulator-panel">
                     <div class="card-header">
-                        <h2>Regulator Dashboard</h2>
+                        <h2>Regulator</h2>
                     </div>
-                    
-                    <div class="gauge-container">
+
+                    <div class="gauge-container" id="gauge-container">
                         <svg class="gauge" viewBox="0 0 100 50">
                             <path class="gauge-bg" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" />
                             <path class="gauge-fill" id="lambda-gauge" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke-dasharray="125.6" stroke-dashoffset="125.6" />
                         </svg>
                         <div class="gauge-value">
-                            <span id="lambda-value">0.00</span>
+                            <span id="lambda-value">0.000</span>
                             <span class="gauge-label">Coordination Index (Λ)</span>
                         </div>
                     </div>
@@ -98,26 +128,92 @@
                         </div>
                         <div class="metric-box">
                             <span class="metric-label">Nash Price</span>
-                            <span class="metric-value text-muted" id="nash-price">--</span>
+                            <span class="metric-value text-muted" id="nash-price">—</span>
                         </div>
                         <div class="metric-box">
                             <span class="metric-label">Monopoly Price</span>
-                            <span class="metric-value text-muted" id="monopoly-price">--</span>
+                            <span class="metric-value text-muted" id="monopoly-price">—</span>
                         </div>
                     </div>
                 </div>
 
+                <!-- Live Alerts -->
                 <div class="card glass-panel alerts-panel">
                     <div class="card-header">
                         <h2>Live Alerts</h2>
+                        <span class="badge idle" id="alert-count">0</span>
                     </div>
                     <div class="alerts-feed" id="alerts-feed">
                         <div class="empty-state">No alerts triggered yet.</div>
                     </div>
                 </div>
+
+                <!-- Empirical Validation -->
+                <div class="card glass-panel">
+                    <div class="card-header">
+                        <h2>Empirical Validation</h2>
+                        <button id="load-validation" class="secondary-btn">Load Data</button>
+                    </div>
+                    <div id="validation-content" class="hidden">
+                        <div class="validation-stats">
+                            <div class="stat-box">
+                                <span class="stat-label">US Gasoline Λ</span>
+                                <span class="stat-value text-blue" id="val-gas">—</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-label">Amazon Λ</span>
+                                <span class="stat-value text-orange" id="val-amz">—</span>
+                            </div>
+                        </div>
+                        <p class="validation-note" id="val-note"></p>
+                    </div>
+                </div>
             </div>
+
+            <!-- ──── FULL-WIDTH: Demand Shock Control ──── -->
+            <div class="card glass-panel shock-panel">
+                <div class="card-header">
+                    <h2>⚡ Demand Shock Control</h2>
+                </div>
+                <div class="shock-controls">
+                    <label for="shock-firm">Target Firm:</label>
+                    <select id="shock-firm">
+                        <option value="0">Firm 1</option>
+                        <option value="1">Firm 2</option>
+                        <option value="2">Firm 3</option>
+                        <option value="3">Firm 4</option>
+                        <option value="4">Firm 5</option>
+                    </select>
+                    <button id="shock-btn" class="danger-btn" disabled>⚡ Trigger Shock (−30%)</button>
+                    <span class="text-muted" style="font-size:0.78rem;">Reduces selected firm's quality by 30%. Watch how competitors react.</span>
+                </div>
+                <div class="shock-status" id="shock-status"></div>
+            </div>
+
+            <!-- ──── FULL-WIDTH: Scratchpad Viewer ──── -->
+            <div class="card glass-panel scratchpad-panel" id="scratchpad-panel">
+                <div class="card-header">
+                    <h2>🧠 Agent Reasoning (Scratchpads)</h2>
+                    <span class="badge idle" id="scratchpad-mode-badge">LLM Only</span>
+                </div>
+                <div class="scratchpad-tabs" id="scratchpad-tabs">
+                    <button class="scratchpad-tab active" data-firm="0">Firm 1</button>
+                    <button class="scratchpad-tab" data-firm="1">Firm 2</button>
+                    <button class="scratchpad-tab" data-firm="2">Firm 3</button>
+                    <button class="scratchpad-tab" data-firm="3">Firm 4</button>
+                    <button class="scratchpad-tab" data-firm="4">Firm 5</button>
+                </div>
+                <div class="scratchpad-content" id="scratchpad-content">
+                    <span class="scratchpad-empty">Start an LLM simulation to see agent reasoning here.</span>
+                </div>
+            </div>
+
         </main>
     </div>
+
+    <!-- Summary Overlay (injected by JS) -->
+    <div class="summary-overlay hidden" id="summary-overlay"></div>
+
     <script src="script.js"></script>
 </body>
 </html>

@@ -272,24 +272,35 @@ Same outcome, fundamentally different mechanism.
 
 ---
 
-## Phase 8: API + Dashboard (Week 15-16)
+## Phase 8: API + Dashboard (Week 15-16) -- DONE
 
 **Goal:** Build a live demo for viva presentations.
 
-- [ ] FastAPI backend (`api/server.py`)
-  - `GET /simulation/status` -- current round + Lambda
-  - `GET /simulation/round/{id}` -- detailed round data
-  - `GET /agents/{firm_id}/scratchpad` -- read agent reasoning
-  - `GET /collusion/index` -- Lambda time series
-  - `POST /simulation/start` -- launch new experiment
-  - `POST /simulation/shock/{firm_id}` -- trigger demand shock
-- [ ] Streamlit dashboard (`dashboard/app.py`)
-  - Real-time Lambda line chart
-  - Live pricing table (5 firms, updating each round)
-  - Scratchpad viewer (read what the AI is thinking)
-  - Collusion alert panel (red/yellow/green)
-  - "Trigger Shock" button (for live viva demo)
-- [ ] Polish UI for presentation
+- [x] FastAPI backend (`api_server.py`)
+  - `GET /api/simulation/status` -- current round + Lambda
+  - `GET /api/simulation/history` -- full round history
+  - `GET /api/agents/{firm_id}/scratchpad` -- read agent reasoning
+  - `GET /api/validation` -- empirical validation data
+  - `POST /api/simulation/shock/{firm_id}` -- trigger demand shock
+  - WebSocket `/ws/simulate` -- real-time round streaming
+- [x] Dashboard (`dashboard/index.html`, `style.css`, `script.js`)
+  - Real-time price trajectory chart (Chart.js, 5 firms + benchmarks)
+  - Lambda trajectory chart with color-coded zones (0.3 watch, 0.7 alert)
+  - Live firm performance table (price, profit, share, delta)
+  - Regulator gauge with severity glow effects
+  - Scratchpad viewer (tabbed, per-firm, keyword highlighting)
+  - Collusion alert feed (watch/warning/alert levels)
+  - Demand shock control panel with firm selector
+  - Shock annotations on charts (vertical lines)
+  - Summary overlay with verdict (competitive/suspicious/collusion)
+  - Progress bar
+  - Smart round defaults per agent mode
+- [x] Premium glassmorphism UI
+  - Dark mode with gradient backdrop
+  - Micro-animations (fade-in, slide, pulse, shock flash)
+  - Responsive layout (projector + laptop)
+- [x] LLM agent mode support (streams scratchpads over WebSocket)
+- [x] Polish UI for presentation
 
 **Viva demo script:**
 > "Watch these 5 AI agents. Day 1: they're competing, prices near Nash.

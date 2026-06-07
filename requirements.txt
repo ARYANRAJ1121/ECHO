@@ -4,3 +4,5 @@ pandas
 matplotlib
 seaborn
 requests
+fastapi
+uvicorn[standard]
