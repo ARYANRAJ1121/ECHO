@@ -24,38 +24,58 @@
             z-index: 1;
         }
 
-        /* ── Intro Overlay ── */
-        #intro-overlay {
+        /* ── Entry Screen ── */
+        #entry-screen {
             position: fixed;
             inset: 0;
-            z-index: 1000;
+            z-index: 2000;
+            background: #0A0A0A;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: #0A0A0A;
-            transition: opacity 2s ease;
-            pointer-events: none;
+            text-align: center;
+            transition: opacity 1.5s ease;
         }
-        #intro-overlay h1 {
-            font-size: 3rem;
-            font-weight: 300;
-            letter-spacing: 4px;
-            margin-bottom: 1rem;
-            color: #F5F5F5;
-        }
-        #intro-overlay h2 {
-            font-size: 1rem;
+        #entry-screen h2 {
+            font-size: 1.2rem;
             font-weight: 400;
-            letter-spacing: 2px;
+            letter-spacing: 4px;
             color: #7AA2FF; /* Blue Accent */
             margin-bottom: 0.5rem;
-            text-transform: uppercase;
         }
-        #intro-overlay p {
-            font-size: 0.9rem;
-            color: #888;
-            letter-spacing: 1px;
+        #entry-screen h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 3rem;
+            color: #F5F5F5;
+        }
+        #entry-screen p {
+            font-size: 1.2rem;
+            color: #A0A0A0;
+            max-width: 600px;
+            line-height: 1.6;
+            margin-bottom: 4rem;
+            font-weight: 300;
+        }
+        .btn-enter {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #F5F5F5;
+            padding: 1rem 3rem;
+            font-size: 1rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        .btn-enter:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.5);
+            box-shadow: 0 0 20px rgba(255,255,255,0.1);
         }
 
         /* ── Instructions ── */
@@ -102,9 +122,7 @@
             transition: opacity 0.5s ease;
             opacity: 0.5;
         }
-        .zone-label.active {
-            opacity: 1;
-        }
+        .zone-label.active { opacity: 1; }
         .zone-title {
             font-size: 0.85rem;
             font-weight: 500;
@@ -118,11 +136,11 @@
             margin-top: 4px;
         }
 
-        /* ── Holographic Detail Panels (Visible on Focus) ── */
+        /* ── Holographic Educational Panels ── */
         .holo-panel {
             position: absolute;
             top: 50%; left: 50%;
-            width: 280px;
+            width: 340px;
             background: rgba(255, 255, 255, 0.02);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
@@ -132,16 +150,16 @@
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.5s ease, transform 0.5s ease;
-            transform: translate(40px, -50%);
+            transform: translate(60px, -50%);
             z-index: 50;
         }
         .holo-panel.visible {
             opacity: 1;
-            transform: translate(60px, -50%);
+            transform: translate(80px, -50%);
             pointer-events: auto;
         }
         .holo-panel h3 {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             color: #7AA2FF;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -149,42 +167,74 @@
             padding-bottom: 0.5rem;
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        
-        /* Specific Agent Pipeline Hologram */
-        .pipeline-step {
+        .panel-text {
+            font-size: 0.85rem;
+            color: #A0A0A0;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        .panel-text strong {
+            color: #F5F5F5;
+            font-weight: 500;
+        }
+
+        /* Panel Specific Styles */
+        .anim-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .anim-col {
             display: flex;
             flex-direction: column;
             gap: 4px;
-            margin-bottom: 1rem;
-        }
-        .pipeline-step:last-child { margin-bottom: 0; }
-        .step-label {
-            font-size: 0.65rem;
-            color: #888;
-            text-transform: uppercase;
-        }
-        .step-value {
-            font-size: 0.8rem;
-            color: #F5F5F5;
-        }
-        .step-value.mint { color: #8EF0C6; }
-        .step-value.amber { color: #FFC857; }
-        .pipeline-arrow {
-            color: #444;
             text-align: center;
-            font-size: 0.8rem;
-            margin-bottom: 1rem;
         }
+        .anim-title { font-size: 0.65rem; text-transform: uppercase; color: #888; }
+        .price-val { font-family: monospace; font-size: 1.1rem; color: #8EF0C6; transition: color 0.5s; }
+        .price-val.high { color: #FF7B7B; }
+
+        .pipeline {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .pipe-node {
+            background: rgba(255,255,255,0.05);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            text-align: center;
+            border-left: 2px solid #7AA2FF;
+        }
+        .pipe-arrow { text-align: center; color: #555; }
+
+        .result-card {
+            background: rgba(255,255,255,0.03);
+            border-left: 2px solid #FFC857;
+            padding: 0.8rem;
+            margin-bottom: 0.8rem;
+            border-radius: 4px;
+        }
+        .result-card:last-child { margin-bottom: 0; }
+        .result-title { font-size: 0.75rem; color: #F5F5F5; font-weight: 500; margin-bottom: 4px; }
+        .result-desc { font-size: 0.75rem; color: #888; }
 
     </style>
 </head>
 <body>
 
-    <!-- Intro Overlay -->
-    <div id="intro-overlay">
+    <!-- Landing Page Overlay -->
+    <div id="entry-screen">
         <h2>ECHO</h2>
         <h1>Emergent Collusion in Heterogeneous Oligopolies</h1>
-        <p>AI Pricing Agents in Competitive Markets</p>
+        <p>Can autonomous AI pricing agents learn<br>to coordinate prices without communication?</p>
+        <button class="btn-enter" id="btnEnter">Enter Observatory</button>
     </div>
 
     <!-- 3D Canvas -->
@@ -202,40 +252,108 @@
     <!-- HTML Overlays -->
     <div id="labels-container"></div>
 
-    <!-- Holographic Detail Panels -->
-    <!-- Agent Panel -->
-    <div id="panel-agent" class="holo-panel">
-        <h3>LLM Agent Pipeline</h3>
-        <div class="pipeline-step">
-            <span class="step-label">Input</span>
-            <span class="step-value">Competitor P: $3.20 | Cost: $1.00</span>
-        </div>
-        <div class="pipeline-arrow">↓</div>
-        <div class="pipeline-step">
-            <span class="step-label">Retrieved Memory</span>
-            <span class="step-value mint">"Past cooperation yielded highest profit."</span>
-        </div>
-        <div class="pipeline-arrow">↓</div>
-        <div class="pipeline-step">
-            <span class="step-label">Scratchpad Reasoning</span>
-            <span class="step-value">"If I undercut, a price war begins. Optimal strategy is to maintain the cartel price."</span>
-        </div>
-        <div class="pipeline-arrow">↓</div>
-        <div class="pipeline-step">
-            <span class="step-label">Final Price</span>
-            <span class="step-value amber">$3.25</span>
+    <!-- 1. Problem Panel -->
+    <div id="panel-problem" class="holo-panel">
+        <h3>The Problem</h3>
+        <p class="panel-text">Modern companies increasingly use AI pricing systems.</p>
+        <p class="panel-text">When multiple AI agents compete, they may unintentionally learn <strong>supra-competitive pricing behavior.</strong></p>
+        <p class="panel-text" style="color: #FFC857;">Can AI agents behave like a cartel without explicitly communicating?</p>
+        
+        <div class="anim-box">
+            <div class="anim-col">
+                <div class="anim-title">Competition</div>
+                <div class="price-val">$10</div>
+                <div class="price-val">$12</div>
+                <div class="price-val">$9</div>
+            </div>
+            <div style="color:#555;">→</div>
+            <div class="anim-col">
+                <div class="anim-title" style="color:#FF7B7B">Coordination</div>
+                <div class="price-val high" id="anim-p1">$20</div>
+                <div class="price-val high" id="anim-p2">$21</div>
+                <div class="price-val high" id="anim-p3">$20</div>
+            </div>
         </div>
     </div>
 
-    <!-- Regulator Panel -->
-    <div id="panel-regulator" class="holo-panel">
-        <h3>Antitrust Control Center</h3>
-        <div style="text-align:center; margin: 2rem 0;">
-            <div style="font-size: 3rem; font-weight: 300; color: #FF7B7B;">0.84</div>
-            <div style="font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 1px;">Collusion Index (λ)</div>
+    <!-- 2. Market Core Panel -->
+    <div id="panel-market" class="holo-panel">
+        <h3>Market Core Overlay</h3>
+        <p class="panel-text"><strong>ROLE</strong><br>Simulates a repeated Bertrand competition market.</p>
+        <p class="panel-text"><strong>INPUT</strong><br>Prices from 5 autonomous agents.</p>
+        <p class="panel-text" style="margin-bottom:0;"><strong>PROCESS</strong></p>
+        <div class="pipeline">
+            <div class="pipe-node" style="border-color:#8EF0C6">Price</div>
+            <div class="pipe-arrow">↓</div>
+            <div class="pipe-node" style="border-color:#8EF0C6">Demand</div>
+            <div class="pipe-arrow">↓</div>
+            <div class="pipe-node" style="border-color:#8EF0C6">Market Share</div>
+            <div class="pipe-arrow">↓</div>
+            <div class="pipe-node" style="border-color:#FFC857">Profit</div>
         </div>
-        <div class="pipeline-step" style="cursor: pointer; background: rgba(255,123,123,0.1); padding: 0.8rem; border-radius: 6px; text-align: center; border: 1px solid rgba(255,123,123,0.3);" id="btn-shock">
-            <span class="step-value" style="color: #FF7B7B; font-weight: 500;">⚡ INJECT DEMAND SHOCK</span>
+        <p class="panel-text" style="margin-top:1rem;"><strong>OUTPUT</strong><br>Market outcomes and collusion metrics.</p>
+    </div>
+
+    <!-- 3. Agent Arena Panel -->
+    <div id="panel-agents" class="holo-panel">
+        <h3>Agent Types</h3>
+        <div class="result-card" style="border-color: #7AA2FF;">
+            <div class="result-title">LLM Agent</div>
+            <div class="result-desc">Uses semantic reasoning to set prices.</div>
+        </div>
+        <div class="result-card" style="border-color: #8EF0C6;">
+            <div class="result-title">RAG Agent</div>
+            <div class="result-desc">Retrieves episodic memory before pricing.</div>
+        </div>
+        <div class="result-card" style="border-color: #FFC857;">
+            <div class="result-title">RL Agent</div>
+            <div class="result-desc">Learns via tabular Q-learning rewards.</div>
+        </div>
+        <div class="result-card" style="border-color: #888;">
+            <div class="result-title">Heuristic Agent</div>
+            <div class="result-desc">Follows fixed predefined pricing rules.</div>
+        </div>
+    </div>
+
+    <!-- 4. RAG Vault Panel -->
+    <div id="panel-rag" class="holo-panel">
+        <h3>Why RAG?</h3>
+        <p class="panel-text"><strong>Without memory:</strong><br>Agents forget previous market dynamics.</p>
+        <p class="panel-text"><strong>With memory:</strong><br>Agents retrieve relevant historical rounds before making pricing decisions.</p>
+        <div class="result-card" style="border-color: #8EF0C6; background: rgba(142,240,198,0.05);">
+            <div class="result-title">Core Research Question:</div>
+            <div class="result-desc" style="color:#F5F5F5;">Does episodic memory accelerate coordination?</div>
+        </div>
+    </div>
+
+    <!-- 5. Results Gallery Panel -->
+    <div id="panel-results" class="holo-panel">
+        <h3>Key Findings</h3>
+        <div class="result-card" style="border-color: #888;">
+            <div class="result-title">Heuristic Agents</div>
+            <div class="result-desc">λ ≈ 0.06 (Competitive behavior)</div>
+        </div>
+        <div class="result-card" style="border-color: #FF7B7B;">
+            <div class="result-title">LLM Agents</div>
+            <div class="result-desc">λ ≈ 20.61 (2× Nash pricing)</div>
+        </div>
+        <div class="result-card" style="border-color: #FFC857;">
+            <div class="result-title">RL Agents</div>
+            <div class="result-desc">Gradual coordination increasing over time.</div>
+        </div>
+    </div>
+
+    <!-- 6. Antitrust Control Center Panel -->
+    <div id="panel-regulator" class="holo-panel">
+        <h3>Collusion Index (λ)</h3>
+        <div style="display:flex; justify-content:space-between; margin-bottom: 1rem; font-size: 0.8rem; color: #A0A0A0;">
+            <div>0 = Competitive</div>
+            <div>1 = Monopoly</div>
+        </div>
+        <div style="height: 4px; background: linear-gradient(90deg, #8EF0C6, #FFC857, #FF7B7B); border-radius: 2px; margin-bottom: 1.5rem;"></div>
+        <p class="panel-text">Higher λ means stronger coordination. ECHO continuously monitors λ to detect suspicious pricing behavior.</p>
+        <div class="result-card" style="border-color: #FF7B7B; background: rgba(255,123,123,0.05); text-align: center; cursor: pointer; transition: background 0.3s;" onmouseover="this.style.background='rgba(255,123,123,0.1)'" onmouseout="this.style.background='rgba(255,123,123,0.05)'">
+            <div class="result-title" style="color: #FF7B7B;">⚡ Inject Demand Shock</div>
         </div>
     </div>
 
@@ -246,7 +364,7 @@
 
     <script>
     /* ═══════════════════════════════════════════════════════
-       ECHO — Interactive Research Observatory
+       ECHO — Research Narrative Architecture
        ═══════════════════════════════════════════════════════ */
 
     // ── Setup ──
@@ -254,10 +372,9 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0a); // Pure matte black
 
-    // Camera
+    // Camera starts locked, pointing at nothing until "Enter" is clicked
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    // Intro start position (Top-down)
-    camera.position.set(0, 80, 0);
+    camera.position.set(0, 100, 100);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -271,85 +388,45 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxDistance = 100;
+    controls.maxDistance = 150;
     controls.minDistance = 5;
+    controls.enabled = false; // Disabled until entry
 
-    // ── Lighting (Premium Soft Studio) ──
+    // ── Lighting ──
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
     scene.add(ambientLight);
-
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
     dirLight.position.set(20, 50, 20);
     scene.add(dirLight);
 
-    const blueFill = new THREE.DirectionalLight(0x7AA2FF, 0.4);
-    blueFill.position.set(-30, 0, 30);
-    scene.add(blueFill);
+    // ── Materials ──
+    const colors = { blue: 0x7AA2FF, mint: 0x8EF0C6, amber: 0xFFC857, red: 0xFF7B7B, glass: 0xffffff };
 
-    const amberFill = new THREE.DirectionalLight(0xFFC857, 0.2);
-    amberFill.position.set(30, -20, -30);
-    scene.add(amberFill);
-
-    // ── Materials (Apple Vision Pro Glass & Colors) ──
-    const colors = {
-        blue: 0x7AA2FF,
-        mint: 0x8EF0C6,
-        amber: 0xFFC857,
-        red: 0xFF7B7B,
-        glass: 0xffffff
-    };
-
-    const baseGlassMat = new THREE.MeshPhysicalMaterial({
-        color: colors.glass,
-        metalness: 0.1,
-        roughness: 0.1,
-        transmission: 0.9,
-        ior: 1.5,
-        transparent: true,
-        opacity: 0.08, // 8% opacity per requirements
-        side: THREE.DoubleSide
+    const glassMat = new THREE.MeshPhysicalMaterial({
+        color: colors.glass, metalness: 0.1, roughness: 0.1,
+        transmission: 0.9, ior: 1.5, transparent: true, opacity: 0.08, side: THREE.DoubleSide
     });
+    const createSolid = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.3, metalness: 0.8, transparent: true });
+    const createGlow = (hex) => new THREE.MeshStandardMaterial({ color: hex, emissive: hex, emissiveIntensity: 0.5, transparent: true });
 
-    const createSolidMat = (hex) => new THREE.MeshStandardMaterial({
-        color: hex,
-        roughness: 0.3,
-        metalness: 0.8,
-        transparent: true,
-        opacity: 1
-    });
-
-    const createEmissiveMat = (hex) => new THREE.MeshStandardMaterial({
-        color: hex,
-        emissive: hex,
-        emissiveIntensity: 0.5,
-        transparent: true,
-        opacity: 1
-    });
-
-    // ── Zones & Objects Architecture ──
+    // ── Zone Construction ──
     const zones = {};
     const htmlLabels = [];
-    const interactiveObjects = []; // For Raycasting
-
-    // Group wrapper for fading logic
+    const hitBoxes = [];
     const allGroups = [];
 
-    function createZone(id, pos, title, subtitle) {
+    function createZone(id, pos, title, subtitle, panelId) {
         const group = new THREE.Group();
         group.position.set(...pos);
         scene.add(group);
-        zones[id] = group;
+        zones[id] = { group, panelId, pos };
         allGroups.push(group);
 
-        // Add invisible hit-box for easier double-clicking
-        const hitGeo = new THREE.SphereGeometry(6, 16, 16);
-        const hitMat = new THREE.MeshBasicMaterial({ visible: false });
-        const hitMesh = new THREE.Mesh(hitGeo, hitMat);
-        hitMesh.userData = { zoneId: id, isZone: true };
+        const hitMesh = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 16), new THREE.MeshBasicMaterial({ visible: false }));
+        hitMesh.userData = { zoneId: id };
         group.add(hitMesh);
-        interactiveObjects.push(hitMesh);
+        hitBoxes.push(hitMesh);
 
-        // HTML Label
         const div = document.createElement('div');
         div.className = 'zone-label';
         div.innerHTML = `<div class="zone-title">${title}</div><div class="zone-subtitle">${subtitle}</div>`;
@@ -359,146 +436,106 @@
         return group;
     }
 
-    // 1. Agent Arena (Center)
-    const agentZone = createZone('agents', [0, 0, 0], 'Agent Arena', 'Llama 3 • Q-Learning • Heuristics');
-    const agentOrbs = [];
-    for(let i=0; i<5; i++) {
-        const angle = (i / 5) * Math.PI * 2;
-        const orb = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), baseGlassMat.clone());
+    // 1. Problem Hall (Front/Entry)
+    const probZone = createZone('problem', [0, 5, 25], 'The Problem', 'Why does ECHO exist?', 'panel-problem');
+    const probPlate = new THREE.Mesh(new THREE.PlaneGeometry(8, 4), glassMat.clone());
+    probPlate.rotation.x = -Math.PI / 6;
+    probZone.add(probPlate);
+
+    // 2. Market Core (Down)
+    const marketZone = createZone('market', [0, -15, 0], 'Market Core', 'What happens when agents compete?', 'panel-market');
+    marketZone.add(new THREE.Mesh(new THREE.TorusGeometry(3, 1, 32, 64), glassMat.clone()).rotateX(Math.PI/2));
+    marketZone.add(new THREE.Mesh(new THREE.SphereGeometry(2, 32, 32), createSolid(0x222222)));
+
+    // 3. Agent Arena (Center)
+    const agentZone = createZone('agents', [0, 0, 0], 'Agent Arena', 'Who is making decisions?', 'panel-agents');
+    for(let i=0; i<4; i++) {
+        const angle = (i / 4) * Math.PI * 2;
+        const orb = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 32), glassMat.clone());
         orb.position.set(Math.cos(angle)*4, 0, Math.sin(angle)*4);
-        
-        // Inner glowing core
-        const core = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), createEmissiveMat(colors.blue));
-        orb.add(core);
-        
+        orb.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), createGlow(colors.blue)));
         agentZone.add(orb);
-        agentOrbs.push(orb);
     }
 
-    // 2. Market Core (Below)
-    const marketZone = createZone('market', [0, -12, 0], 'Market Engine', 'Demand & Profit Calculations');
-    const marketCore = new THREE.Mesh(new THREE.TorusGeometry(3, 1, 32, 64), baseGlassMat.clone());
-    marketCore.rotation.x = Math.PI / 2;
-    marketZone.add(marketCore);
-    const marketSphere = new THREE.Mesh(new THREE.SphereGeometry(2, 32, 32), createSolidMat(0x222222));
-    marketZone.add(marketSphere);
-
-    // 3. RAG Memory Vault (Left)
-    const ragZone = createZone('rag', [-20, 0, 0], 'RAG Memory Vault', 'PostgreSQL + pgvector');
-    const vaultGrid = new THREE.Group();
-    ragZone.add(vaultGrid);
-    const cubeGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+    // 4. RAG Vault (Left)
+    const ragZone = createZone('rag', [-25, 0, 0], 'RAG Vault', 'How does memory influence decisions?', 'panel-rag');
+    const vaultGrid = new THREE.Group(); ragZone.add(vaultGrid);
     for(let x=-2; x<=2; x+=1.5) {
         for(let y=-2; y<=2; y+=1.5) {
             for(let z=-2; z<=2; z+=1.5) {
-                if (Math.random() > 0.3) {
-                    const cube = new THREE.Mesh(cubeGeo, baseGlassMat.clone());
+                if(Math.random() > 0.4) {
+                    const cube = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), glassMat.clone());
                     cube.position.set(x, y, z);
-                    // Randomly highlight some
-                    if (Math.random() > 0.8) {
-                        cube.material = createEmissiveMat(colors.mint);
-                        cube.material.opacity = 0.8;
-                    }
+                    if(Math.random() > 0.8) cube.material = createGlow(colors.mint);
                     vaultGrid.add(cube);
                 }
             }
         }
     }
 
-    // 4. Antitrust Control Center (Right)
-    const regulatorZone = createZone('regulator', [20, 0, 0], 'Antitrust Control Center', 'λ Monitor & Shocks');
-    const panelGeo = new THREE.PlaneGeometry(6, 4);
-    const panelMat = baseGlassMat.clone();
-    const controlPanel = new THREE.Mesh(panelGeo, panelMat);
-    // Face the center
-    controlPanel.rotation.y = -Math.PI / 2;
-    regulatorZone.add(controlPanel);
-    
-    // Ring gauge
-    const ringGeo = new THREE.RingGeometry(1.5, 1.8, 32);
-    const ringMat = createEmissiveMat(colors.red);
-    const ring = new THREE.Mesh(ringGeo, ringMat);
+    // 5. Results Gallery (Right)
+    const resultsZone = createZone('results', [25, 0, 0], 'Results Gallery', 'What were the findings?', 'panel-results');
+    for(let i=-1; i<=1; i++) {
+        const card = new THREE.Mesh(new THREE.PlaneGeometry(3, 4), glassMat.clone());
+        card.position.set(i*3.5, 0, 0);
+        card.rotation.y = -Math.PI / 4;
+        resultsZone.add(card);
+    }
+
+    // 6. Antitrust Center (Up)
+    const antiZone = createZone('antitrust', [0, 15, 0], 'Antitrust Control Center', 'How do we detect collusion?', 'panel-regulator');
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(8, 4), glassMat.clone());
+    panel.rotation.x = Math.PI / 8;
+    antiZone.add(panel);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.8, 32), createGlow(colors.amber));
     ring.position.z = 0.1;
-    controlPanel.add(ring);
+    panel.add(ring);
 
-    // 5. Dashboard Hub (Top)
-    const dashZone = createZone('dashboard', [0, 15, 0], 'Live Dashboard Hub', 'WebSocket Aggregation');
-    const dashPlate = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), baseGlassMat.clone());
-    dashPlate.rotation.x = Math.PI / 2;
-    dashZone.add(dashPlate);
-
-    // 6. Consumer Ecosystem (Bottom)
-    const consumerZone = createZone('consumers', [0, -22, 0], '', ''); // No label needed
-    const consumerGeo = new THREE.BufferGeometry();
-    const consumerPos = new Float32Array(200 * 3);
-    for(let i=0; i<600; i++) consumerPos[i] = (Math.random() - 0.5) * 15;
-    consumerGeo.setAttribute('position', new THREE.BufferAttribute(consumerPos, 3));
-    const consumerMat = new THREE.PointsMaterial({ color: 0x888888, size: 0.1, transparent: true });
-    const consumerPoints = new THREE.Points(consumerGeo, consumerMat);
-    consumerZone.add(consumerPoints);
-
-    // ── Continuous Data Streams (Particles moving along Bezier Curves) ──
+    // ── Continuous Data Streams ──
     const streams = [];
-
-    function createStream(startPos, endPos, color, count, speedOffset) {
-        // Create a bezier curve that arcs slightly
-        const midPoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
-        // Push the midpoint up or out to create an arc
-        midPoint.y += (Math.random() * 5);
-        midPoint.x += (Math.random() * 2 - 1);
-        midPoint.z += (Math.random() * 2 - 1);
-
-        const curve = new THREE.QuadraticBezierCurve3(startPos, midPoint, endPos);
-        
+    function createStream(start, end, color, count) {
+        const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+        mid.y += 5; mid.x += 2;
+        const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
         const geo = new THREE.BufferGeometry();
         const pos = new Float32Array(count * 3);
         geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        const mat = new THREE.PointsMaterial({ color: color, size: 0.15, transparent: true, opacity: 0.8 });
-        const points = new THREE.Points(geo, mat);
-        scene.add(points);
-
-        streams.push({
-            points,
-            curve,
-            count,
-            progress: Array.from({length: count}, () => Math.random()),
-            speedOffset
-        });
+        const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size: 0.15, transparent: true, opacity: 0.8 }));
+        scene.add(pts);
+        streams.push({ pts, curve, count, prog: Array.from({length: count}, () => Math.random()) });
     }
 
-    // Agent to Market (Pricing)
-    for(let i=0; i<5; i++) {
-        createStream(
-            new THREE.Vector3(Math.cos(i/5*Math.PI*2)*4, 0, Math.sin(i/5*Math.PI*2)*4), 
-            new THREE.Vector3(0, -12, 0), 
-            colors.blue, 15, 0.2
-        );
-    }
-    // RAG to Agents
-    createStream(new THREE.Vector3(-20, 0, 0), new THREE.Vector3(-4, 0, 0), colors.mint, 30, 0.4);
-    // Market to Dashboard
-    createStream(new THREE.Vector3(0, -12, 0), new THREE.Vector3(0, 15, 0), colors.glass, 40, 0.3);
-    // Regulator to Agents
-    createStream(new THREE.Vector3(20, 0, 0), new THREE.Vector3(4, 0, 0), colors.amber, 20, 0.1);
+    createStream(zones.problem.pos, zones.market.pos, colors.blue, 20);
+    createStream(zones.market.pos, zones.agents.pos, colors.blue, 30);
+    createStream(zones.rag.pos, zones.agents.pos, colors.mint, 20);
+    createStream(zones.agents.pos, zones.results.pos, colors.amber, 20);
+    createStream(zones.results.pos, zones.antitrust.pos, colors.red, 20);
 
-    // ── Interaction Logic (Raycaster + State) ──
+    // ── State & Interaction ──
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let currentFocus = null;
+
+    document.getElementById('btnEnter').addEventListener('click', () => {
+        // Hide overlay
+        document.getElementById('entry-screen').style.opacity = '0';
+        setTimeout(() => document.getElementById('entry-screen').style.display = 'none', 1500);
+        
+        // Show instructions
+        setTimeout(() => document.getElementById('instructions').style.opacity = '1', 500);
+        
+        controls.enabled = true;
+        
+        // Fly to Problem Hall as first view
+        focusOnZone('problem');
+    });
 
     window.addEventListener('dblclick', (e) => {
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
-
-        const intersects = raycaster.intersectObjects(interactiveObjects);
-        
-        if (intersects.length > 0) {
-            const hit = intersects[0].object;
-            if (hit.userData.isZone) {
-                focusOnZone(hit.userData.zoneId);
-            }
-        }
+        const hits = raycaster.intersectObjects(hitBoxes);
+        if (hits.length > 0) focusOnZone(hits[0].object.userData.zoneId);
     });
 
     window.addEventListener('keydown', (e) => {
@@ -509,151 +546,99 @@
         if (currentFocus === zoneId) return;
         currentFocus = zoneId;
 
-        const targetGroup = zones[zoneId];
-        const targetPos = targetGroup.position.clone();
+        const zone = zones[zoneId];
+        const camOffset = new THREE.Vector3(zone.pos.x, zone.pos.y + 4, zone.pos.z + 18);
+        if(zoneId === 'problem') camOffset.set(0, 8, 38);
 
-        // Calculate a nice camera offset based on the zone
-        const camOffset = new THREE.Vector3(targetPos.x, targetPos.y + 2, targetPos.z + 15);
-        if (zoneId === 'rag') camOffset.set(targetPos.x + 10, targetPos.y + 5, targetPos.z + 10);
-        if (zoneId === 'regulator') camOffset.set(targetPos.x - 10, targetPos.y + 2, targetPos.z + 10);
-
-        // Tween Camera and Controls Target
         gsap.to(camera.position, { x: camOffset.x, y: camOffset.y, z: camOffset.z, duration: 1.5, ease: "power3.inOut" });
-        gsap.to(controls.target, { x: targetPos.x, y: targetPos.y, z: targetPos.z, duration: 1.5, ease: "power3.inOut" });
+        gsap.to(controls.target, { x: zone.pos.x, y: zone.pos.y, z: zone.pos.z, duration: 1.5, ease: "power3.inOut" });
 
-        // Dim everything else to 15% opacity
-        allGroups.forEach(group => {
-            const isTarget = (group === targetGroup);
-            const targetOpacity = isTarget ? 1.0 : 0.15;
-            
-            group.traverse(child => {
-                if (child.isMesh && child.material && child.material.transparent) {
-                    // Don't dim the 8% glass, just solid/emissive stuff, but let's keep it simple
-                    // Actually, the glass is already 8%, dimming to 15% is weird. Let's dim emissives and solids.
-                    if (child.material.opacity > 0.2) {
-                        gsap.to(child.material, { opacity: targetOpacity, duration: 1 });
-                    }
+        // Dim logic
+        allGroups.forEach(g => {
+            const isTarget = (g === zone.group);
+            g.traverse(c => {
+                if (c.isMesh && c.material.opacity > 0.1) {
+                    gsap.to(c.material, { opacity: isTarget ? 1 : 0.15, duration: 1 });
                 }
             });
         });
 
-        // Hide/Show HTML Panels
+        // HTML Panels
         document.querySelectorAll('.holo-panel').forEach(p => p.classList.remove('visible'));
-        if (zoneId === 'agents') document.getElementById('panel-agent').classList.add('visible');
-        if (zoneId === 'regulator') document.getElementById('panel-regulator').classList.add('visible');
+        if (zone.panelId) document.getElementById(zone.panelId).classList.add('visible');
 
-        // Emphasize the specific label
+        // Highlight label
         htmlLabels.forEach(l => {
-            if(l.group === targetGroup) l.div.classList.add('active');
+            if(l.group === zone.group) l.div.classList.add('active');
             else l.div.classList.remove('active');
         });
     }
 
     function resetFocus() {
-        if (!currentFocus) return;
         currentFocus = null;
-
-        // Tween back to isometric overview
-        gsap.to(camera.position, { x: 0, y: 10, z: 40, duration: 2, ease: "power3.inOut" });
+        gsap.to(camera.position, { x: 0, y: 30, z: 50, duration: 2, ease: "power3.inOut" });
         gsap.to(controls.target, { x: 0, y: 0, z: 0, duration: 2, ease: "power3.inOut" });
 
-        // Restore opacities
-        allGroups.forEach(group => {
-            group.traverse(child => {
-                if (child.isMesh && child.material && child.material.transparent && child.material.opacity > 0.1) {
-                    gsap.to(child.material, { opacity: 1, duration: 1 });
-                }
-            });
-        });
+        allGroups.forEach(g => g.traverse(c => {
+            if (c.isMesh && c.material.opacity > 0.1) gsap.to(c.material, { opacity: 1, duration: 1 });
+        }));
 
         document.querySelectorAll('.holo-panel').forEach(p => p.classList.remove('visible'));
         htmlLabels.forEach(l => l.div.classList.add('active'));
     }
 
-    // ── Intro Sequence Animation ──
-    // Starts top-down. 
-    setTimeout(() => {
-        // Fade out overlay
-        document.getElementById('intro-overlay').style.opacity = '0';
-        
-        // Show instructions
-        setTimeout(() => document.getElementById('instructions').style.opacity = '1', 1000);
-
-        // Tween camera to overview
-        gsap.to(camera.position, { x: 0, y: 10, z: 40, duration: 4, ease: "power2.inOut" });
-        
-        // Ensure labels are visible
-        htmlLabels.forEach(l => l.div.classList.add('active'));
-    }, 3000); // 3 seconds delay
-
-
-    // ── Render Loop ──
+    // ── Animation Loop ──
     const clock = new THREE.Clock();
+
+    // Price animation logic for Problem Panel
+    setInterval(() => {
+        if(currentFocus === 'problem') {
+            document.getElementById('anim-p1').innerText = '$' + (20 + Math.floor(Math.random()*3));
+            document.getElementById('anim-p2').innerText = '$' + (20 + Math.floor(Math.random()*3));
+            document.getElementById('anim-p3').innerText = '$' + (20 + Math.floor(Math.random()*3));
+        }
+    }, 1000);
 
     function animate() {
         requestAnimationFrame(animate);
         const delta = clock.getDelta();
         const time = clock.getElapsedTime();
-
         controls.update();
 
-        // Rotate architecture slowly
-        agentZone.rotation.y = time * 0.1;
-        marketCore.rotation.z = time * 0.5;
-        vaultGrid.rotation.y = Math.sin(time * 0.2) * 0.2;
-        consumerPoints.rotation.y = time * 0.05;
+        // Slow rotations
+        agentZone.rotation.y = time * 0.05;
+        vaultGrid.rotation.y = Math.sin(time * 0.2) * 0.1;
 
-        // Animate agent orbs bobbing
-        agentOrbs.forEach((orb, i) => {
-            orb.position.y = Math.sin(time * 2 + i) * 0.5;
-        });
-
-        // Animate Data Streams
-        streams.forEach(sys => {
-            const positions = sys.points.geometry.attributes.position.array;
-            
-            for(let i=0; i<sys.count; i++) {
-                sys.progress[i] += delta * sys.speedOffset;
-                if(sys.progress[i] > 1) sys.progress[i] = 0;
-                
-                // Get point on Bezier Curve
-                const point = sys.curve.getPoint(sys.progress[i]);
-                
-                positions[i*3] = point.x;
-                positions[i*3+1] = point.y;
-                positions[i*3+2] = point.z;
+        // Streams
+        streams.forEach(s => {
+            const arr = s.pts.geometry.attributes.position.array;
+            for(let i=0; i<s.count; i++) {
+                s.prog[i] += delta * 0.2;
+                if(s.prog[i] > 1) s.prog[i] = 0;
+                const p = s.curve.getPoint(s.prog[i]);
+                arr[i*3]=p.x; arr[i*3+1]=p.y; arr[i*3+2]=p.z;
             }
-            sys.points.geometry.attributes.position.needsUpdate = true;
+            s.pts.geometry.attributes.position.needsUpdate = true;
         });
 
-        // Sync HTML Labels to 3D positions
+        // Track HTML Labels
         htmlLabels.forEach(item => {
-            // Use group position
-            const vector = new THREE.Vector3();
-            item.group.getWorldPosition(vector);
-            
-            // Offset upwards
-            vector.y += 3;
-            
-            vector.project(camera);
-
-            const x = (vector.x * .5 + .5) * window.innerWidth;
-            const y = (vector.y * -.5 + .5) * window.innerHeight;
-
-            if (vector.z < 1) { // In front of camera
+            const v = new THREE.Vector3();
+            item.group.getWorldPosition(v);
+            v.y += 4;
+            v.project(camera);
+            if (v.z < 1) {
+                const x = (v.x * .5 + .5) * window.innerWidth;
+                const y = (v.y * -.5 + .5) * window.innerHeight;
                 item.div.style.transform = `translate(-50%, -50%) translate(${x}px,${y}px)`;
                 item.div.style.display = 'block';
-            } else {
-                item.div.style.display = 'none';
-            }
+            } else { item.div.style.display = 'none'; }
         });
 
         renderer.render(scene, camera);
     }
-
     animate();
 
-    // ── Resize Handler ──
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
