@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECHO — Cinematic Platform Tour</title>
+    <title>ECHO — Research Observatory</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            background-color: #0B0B0B;
-            color: #F3F4F6;
+            background-color: #0A0A0A;
+            color: #F5F5F5;
             font-family: 'Inter', sans-serif;
             overflow: hidden;
             user-select: none;
@@ -24,446 +24,568 @@
             z-index: 1;
         }
 
-        /* ── Glassmorphism UI ── */
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-            padding: 1.5rem;
-        }
-
-        /* ── Floating Labels (Synced with 3D objects) ── */
-        .label {
-            position: absolute;
-            top: 0; left: 0;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 10;
-            opacity: 0;
-            text-align: center;
-        }
-        .label-title {
-            font-size: 0.85rem;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-            color: #ffffff;
-            margin-bottom: 4px;
-        }
-        .label-subtitle {
-            font-size: 0.7rem;
-            color: #9CA3AF;
-        }
-
-        /* ── Specific Overlays ── */
-        .scratchpad-card {
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 260px;
-            transform: translate(20px, -50%);
-            opacity: 0;
-            z-index: 10;
-        }
-        .scratchpad-card h3 {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #9CA3AF;
-            margin-bottom: 0.8rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .scratchpad-card p {
-            font-size: 0.8rem;
-            line-height: 1.6;
-            color: #D1D5DB;
-        }
-        .scratchpad-card .highlight { color: #A78BFA; }
-
-        .lambda-gauge {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 120px; height: 120px;
-            border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.1);
+        /* ── Intro Overlay ── */
+        #intro-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            opacity: 0;
-            z-index: 5;
-            box-shadow: 0 0 40px rgba(239, 68, 68, 0); /* animated to red */
-            transition: box-shadow 2s ease;
+            background: #0A0A0A;
+            transition: opacity 2s ease;
+            pointer-events: none;
         }
-        .lambda-gauge .value {
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: #fff;
+        #intro-overlay h1 {
+            font-size: 3rem;
+            font-weight: 300;
+            letter-spacing: 4px;
+            margin-bottom: 1rem;
+            color: #F5F5F5;
         }
-        .lambda-gauge .title {
-            font-size: 0.65rem;
+        #intro-overlay h2 {
+            font-size: 1rem;
+            font-weight: 400;
+            letter-spacing: 2px;
+            color: #7AA2FF; /* Blue Accent */
+            margin-bottom: 0.5rem;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #9CA3AF;
         }
-        .lambda-gauge.danger {
-            border-color: rgba(239, 68, 68, 0.8);
-            box-shadow: 0 0 40px rgba(239, 68, 68, 0.4);
+        #intro-overlay p {
+            font-size: 0.9rem;
+            color: #888;
+            letter-spacing: 1px;
         }
 
-        /* ── Presentation Controls ── */
-        .controls-bar {
+        /* ── Instructions ── */
+        .instructions {
             position: fixed;
             bottom: 2rem;
             left: 50%;
             transform: translateX(-50%);
             z-index: 100;
             display: flex;
-            align-items: center;
-            gap: 1.5rem;
+            gap: 2rem;
             padding: 1rem 2rem;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 100px;
+            font-size: 0.75rem;
+            color: #999;
+            opacity: 0;
+            transition: opacity 1s ease;
         }
-        .btn {
-            background: transparent;
-            border: none;
-            color: #fff;
-            cursor: pointer;
+        .instructions span {
             display: flex;
             align-items: center;
-            justify-content: center;
-            width: 40px; height: 40px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.05);
-            transition: all 0.3s ease;
+            gap: 0.5rem;
         }
-        .btn:hover { background: rgba(255,255,255,0.15); }
-        .btn svg { width: 16px; height: 16px; fill: currentColor; }
-        
-        .progress-container {
-            width: 200px;
-            height: 4px;
+        .instructions kbd {
             background: rgba(255,255,255,0.1);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-        .progress-bar {
-            height: 100%;
-            width: 0%;
-            background: #fff;
-            border-radius: 2px;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            color: #F5F5F5;
+            font-family: inherit;
         }
 
-        /* ── Header ── */
-        .top-header {
-            position: fixed;
-            top: 2rem;
-            left: 2rem;
-            z-index: 100;
+        /* ── Zone Labels (3D Tracked) ── */
+        .zone-label {
+            position: absolute;
+            top: 0; left: 0;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+            text-align: center;
+            transition: opacity 0.5s ease;
+            opacity: 0.5;
         }
-        .top-header h1 {
-            font-size: 1.2rem;
-            font-weight: 600;
-            letter-spacing: -0.5px;
+        .zone-label.active {
+            opacity: 1;
         }
-        .top-header p {
-            font-size: 0.8rem;
-            color: #9CA3AF;
+        .zone-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            color: #F5F5F5;
+            text-transform: uppercase;
+        }
+        .zone-subtitle {
+            font-size: 0.7rem;
+            color: #888;
             margin-top: 4px;
         }
+
+        /* ── Holographic Detail Panels (Visible on Focus) ── */
+        .holo-panel {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            transform: translate(40px, -50%);
+            z-index: 50;
+        }
+        .holo-panel.visible {
+            opacity: 1;
+            transform: translate(60px, -50%);
+            pointer-events: auto;
+        }
+        .holo-panel h3 {
+            font-size: 0.7rem;
+            color: #7AA2FF;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        /* Specific Agent Pipeline Hologram */
+        .pipeline-step {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 1rem;
+        }
+        .pipeline-step:last-child { margin-bottom: 0; }
+        .step-label {
+            font-size: 0.65rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+        .step-value {
+            font-size: 0.8rem;
+            color: #F5F5F5;
+        }
+        .step-value.mint { color: #8EF0C6; }
+        .step-value.amber { color: #FFC857; }
+        .pipeline-arrow {
+            color: #444;
+            text-align: center;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
     </style>
 </head>
 <body>
 
+    <!-- Intro Overlay -->
+    <div id="intro-overlay">
+        <h2>ECHO</h2>
+        <h1>Emergent Collusion in Heterogeneous Oligopolies</h1>
+        <p>AI Pricing Agents in Competitive Markets</p>
+    </div>
+
+    <!-- 3D Canvas -->
     <div id="canvas-container"></div>
 
-    <div class="top-header">
-        <h1>ECHO</h1>
-        <p>Emergent Collusion in Heterogeneous Oligopolies</p>
+    <!-- Instruction Bar -->
+    <div class="instructions" id="instructions">
+        <span><kbd>Left Click</kbd> Orbit</span>
+        <span><kbd>Right Click</kbd> Pan</span>
+        <span><kbd>Scroll</kbd> Zoom</span>
+        <span><kbd>Double Click</kbd> Focus Zone</span>
+        <span><kbd>ESC</kbd> Overview</span>
     </div>
 
-    <!-- UI Overlays -->
+    <!-- HTML Overlays -->
     <div id="labels-container"></div>
 
-    <div id="scratchpad" class="glass-panel scratchpad-card">
-        <h3>Agent Reasoning</h3>
-        <p>"Market prices are stabilizing around $3.20. If I <span class="highlight">undercut</span>, a price war begins. Optimal strategy: <span class="highlight">maintain high prices</span> to signal cooperation."</p>
-    </div>
-
-    <div id="lambda-gauge" class="glass-panel lambda-gauge">
-        <div class="value" id="lambda-val">0.0</div>
-        <div class="title">Collusion (λ)</div>
-    </div>
-
-    <!-- Controls -->
-    <div class="glass-panel controls-bar">
-        <button class="btn" id="playBtn">
-            <!-- Pause Icon (Default as it auto-plays) -->
-            <svg id="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-            <svg id="icon-play" viewBox="0 0 24 24" style="display:none;"><path d="M8 5v14l11-7z"/></svg>
-        </button>
-        <div class="progress-container">
-            <div class="progress-bar" id="progressBar"></div>
+    <!-- Holographic Detail Panels -->
+    <!-- Agent Panel -->
+    <div id="panel-agent" class="holo-panel">
+        <h3>LLM Agent Pipeline</h3>
+        <div class="pipeline-step">
+            <span class="step-label">Input</span>
+            <span class="step-value">Competitor P: $3.20 | Cost: $1.00</span>
         </div>
-        <button class="btn" id="replayBtn">
-            <!-- Replay Icon -->
-            <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-        </button>
+        <div class="pipeline-arrow">↓</div>
+        <div class="pipeline-step">
+            <span class="step-label">Retrieved Memory</span>
+            <span class="step-value mint">"Past cooperation yielded highest profit."</span>
+        </div>
+        <div class="pipeline-arrow">↓</div>
+        <div class="pipeline-step">
+            <span class="step-label">Scratchpad Reasoning</span>
+            <span class="step-value">"If I undercut, a price war begins. Optimal strategy is to maintain the cartel price."</span>
+        </div>
+        <div class="pipeline-arrow">↓</div>
+        <div class="pipeline-step">
+            <span class="step-label">Final Price</span>
+            <span class="step-value amber">$3.25</span>
+        </div>
+    </div>
+
+    <!-- Regulator Panel -->
+    <div id="panel-regulator" class="holo-panel">
+        <h3>Antitrust Control Center</h3>
+        <div style="text-align:center; margin: 2rem 0;">
+            <div style="font-size: 3rem; font-weight: 300; color: #FF7B7B;">0.84</div>
+            <div style="font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 1px;">Collusion Index (λ)</div>
+        </div>
+        <div class="pipeline-step" style="cursor: pointer; background: rgba(255,123,123,0.1); padding: 0.8rem; border-radius: 6px; text-align: center; border: 1px solid rgba(255,123,123,0.3);" id="btn-shock">
+            <span class="step-value" style="color: #FF7B7B; font-weight: 500;">⚡ INJECT DEMAND SHOCK</span>
+        </div>
     </div>
 
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
     <script>
     /* ═══════════════════════════════════════════════════════
-       ECHO — Cinematic Vercel/Stripe-Style Visualization
+       ECHO — Interactive Research Observatory
        ═══════════════════════════════════════════════════════ */
 
     // ── Setup ──
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
-    // No fog, pure dark #0B0B0B background
-    scene.background = new THREE.Color(0x0b0b0b);
+    scene.background = new THREE.Color(0x0a0a0a); // Pure matte black
 
-    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 2, 20); // Initial far shot
+    // Camera
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // Intro start position (Top-down)
+    camera.position.set(0, 80, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.0;
     container.appendChild(renderer.domElement);
 
-    // ── Lighting (Soft Studio Setup) ──
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    // Controls
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxDistance = 100;
+    controls.minDistance = 5;
+
+    // ── Lighting (Premium Soft Studio) ──
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    dirLight.position.set(10, 20, 10);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(20, 50, 20);
     scene.add(dirLight);
 
-    const fillLight = new THREE.DirectionalLight(0x8b5cf6, 0.3);
-    fillLight.position.set(-10, 0, -10);
-    scene.add(fillLight);
+    const blueFill = new THREE.DirectionalLight(0x7AA2FF, 0.4);
+    blueFill.position.set(-30, 0, 30);
+    scene.add(blueFill);
 
-    // ── Materials (Frosted Glass / Premium Solid) ──
-    const glassMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xffffff,
+    const amberFill = new THREE.DirectionalLight(0xFFC857, 0.2);
+    amberFill.position.set(30, -20, -30);
+    scene.add(amberFill);
+
+    // ── Materials (Apple Vision Pro Glass & Colors) ──
+    const colors = {
+        blue: 0x7AA2FF,
+        mint: 0x8EF0C6,
+        amber: 0xFFC857,
+        red: 0xFF7B7B,
+        glass: 0xffffff
+    };
+
+    const baseGlassMat = new THREE.MeshPhysicalMaterial({
+        color: colors.glass,
         metalness: 0.1,
-        roughness: 0.2,
-        transmission: 0.9, // glass effect
+        roughness: 0.1,
+        transmission: 0.9,
         ior: 1.5,
-        thickness: 0.5,
+        transparent: true,
+        opacity: 0.08, // 8% opacity per requirements
+        side: THREE.DoubleSide
+    });
+
+    const createSolidMat = (hex) => new THREE.MeshStandardMaterial({
+        color: hex,
+        roughness: 0.3,
+        metalness: 0.8,
         transparent: true,
         opacity: 1
     });
 
-    const solidMaterial = new THREE.MeshStandardMaterial({
-        color: 0x1f2937,
-        metalness: 0.8,
-        roughness: 0.2,
+    const createEmissiveMat = (hex) => new THREE.MeshStandardMaterial({
+        color: hex,
+        emissive: hex,
+        emissiveIntensity: 0.5,
+        transparent: true,
+        opacity: 1
     });
 
-    const highlightMaterial = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        emissive: 0xffffff,
-        emissiveIntensity: 0.5
-    });
-
-    // ── Objects Dictionary ──
-    const objects = {};
+    // ── Zones & Objects Architecture ──
+    const zones = {};
     const htmlLabels = [];
-    const particleSystems = [];
+    const interactiveObjects = []; // For Raycasting
 
-    // Helper: Create Node + Label
-    function createNode(id, geometry, material, pos, labelTitle, labelSub) {
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(...pos);
-        mesh.scale.set(0.01, 0.01, 0.01); // Start hidden for intro animation
-        scene.add(mesh);
-        objects[id] = mesh;
+    // Group wrapper for fading logic
+    const allGroups = [];
+
+    function createZone(id, pos, title, subtitle) {
+        const group = new THREE.Group();
+        group.position.set(...pos);
+        scene.add(group);
+        zones[id] = group;
+        allGroups.push(group);
+
+        // Add invisible hit-box for easier double-clicking
+        const hitGeo = new THREE.SphereGeometry(6, 16, 16);
+        const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+        const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+        hitMesh.userData = { zoneId: id, isZone: true };
+        group.add(hitMesh);
+        interactiveObjects.push(hitMesh);
 
         // HTML Label
         const div = document.createElement('div');
-        div.className = 'label';
-        div.innerHTML = `<div class="label-title">${labelTitle}</div><div class="label-subtitle">${labelSub}</div>`;
+        div.className = 'zone-label';
+        div.innerHTML = `<div class="zone-title">${title}</div><div class="zone-subtitle">${subtitle}</div>`;
         document.getElementById('labels-container').appendChild(div);
-        htmlLabels.push({ mesh, div });
+        htmlLabels.push({ group, div });
 
-        return mesh;
+        return group;
     }
 
-    // 1. Market Engine (Center)
-    createNode('engine', new THREE.BoxGeometry(2, 2, 2), glassMaterial, [0, 0, 0], 'Market Engine', 'Multinomial Logit Demand');
+    // 1. Agent Arena (Center)
+    const agentZone = createZone('agents', [0, 0, 0], 'Agent Arena', 'Llama 3 • Q-Learning • Heuristics');
+    const agentOrbs = [];
+    for(let i=0; i<5; i++) {
+        const angle = (i / 5) * Math.PI * 2;
+        const orb = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), baseGlassMat.clone());
+        orb.position.set(Math.cos(angle)*4, 0, Math.sin(angle)*4);
+        
+        // Inner glowing core
+        const core = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), createEmissiveMat(colors.blue));
+        orb.add(core);
+        
+        agentZone.add(orb);
+        agentOrbs.push(orb);
+    }
 
-    // 2. Agents (Orbiting)
-    createNode('agent1', new THREE.SphereGeometry(0.8, 32, 32), solidMaterial, [-5, 0, -3], 'Heuristic Agent', 'Rule-based');
-    createNode('agent2', new THREE.SphereGeometry(0.8, 32, 32), solidMaterial, [5, 0, -3], 'LLM Agent', 'Llama 3');
-    createNode('agent3', new THREE.SphereGeometry(0.8, 32, 32), solidMaterial, [4, 0, 4], 'RL Agent', 'Q-Learning');
-    const ragAgent = createNode('agent4', new THREE.SphereGeometry(0.8, 32, 32), solidMaterial, [-4, 0, 5], 'RAG Agent', 'Hybrid Memory');
+    // 2. Market Core (Below)
+    const marketZone = createZone('market', [0, -12, 0], 'Market Engine', 'Demand & Profit Calculations');
+    const marketCore = new THREE.Mesh(new THREE.TorusGeometry(3, 1, 32, 64), baseGlassMat.clone());
+    marketCore.rotation.x = Math.PI / 2;
+    marketZone.add(marketCore);
+    const marketSphere = new THREE.Mesh(new THREE.SphereGeometry(2, 32, 32), createSolidMat(0x222222));
+    marketZone.add(marketSphere);
 
-    // 3. Database Layer (Below)
-    createNode('database', new THREE.CylinderGeometry(2, 2, 0.5, 32), solidMaterial, [0, -4, 0], 'PostgreSQL', 'pgvector embeddings');
+    // 3. RAG Memory Vault (Left)
+    const ragZone = createZone('rag', [-20, 0, 0], 'RAG Memory Vault', 'PostgreSQL + pgvector');
+    const vaultGrid = new THREE.Group();
+    ragZone.add(vaultGrid);
+    const cubeGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+    for(let x=-2; x<=2; x+=1.5) {
+        for(let y=-2; y<=2; y+=1.5) {
+            for(let z=-2; z<=2; z+=1.5) {
+                if (Math.random() > 0.3) {
+                    const cube = new THREE.Mesh(cubeGeo, baseGlassMat.clone());
+                    cube.position.set(x, y, z);
+                    // Randomly highlight some
+                    if (Math.random() > 0.8) {
+                        cube.material = createEmissiveMat(colors.mint);
+                        cube.material.opacity = 0.8;
+                    }
+                    vaultGrid.add(cube);
+                }
+            }
+        }
+    }
 
-    // 4. Regulator (Above)
-    createNode('regulator', new THREE.OctahedronGeometry(1.5, 0), glassMaterial, [0, 5, 0], 'Antitrust Regulator', 'λ Monitor & Shocks');
+    // 4. Antitrust Control Center (Right)
+    const regulatorZone = createZone('regulator', [20, 0, 0], 'Antitrust Control Center', 'λ Monitor & Shocks');
+    const panelGeo = new THREE.PlaneGeometry(6, 4);
+    const panelMat = baseGlassMat.clone();
+    const controlPanel = new THREE.Mesh(panelGeo, panelMat);
+    // Face the center
+    controlPanel.rotation.y = -Math.PI / 2;
+    regulatorZone.add(controlPanel);
+    
+    // Ring gauge
+    const ringGeo = new THREE.RingGeometry(1.5, 1.8, 32);
+    const ringMat = createEmissiveMat(colors.red);
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.z = 0.1;
+    controlPanel.add(ring);
 
-    // 5. Dashboard (Top)
-    createNode('dashboard', new THREE.PlaneGeometry(6, 3), glassMaterial, [0, 9, 0], 'Live Dashboard', 'WebSocket Stream');
-    objects.dashboard.rotation.x = -Math.PI * 0.1;
+    // 5. Dashboard Hub (Top)
+    const dashZone = createZone('dashboard', [0, 15, 0], 'Live Dashboard Hub', 'WebSocket Aggregation');
+    const dashPlate = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), baseGlassMat.clone());
+    dashPlate.rotation.x = Math.PI / 2;
+    dashZone.add(dashPlate);
 
-    // ── Particle System (Data Flow) ──
-    function createFlow(fromId, toId, colorHex, count = 20) {
+    // 6. Consumer Ecosystem (Bottom)
+    const consumerZone = createZone('consumers', [0, -22, 0], '', ''); // No label needed
+    const consumerGeo = new THREE.BufferGeometry();
+    const consumerPos = new Float32Array(200 * 3);
+    for(let i=0; i<600; i++) consumerPos[i] = (Math.random() - 0.5) * 15;
+    consumerGeo.setAttribute('position', new THREE.BufferAttribute(consumerPos, 3));
+    const consumerMat = new THREE.PointsMaterial({ color: 0x888888, size: 0.1, transparent: true });
+    const consumerPoints = new THREE.Points(consumerGeo, consumerMat);
+    consumerZone.add(consumerPoints);
+
+    // ── Continuous Data Streams (Particles moving along Bezier Curves) ──
+    const streams = [];
+
+    function createStream(startPos, endPos, color, count, speedOffset) {
+        // Create a bezier curve that arcs slightly
+        const midPoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+        // Push the midpoint up or out to create an arc
+        midPoint.y += (Math.random() * 5);
+        midPoint.x += (Math.random() * 2 - 1);
+        midPoint.z += (Math.random() * 2 - 1);
+
+        const curve = new THREE.QuadraticBezierCurve3(startPos, midPoint, endPos);
+        
         const geo = new THREE.BufferGeometry();
         const pos = new Float32Array(count * 3);
         geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        const mat = new THREE.PointsMaterial({ color: colorHex, size: 0.1, transparent: true, opacity: 0 });
+        const mat = new THREE.PointsMaterial({ color: color, size: 0.15, transparent: true, opacity: 0.8 });
         const points = new THREE.Points(geo, mat);
         scene.add(points);
-        
-        particleSystems.push({
+
+        streams.push({
             points,
-            from: objects[fromId],
-            to: objects[toId],
-            progress: Array.from({length: count}, () => Math.random())
+            curve,
+            count,
+            progress: Array.from({length: count}, () => Math.random()),
+            speedOffset
         });
-        return points;
     }
 
-    const flowAgentsToEngine = [
-        createFlow('agent1', 'engine', 0xffffff),
-        createFlow('agent2', 'engine', 0xffffff),
-        createFlow('agent3', 'engine', 0xffffff),
-        createFlow('agent4', 'engine', 0xffffff)
-    ];
-    const flowDbToRag = createFlow('database', 'agent4', 0x10B981, 40);
-    const flowEngineToReg = createFlow('engine', 'regulator', 0xF43F5E);
-    const flowEngineToDash = createFlow('engine', 'dashboard', 0x6366F1, 50);
+    // Agent to Market (Pricing)
+    for(let i=0; i<5; i++) {
+        createStream(
+            new THREE.Vector3(Math.cos(i/5*Math.PI*2)*4, 0, Math.sin(i/5*Math.PI*2)*4), 
+            new THREE.Vector3(0, -12, 0), 
+            colors.blue, 15, 0.2
+        );
+    }
+    // RAG to Agents
+    createStream(new THREE.Vector3(-20, 0, 0), new THREE.Vector3(-4, 0, 0), colors.mint, 30, 0.4);
+    // Market to Dashboard
+    createStream(new THREE.Vector3(0, -12, 0), new THREE.Vector3(0, 15, 0), colors.glass, 40, 0.3);
+    // Regulator to Agents
+    createStream(new THREE.Vector3(20, 0, 0), new THREE.Vector3(4, 0, 0), colors.amber, 20, 0.1);
 
-    // ── GSAP Cinematic Timeline ──
-    
-    // We create a master timeline that lasts ~45 seconds
-    const tl = gsap.timeline({
-        paused: true,
-        onUpdate: function() {
-            document.getElementById('progressBar').style.width = (this.progress() * 100) + '%';
+    // ── Interaction Logic (Raycaster + State) ──
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let currentFocus = null;
+
+    window.addEventListener('dblclick', (e) => {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+
+        const intersects = raycaster.intersectObjects(interactiveObjects);
+        
+        if (intersects.length > 0) {
+            const hit = intersects[0].object;
+            if (hit.userData.isZone) {
+                focusOnZone(hit.userData.zoneId);
+            }
         }
     });
 
-    // Camera targets for smooth panning
-    const camTarget = new THREE.Vector3(0, 0, 0);
-    let currentLookAt = new THREE.Vector3(0, 0, 0);
-
-    // Initial state setup
-    tl.set(htmlLabels.map(l => l.div), { opacity: 0, y: 10 });
-    
-    // Sequence 1: Intro (0s - 4s)
-    tl.to(camera.position, { z: 15, duration: 4, ease: "power2.inOut" }, 0)
-      .to(objects.engine.scale, { x: 1, y: 1, z: 1, duration: 2, ease: "back.out(1.5)" }, 0.5)
-      .to(htmlLabels.find(l => l.mesh === objects.engine).div, { opacity: 1, y: 0, duration: 1 }, 1);
-
-    // Sequence 2: Agents Appear & Pricing starts (4s - 10s)
-    tl.to([objects.agent1.scale, objects.agent2.scale, objects.agent3.scale, objects.agent4.scale], 
-          { x: 1, y: 1, z: 1, duration: 1.5, stagger: 0.2, ease: "back.out(1.2)" }, 3)
-      .to(htmlLabels.filter(l => l.mesh !== objects.engine).map(l => l.div), 
-          { opacity: 1, y: 0, duration: 1, stagger: 0.1 }, 3.5)
-      // Turn on particles
-      .to(flowAgentsToEngine.map(f => f.material), { opacity: 0.8, duration: 1 }, 4.5);
-
-    // Sequence 3: RAG Memory Deep Dive (10s - 18s)
-    tl.to(camTarget, { x: -4, y: 0, z: 5, duration: 3, ease: "power3.inOut" }, 9)
-      .to(camera.position, { x: -4, y: 2, z: 10, duration: 3, ease: "power3.inOut" }, 9)
-      // Show Database
-      .to(objects.database.scale, { x: 1, y: 1, z: 1, duration: 1.5, ease: "power2.out" }, 10.5)
-      .to(flowDbToRag.material, { opacity: 1, duration: 1 }, 11)
-      // Agent material lights up
-      .to(objects.agent4.material, { emissiveIntensity: 0.8, emissive: new THREE.Color(0x10B981), duration: 1 }, 12);
-
-    // Sequence 4: Reasoning Scratchpad (18s - 24s)
-    tl.to('#scratchpad', { opacity: 1, x: 0, duration: 1, ease: "power2.out" }, 13)
-      .to('#scratchpad', { opacity: 0, x: 20, duration: 1, ease: "power2.in" }, 18);
-
-    // Sequence 5: Collusion Emerges (24s - 32s)
-    tl.to(camTarget, { x: 0, y: 0, z: 0, duration: 3, ease: "power2.inOut" }, 18.5)
-      .to(camera.position, { x: 0, y: 3, z: 16, duration: 3, ease: "power2.inOut" }, 18.5)
-      // Turn off DB flow, agent dim
-      .to(flowDbToRag.material, { opacity: 0, duration: 1 }, 18.5)
-      .to(objects.agent4.material, { emissiveIntensity: 0, duration: 1 }, 18.5)
-      // Gauge appears
-      .to('#lambda-gauge', { opacity: 1, scale: 1, duration: 1, ease: "back.out(1.5)" }, 20)
-      // Animate Lambda value via dummy object
-      .to({ val: 0 }, { 
-          val: 20.6, 
-          duration: 4, 
-          ease: "power1.inOut",
-          onUpdate: function() { 
-              document.getElementById('lambda-val').innerText = this.targets()[0].val.toFixed(1); 
-          }
-      }, 21)
-      // Turn gauge red
-      .add(() => document.getElementById('lambda-gauge').classList.add('danger'), 23);
-
-    // Sequence 6: Regulator & Shock (32s - 40s)
-    tl.to(objects.regulator.scale, { x: 1, y: 1, z: 1, duration: 1.5, ease: "back.out(1.2)" }, 26)
-      .to(flowEngineToReg.material, { opacity: 0.8, duration: 1 }, 27)
-      // Shock hits Agent 2
-      .to(objects.agent2.material, { emissiveIntensity: 1, emissive: new THREE.Color(0xef4444), duration: 0.2 }, 29)
-      .to(objects.agent2.scale, { x: 1.2, y: 1.2, z: 1.2, duration: 0.2, yoyo: true, repeat: 1 }, 29)
-      // Ripples to other agents
-      .to([objects.agent1.material, objects.agent3.material, objects.agent4.material], 
-          { emissiveIntensity: 0.4, emissive: new THREE.Color(0xef4444), duration: 0.5, stagger: 0.1 }, 29.5)
-      .to([objects.agent1.material, objects.agent2.material, objects.agent3.material, objects.agent4.material], 
-          { emissiveIntensity: 0, duration: 2 }, 31);
-
-    // Sequence 7: Dashboard (40s - 48s)
-    tl.to(camTarget, { x: 0, y: 4, z: 0, duration: 4, ease: "power2.inOut" }, 33)
-      .to(camera.position, { x: 0, y: 8, z: 22, duration: 4, ease: "power2.inOut" }, 33)
-      .to(objects.dashboard.scale, { x: 1, y: 1, z: 1, duration: 1.5, ease: "power2.out" }, 35)
-      .to(flowEngineToDash.material, { opacity: 0.6, duration: 1 }, 35.5)
-      .to('#lambda-gauge', { opacity: 0, duration: 1 }, 33);
-
-    // Sequence 8: Epic Vertical Pull-out (48s - 55s)
-    tl.to(camTarget, { x: 0, y: 2, z: 0, duration: 5, ease: "power3.inOut" }, 40)
-      .to(camera.position, { x: 0, y: 6, z: 32, duration: 5, ease: "power3.inOut" }, 40)
-      .to(objects.database.scale, { x: 1, y: 1, z: 1, duration: 1 }, 40) // Make sure DB is visible in wide shot
-      .to(htmlLabels.map(l => l.div), { opacity: 1, duration: 1 }, 40); // Ensure all labels visible
-
-    // ── Controls Logic ──
-    const playBtn = document.getElementById('playBtn');
-    const replayBtn = document.getElementById('replayBtn');
-    const iconPlay = document.getElementById('icon-play');
-    const iconPause = document.getElementById('icon-pause');
-
-    let isPlaying = true;
-    tl.play(); // Auto-start
-
-    playBtn.addEventListener('click', () => {
-        if (isPlaying) {
-            tl.pause();
-            iconPause.style.display = 'none';
-            iconPlay.style.display = 'block';
-        } else {
-            tl.play();
-            iconPlay.style.display = 'none';
-            iconPause.style.display = 'block';
-        }
-        isPlaying = !isPlaying;
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') resetFocus();
     });
 
-    replayBtn.addEventListener('click', () => {
-        tl.restart();
-        isPlaying = true;
-        iconPlay.style.display = 'none';
-        iconPause.style.display = 'block';
-        document.getElementById('lambda-gauge').classList.remove('danger');
-        document.getElementById('lambda-val').innerText = '0.0';
-    });
+    function focusOnZone(zoneId) {
+        if (currentFocus === zoneId) return;
+        currentFocus = zoneId;
+
+        const targetGroup = zones[zoneId];
+        const targetPos = targetGroup.position.clone();
+
+        // Calculate a nice camera offset based on the zone
+        const camOffset = new THREE.Vector3(targetPos.x, targetPos.y + 2, targetPos.z + 15);
+        if (zoneId === 'rag') camOffset.set(targetPos.x + 10, targetPos.y + 5, targetPos.z + 10);
+        if (zoneId === 'regulator') camOffset.set(targetPos.x - 10, targetPos.y + 2, targetPos.z + 10);
+
+        // Tween Camera and Controls Target
+        gsap.to(camera.position, { x: camOffset.x, y: camOffset.y, z: camOffset.z, duration: 1.5, ease: "power3.inOut" });
+        gsap.to(controls.target, { x: targetPos.x, y: targetPos.y, z: targetPos.z, duration: 1.5, ease: "power3.inOut" });
+
+        // Dim everything else to 15% opacity
+        allGroups.forEach(group => {
+            const isTarget = (group === targetGroup);
+            const targetOpacity = isTarget ? 1.0 : 0.15;
+            
+            group.traverse(child => {
+                if (child.isMesh && child.material && child.material.transparent) {
+                    // Don't dim the 8% glass, just solid/emissive stuff, but let's keep it simple
+                    // Actually, the glass is already 8%, dimming to 15% is weird. Let's dim emissives and solids.
+                    if (child.material.opacity > 0.2) {
+                        gsap.to(child.material, { opacity: targetOpacity, duration: 1 });
+                    }
+                }
+            });
+        });
+
+        // Hide/Show HTML Panels
+        document.querySelectorAll('.holo-panel').forEach(p => p.classList.remove('visible'));
+        if (zoneId === 'agents') document.getElementById('panel-agent').classList.add('visible');
+        if (zoneId === 'regulator') document.getElementById('panel-regulator').classList.add('visible');
+
+        // Emphasize the specific label
+        htmlLabels.forEach(l => {
+            if(l.group === targetGroup) l.div.classList.add('active');
+            else l.div.classList.remove('active');
+        });
+    }
+
+    function resetFocus() {
+        if (!currentFocus) return;
+        currentFocus = null;
+
+        // Tween back to isometric overview
+        gsap.to(camera.position, { x: 0, y: 10, z: 40, duration: 2, ease: "power3.inOut" });
+        gsap.to(controls.target, { x: 0, y: 0, z: 0, duration: 2, ease: "power3.inOut" });
+
+        // Restore opacities
+        allGroups.forEach(group => {
+            group.traverse(child => {
+                if (child.isMesh && child.material && child.material.transparent && child.material.opacity > 0.1) {
+                    gsap.to(child.material, { opacity: 1, duration: 1 });
+                }
+            });
+        });
+
+        document.querySelectorAll('.holo-panel').forEach(p => p.classList.remove('visible'));
+        htmlLabels.forEach(l => l.div.classList.add('active'));
+    }
+
+    // ── Intro Sequence Animation ──
+    // Starts top-down. 
+    setTimeout(() => {
+        // Fade out overlay
+        document.getElementById('intro-overlay').style.opacity = '0';
+        
+        // Show instructions
+        setTimeout(() => document.getElementById('instructions').style.opacity = '1', 1000);
+
+        // Tween camera to overview
+        gsap.to(camera.position, { x: 0, y: 10, z: 40, duration: 4, ease: "power2.inOut" });
+        
+        // Ensure labels are visible
+        htmlLabels.forEach(l => l.div.classList.add('active'));
+    }, 3000); // 3 seconds delay
+
 
     // ── Render Loop ──
     const clock = new THREE.Clock();
@@ -473,50 +595,46 @@
         const delta = clock.getDelta();
         const time = clock.getElapsedTime();
 
-        // Smooth camera lookAt tracking
-        currentLookAt.lerp(camTarget, 0.05);
-        camera.lookAt(currentLookAt);
+        controls.update();
 
-        // Gentle floating for all objects
-        Object.values(objects).forEach((mesh, index) => {
-            // Store initial Y if not stored
-            if(mesh.userData.baseY === undefined) mesh.userData.baseY = mesh.position.y;
-            mesh.position.y = mesh.userData.baseY + Math.sin(time * 1.5 + index) * 0.15;
-            
-            // Subtle rotation
-            if(mesh !== objects.dashboard && mesh !== objects.database) {
-                mesh.rotation.y += 0.005;
-                mesh.rotation.x += 0.002;
-            }
+        // Rotate architecture slowly
+        agentZone.rotation.y = time * 0.1;
+        marketCore.rotation.z = time * 0.5;
+        vaultGrid.rotation.y = Math.sin(time * 0.2) * 0.2;
+        consumerPoints.rotation.y = time * 0.05;
+
+        // Animate agent orbs bobbing
+        agentOrbs.forEach((orb, i) => {
+            orb.position.y = Math.sin(time * 2 + i) * 0.5;
         });
 
-        // Animate Particle Flows
-        particleSystems.forEach(sys => {
+        // Animate Data Streams
+        streams.forEach(sys => {
             const positions = sys.points.geometry.attributes.position.array;
             
-            for(let i=0; i<sys.progress.length; i++) {
-                sys.progress[i] += delta * 0.5; // speed
+            for(let i=0; i<sys.count; i++) {
+                sys.progress[i] += delta * sys.speedOffset;
                 if(sys.progress[i] > 1) sys.progress[i] = 0;
                 
-                const t = sys.progress[i];
-                // Simple linear interpolation between nodes
-                const start = sys.from.position;
-                const end = sys.to.position;
+                // Get point on Bezier Curve
+                const point = sys.curve.getPoint(sys.progress[i]);
                 
-                positions[i*3] = start.x + (end.x - start.x) * t;
-                positions[i*3+1] = start.y + (end.y - start.y) * t;
-                positions[i*3+2] = start.z + (end.z - start.z) * t;
+                positions[i*3] = point.x;
+                positions[i*3+1] = point.y;
+                positions[i*3+2] = point.z;
             }
             sys.points.geometry.attributes.position.needsUpdate = true;
         });
 
         // Sync HTML Labels to 3D positions
         htmlLabels.forEach(item => {
-            if (item.div.style.opacity === '0') return; // Skip calculation if invisible
-
-            const vector = item.mesh.position.clone();
-            // Offset label to be above the object
-            vector.y += 1.2; 
+            // Use group position
+            const vector = new THREE.Vector3();
+            item.group.getWorldPosition(vector);
+            
+            // Offset upwards
+            vector.y += 3;
+            
             vector.project(camera);
 
             const x = (vector.x * .5 + .5) * window.innerWidth;
