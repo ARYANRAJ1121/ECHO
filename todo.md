@@ -40,30 +40,17 @@ math engine that computes: "given 5 prices, who sells how much, and who profits?
 
 ---
 
-## Phase 1.5: Real Data Validation (After Phase 5)
+## Phase 1.5: Real Data Validation (After Phase 5) -- SUPERSEDED by Phase 5.5
 
-**Goal:** Ground the simulation in real-world pricing data.
+**Status:** This phase was superseded by Phase 5.5 (Real Data Validation) which
+used US EIA gasoline prices and calibrated Amazon marketplace data. See Phase 5.5
+below for completed deliverables.
 
-Pure simulation is valid (Calvano 2020 did the same in American Economic Review),
-but validating against real data makes the paper much stronger. We do this after
-Phase 5 so we can compare real-world Lambda against our fully-detected simulation.
-
-- [ ] Download Amazon Product Pricing dataset (Kaggle, free)
-- [ ] Identify product categories with 5+ competing sellers
-- [ ] Calculate real-world Lambda values for those categories
-- [ ] Compare: does real market Lambda match simulated Lambda?
-- [ ] Add as "Empirical Validation" section in paper
-
-**Alternative datasets:**
-- US DOT airline fare data (free, government) -- historical ticket prices
-- US EIA gasoline prices (free) -- known collusion cases exist
-
-**Why this matters:** Your project goes from "I ran a simulation" to
-"I ran a simulation AND validated it against real Amazon pricing data."
-That's the difference between a class project and a research contribution.
-
-**Deliverable:** "Our simulated Nash price matches observed multi-seller
-pricing patterns in Amazon product markets."
+- [x] ~~Download Amazon Product Pricing dataset~~ → Used calibrated Amazon data (Phase 5.5)
+- [x] ~~Identify product categories with 5+ competing sellers~~ → 6 categories, 557 listings
+- [x] ~~Calculate real-world Lambda values~~ → Lambda_proxy = 1 - CoV
+- [x] ~~Compare: does real market Lambda match simulated Lambda?~~ → Yes, see validation report
+- [x] ~~Add as "Empirical Validation" section~~ → Figures 8-10 + JSON report
 
 ---
 
@@ -117,7 +104,7 @@ cost + 0.5", agents now ask Llama 3 8B: "given this market, what should I charge
   - Key: prompt does NOT mention collusion (we observe if it emerges)
 - [x] 5 independent LLM agent instances
 - [x] Scratchpad history stored in memory
-- [ ] Save scratchpads to PostgreSQL (needs Phase 2)
+- [x] Save scratchpads to PostgreSQL (`database/db.py` L169-180, wired in `engine.py`)
 
 **Deliverable:** `python run_simulation.py --mode llm --rounds 3` works.
 
@@ -127,7 +114,7 @@ about competitor behavior and choosing not to undercut. Textbook tacit collusion
 
 ---
 
-## Phase 4: RAG Memory (Week 7-8)
+## Phase 4: RAG Memory (Week 7-8) -- DONE
 
 **Goal:** Give agents episodic memory so they remember past market conditions.
 
@@ -136,19 +123,27 @@ Currently, agents only see the last 5 rounds in their prompt. With RAG
 "Last time all prices were above 3.0, what happened?" This tests whether
 memory amplifies or dampens collusion -- a novel research question.
 
-- [ ] Embedding pipeline
+- [x] Embedding pipeline (`database/memory.py`)
   - Each round: convert market state to text, embed with nomic-embed-text
   - Store embedding + metadata in pgvector
-- [ ] Retrieval at decision time
-  - Before choosing price: search for top 3 most similar past states
-  - Inject retrieved context into LLM prompt
-  - "In a similar situation (Round 47), you charged 2.8 and earned 0.015"
-- [ ] RAG-enabled agent subclass (`agents/rag_agent.py`)
-- [ ] A/B experiment design
+  - `embed_text()` calls Ollama `/api/embed` → 768-dim vector
+  - `store_market_state()` inserts into `embeddings` table
+- [x] Retrieval at decision time
+  - Standard search: `search_similar()` — pure vector cosine similarity
+  - Hybrid search: `hybrid_search()` — vector + SQL WHERE filters (profit, lambda, share)
+  - Smart search: `smart_search()` — auto-selects filter strategy based on context
+  - Inject retrieved context into LLM prompt with rich metadata
+- [x] RAG-enabled agent subclass (`agents/rag_agent.py`)
+  - `RAGPricingAgent` extends `LLMPricingAgent`
+  - Overrides `choose_price()` to retrieve memories before prompting
+  - Overrides `_build_prompt()` to inject memory section with keyword highlighting
+  - `store_round_memory()` called by engine after each round
+- [x] A/B experiment design
   - Run A: 5 agents WITH RAG memory (1000+ rounds)
   - Run B: 5 agents WITHOUT RAG memory (1000+ rounds)
   - Compare: Lambda trajectory, convergence speed, final price level
-- [ ] Already have nomic-embed-text model in Ollama
+  - CLI: `python run_simulation.py --mode rag --rounds 1000 --db`
+- [x] nomic-embed-text model in Ollama
 
 **Deliverable:** RAG vs No-RAG experiment ready to run.
 
