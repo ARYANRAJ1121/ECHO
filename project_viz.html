@@ -3,728 +3,543 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECHO — Futuristic 3D Architecture</title>
+    <title>ECHO — Cinematic Platform Tour</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        :root {
-            --primary: #0ea5e9;
-            --secondary: #8b5cf6;
-            --danger: #f43f5e;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --bg-color: #020617;
-            --glass-bg: rgba(2, 6, 23, 0.65);
-            --glass-border: rgba(14, 165, 233, 0.3);
-        }
-
         body {
-            background: var(--bg-color);
-            color: #e2e8f0;
-            font-family: 'Rajdhani', sans-serif;
+            background-color: #0B0B0B;
+            color: #F3F4F6;
+            font-family: 'Inter', sans-serif;
             overflow: hidden;
             user-select: none;
-            background-image: 
-                radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.05) 0%, transparent 50%),
-                linear-gradient(rgba(2, 6, 23, 1) 0%, rgba(2, 6, 23, 0.95) 100%);
+            -webkit-font-smoothing: antialiased;
         }
 
         #canvas-container {
             position: fixed;
             inset: 0;
-            z-index: 0;
-            cursor: crosshair;
+            z-index: 1;
         }
 
-        /* ── Scanlines Overlay ── */
-        .scanlines {
-            position: fixed;
-            inset: 0;
-            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
-            background-size: 100% 4px;
+        /* ── Glassmorphism UI ── */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            padding: 1.5rem;
+        }
+
+        /* ── Floating Labels (Synced with 3D objects) ── */
+        .label {
+            position: absolute;
+            top: 0; left: 0;
+            transform: translate(-50%, -50%);
             pointer-events: none;
             z-index: 10;
-            opacity: 0.3;
+            opacity: 0;
+            text-align: center;
+        }
+        .label-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+        .label-subtitle {
+            font-size: 0.7rem;
+            color: #9CA3AF;
         }
 
-        /* ── HUD Header ── */
-        .header {
+        /* ── Specific Overlays ── */
+        .scratchpad-card {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 260px;
+            transform: translate(20px, -50%);
+            opacity: 0;
+            z-index: 10;
+        }
+        .scratchpad-card h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #9CA3AF;
+            margin-bottom: 0.8rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .scratchpad-card p {
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: #D1D5DB;
+        }
+        .scratchpad-card .highlight { color: #A78BFA; }
+
+        .lambda-gauge {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px; height: 120px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            z-index: 5;
+            box-shadow: 0 0 40px rgba(239, 68, 68, 0); /* animated to red */
+            transition: box-shadow 2s ease;
+        }
+        .lambda-gauge .value {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #fff;
+        }
+        .lambda-gauge .title {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #9CA3AF;
+        }
+        .lambda-gauge.danger {
+            border-color: rgba(239, 68, 68, 0.8);
+            box-shadow: 0 0 40px rgba(239, 68, 68, 0.4);
+        }
+
+        /* ── Presentation Controls ── */
+        .controls-bar {
             position: fixed;
-            top: 2rem;
-            left: 2rem;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 100;
             display: flex;
             align-items: center;
             gap: 1.5rem;
-            pointer-events: none;
+            padding: 1rem 2rem;
+            border-radius: 100px;
         }
-        .header > * { pointer-events: auto; }
-        .logo-box {
-            position: relative;
-            padding: 0.5rem 1.5rem;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-left: 4px solid var(--primary);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 0 20px rgba(14, 165, 233, 0.2);
-            clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%);
-        }
-        .logo-box h1 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.8rem;
-            font-weight: 900;
-            letter-spacing: 2px;
+        .btn {
+            background: transparent;
+            border: none;
             color: #fff;
-            text-shadow: 0 0 10px var(--primary);
-            margin: 0;
-        }
-        .logo-box span { color: var(--primary); }
-        .system-status {
+            cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 1rem;
-            padding: 0.5rem 1rem;
-            background: var(--glass-bg);
-            border: 1px solid rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 4px;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.75rem;
-            color: #94a3b8;
-        }
-        .status-dot {
-            width: 8px; height: 8px;
-            background: var(--success);
+            justify-content: center;
+            width: 40px; height: 40px;
             border-radius: 50%;
-            box-shadow: 0 0 10px var(--success);
-            animation: pulse 2s infinite;
+            background: rgba(255,255,255,0.05);
+            transition: all 0.3s ease;
         }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-
-        /* ── HUD Info Panel ── */
-        .info-panel {
-            position: fixed;
-            right: -450px;
-            top: 2rem;
-            bottom: 2rem;
-            width: 400px;
-            z-index: 200;
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 0.95) 100%);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-right: none;
-            border-left: 2px solid var(--primary);
-            padding: 2rem;
-            transition: right 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-            overflow-y: auto;
-            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
-            display: flex;
-            flex-direction: column;
-        }
-        .info-panel.visible { right: 0; }
+        .btn:hover { background: rgba(255,255,255,0.15); }
+        .btn svg { width: 16px; height: 16px; fill: currentColor; }
         
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1.5rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 1rem;
-        }
-        .close-btn {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #fff;
-            width: 32px; height: 32px;
-            cursor: pointer;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.2rem;
-            transition: all 0.3s;
-        }
-        .close-btn:hover {
-            background: var(--danger);
-            border-color: var(--danger);
-            box-shadow: 0 0 15px var(--danger);
-        }
-        
-        .phase-tag {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.75rem;
-            font-weight: 700;
-            letter-spacing: 2px;
-            color: var(--primary);
-            text-transform: uppercase;
-            margin-bottom: 0.5rem;
-        }
-        .info-panel h2 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: #fff;
-            text-shadow: 0 0 10px rgba(255,255,255,0.3);
-            margin-bottom: 0.5rem;
-        }
-        .info-panel .subtitle {
-            color: #cbd5e1;
-            font-size: 1.05rem;
-            line-height: 1.6;
-            margin-bottom: 1.5rem;
-        }
-
-        .data-box {
-            background: rgba(0,0,0,0.4);
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 4px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            position: relative;
+        .progress-container {
+            width: 200px;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
             overflow: hidden;
         }
-        .data-box::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 3px; height: 100%;
-            background: var(--node-color, var(--primary));
-        }
-        .data-box h3 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.8rem;
-            color: #94a3b8;
-            margin-bottom: 0.8rem;
-            letter-spacing: 1px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .data-box h3::after {
-            content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.1);
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #fff;
+            border-radius: 2px;
         }
 
-        .file-list { list-style: none; }
-        .file-list li {
-            font-family: 'Fira Code', monospace;
-            font-size: 0.8rem;
-            color: #38bdf8;
-            padding: 6px 0;
-            border-bottom: 1px dashed rgba(255,255,255,0.05);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .file-list li::before {
-            content: '>'; color: #64748b;
-        }
-        
-        .result-content {
-            font-size: 0.95rem;
-            line-height: 1.6;
-            color: #e2e8f0;
-        }
-        .result-content strong { color: #fff; font-weight: 600; }
-        .result-content .highlight {
-            color: var(--node-color, var(--primary));
-            text-shadow: 0 0 8px var(--node-color, var(--primary));
-        }
-
-        /* ── Controls Hint ── */
-        .controls-hint {
+        /* ── Header ── */
+        .top-header {
             position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: var(--glass-bg);
-            border: 1px solid rgba(255,255,255,0.1);
-            backdrop-filter: blur(5px);
-            padding: 1rem;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.75rem;
-            color: #64748b;
+            top: 2rem;
+            left: 2rem;
             z-index: 100;
         }
-        .controls-hint p { margin: 4px 0; }
-        .controls-hint span { color: #cbd5e1; font-weight: bold; }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-        ::-webkit-scrollbar-thumb { background: var(--primary); }
+        .top-header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        .top-header p {
+            font-size: 0.8rem;
+            color: #9CA3AF;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="scanlines"></div>
-
     <div id="canvas-container"></div>
 
-    <div class="header">
-        <div class="logo-box">
-            <h1>ECHO <span>// VIZ</span></h1>
-        </div>
-        <div class="system-status">
-            <div class="status-dot"></div>
-            SYS.ONLINE | RENDER.ACTIVE | T:<span id="time-display">00:00</span>
-        </div>
+    <div class="top-header">
+        <h1>ECHO</h1>
+        <p>Emergent Collusion in Heterogeneous Oligopolies</p>
     </div>
 
-    <div class="controls-hint">
-        <p><span>LEFT CLICK + DRAG</span> : ORBIT</p>
-        <p><span>RIGHT CLICK + DRAG</span> : PAN</p>
-        <p><span>SCROLL</span> : ZOOM IN/OUT</p>
-        <p><span>CLICK NODE</span> : INSPECT MODULE</p>
+    <!-- UI Overlays -->
+    <div id="labels-container"></div>
+
+    <div id="scratchpad" class="glass-panel scratchpad-card">
+        <h3>Agent Reasoning</h3>
+        <p>"Market prices are stabilizing around $3.20. If I <span class="highlight">undercut</span>, a price war begins. Optimal strategy: <span class="highlight">maintain high prices</span> to signal cooperation."</p>
     </div>
 
-    <div class="info-panel" id="infoPanel">
-        <div class="panel-header">
-            <div>
-                <div class="phase-tag" id="panelPhase">PHASE</div>
-                <h2 id="panelTitle">Module Name</h2>
-            </div>
-            <button class="close-btn" id="closePanel">X</button>
-        </div>
-        <p class="subtitle" id="panelSubtitle">Module description goes here.</p>
-        
-        <div class="data-box" id="dataBoxFiles">
-            <h3>SOURCE FILES</h3>
-            <ul class="file-list" id="panelFiles"></ul>
-        </div>
-
-        <div class="data-box" id="dataBoxResults">
-            <h3>SYSTEM OUTPUT</h3>
-            <div class="result-content" id="panelResult"></div>
-        </div>
+    <div id="lambda-gauge" class="glass-panel lambda-gauge">
+        <div class="value" id="lambda-val">0.0</div>
+        <div class="title">Collusion (λ)</div>
     </div>
 
-    <!-- Three.js + PostProcessing dependencies -->
+    <!-- Controls -->
+    <div class="glass-panel controls-bar">
+        <button class="btn" id="playBtn">
+            <!-- Pause Icon (Default as it auto-plays) -->
+            <svg id="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            <svg id="icon-play" viewBox="0 0 24 24" style="display:none;"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <button class="btn" id="replayBtn">
+            <!-- Replay Icon -->
+            <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+        </button>
+    </div>
+
+    <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
     <script>
     /* ═══════════════════════════════════════════════════════
-       ECHO — Futuristic 3D Architecture
-       Advanced Three.js scene with Bloom, OrbitControls, and Bezier curves
+       ECHO — Cinematic Vercel/Stripe-Style Visualization
        ═══════════════════════════════════════════════════════ */
 
-    // ── Data Definition ──
-    const NODES = {
-        engine: {
-            label: 'MARKET ENGINE',
-            phase: 'PHASE 1',
-            color: 0x0ea5e9, // primary blue
-            pos: [0, 0, 0],
-            size: 2.5,
-            type: 'core',
-            subtitle: 'The central simulation loop — executes N rounds of the Bertrand pricing game with a Multinomial Logit (MNL) demand model.',
-            files: ['market/demand.py', 'market/engine.py'],
-            result: 'Computes market shares via softmax.<br><br>• <span class="highlight">Nash Eq (Competitive)</span>: $1.52<br>• <span class="highlight">Monopoly (Cartel)</span>: $1.60<br>• <span class="highlight">Collusion Index (λ)</span>: (p̄ − Nash) / (Mono − Nash)',
-        },
-        agents: {
-            label: 'AI AGENTS (N=5)',
-            phase: 'PHASE 3 & 6',
-            color: 0x8b5cf6, // purple
-            pos: [-8, 4, 3],
-            size: 2.0,
-            type: 'satellite',
-            subtitle: 'Autonomous pricing actors: Heuristic, LLM (Llama 3), Q-Learning (RL), and RAG-enhanced LLM.',
-            files: ['agents/llm_agent.py', 'agents/rl_agent.py', 'agents/heuristic_agent.py', 'agents/rag_agent.py'],
-            result: '<strong>LLM Agents: <span class="highlight">λ = 20.6</span></strong><br>Priced at 2× the Nash equilibrium level through tacit coordination without explicit rules.<br><br><strong>RL Agents:</strong> Gradual convergence upward via pure reward optimization.',
-        },
-        database: {
-            label: 'POSTGRES + PGVECTOR',
-            phase: 'PHASE 2',
-            color: 0x10b981, // emerald
-            pos: [0, -6, -3],
-            size: 1.8,
-            type: 'storage',
-            subtitle: 'Persistent storage layer logging all simulation events and vector embeddings.',
-            files: ['database/schema.sql', 'database/db.py', 'docker-compose.yml'],
-            result: '6 Relational Tables:<br>simulations, rounds, firm_rounds, scratchpads, collusion_alerts, embeddings.<br><br>Stores high-dimensional data for real-time memory retrieval.',
-        },
-        rag: {
-            label: 'HYBRID RAG MEMORY',
-            phase: 'PHASE 4',
-            color: 0x06b6d4, // cyan
-            pos: [-6, -4, -4],
-            size: 1.5,
-            type: 'processor',
-            subtitle: 'Episodic memory system injecting past market states into LLM context.',
-            files: ['database/memory.py'],
-            result: '<strong>3 Retrieval Strategies:</strong><br>• <span class="highlight">Standard</span>: Pure cosine similarity<br>• <span class="highlight">Hybrid</span>: Vector + SQL WHERE filters<br>• <span class="highlight">Smart</span>: Auto-context selection',
-        },
-        regulator: {
-            label: 'ANTITRUST DETECTIVE',
-            phase: 'PHASE 5',
-            color: 0xf43f5e, // rose/danger
-            pos: [8, 2, 2],
-            size: 1.8,
-            type: 'analyzer',
-            subtitle: 'Multi-modal detection pipeline to identify algorithmic cartels.',
-            files: ['regulator/detector.py', 'regulator/nlp_cluster.py', 'regulator/perturbation.py'],
-            result: '1. <span class="highlight">λ Monitor</span>: 3-tier price alerts.<br>2. <span class="highlight">NLP Clustering</span>: Cosine similarity of agent scratchpad reasoning.<br>3. <span class="highlight">Demand Shocks</span>: Perturb one firm, observe cross-firm coordination reactions.',
-        },
-        analysis: {
-            label: 'ANALYSIS & VIZ',
-            phase: 'PHASE 5.5 & 7',
-            color: 0xf59e0b, // amber
-            pos: [6, -4, -2],
-            size: 1.5,
-            type: 'processor',
-            subtitle: 'Empirical validation and publication-ready statistical plotting.',
-            files: ['analysis/plots.py', 'analysis/real_data.py'],
-            result: '<strong>Validation Data:</strong><br>• US Gasoline: <span class="highlight">λ = 0.91</span><br>• Amazon Electronics: <span class="highlight">λ = 0.87</span><br><br>Generates 7 core research figures.',
-        },
-        api: {
-            label: 'FASTAPI SERVER',
-            phase: 'PHASE 8',
-            color: 0x6366f1, // indigo
-            pos: [0, 5, 2],
-            size: 1.6,
-            type: 'router',
-            subtitle: 'Real-time WebSocket and REST routing layer.',
-            files: ['api_server.py'],
-            result: 'Endpoints:<br>• <span class="highlight">/ws/simulate</span> (Live streaming)<br>• <span class="highlight">/api/shock/{firm}</span> (Intervention)',
-        },
-        dashboard: {
-            label: 'LIVE DASHBOARD',
-            phase: 'PHASE 8',
-            color: 0xec4899, // pink
-            pos: [0, 9, 0],
-            size: 2.0,
-            type: 'display',
-            subtitle: 'Glassmorphism UI to watch AI agents collude live.',
-            files: ['dashboard/index.html', 'dashboard/style.css', 'dashboard/script.js'],
-            result: 'Features real-time charts, scratchpad viewers, a regulator severity gauge, and interactive demand shock controls.',
-        }
-    };
-
-    const LINKS = [
-        { from: 'agents', to: 'engine', type: 'bidirectional', label: 'Actions / State' },
-        { from: 'engine', to: 'database', type: 'down', label: 'Log Data' },
-        { from: 'database', to: 'rag', type: 'up', label: 'Embeddings' },
-        { from: 'rag', to: 'agents', type: 'up', label: 'Context' },
-        { from: 'engine', to: 'regulator', type: 'up', label: 'Observation' },
-        { from: 'regulator', to: 'engine', type: 'down', label: 'Shocks' },
-        { from: 'database', to: 'analysis', type: 'up', label: 'Query' },
-        { from: 'engine', to: 'api', type: 'up', label: 'Stream' },
-        { from: 'api', to: 'dashboard', type: 'up', label: 'WebSocket' },
-    ];
-
-    // ── Setup Scene, Camera, Renderer ──
+    // ── Setup ──
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x020617, 0.03);
+    // No fog, pure dark #0B0B0B background
+    scene.background = new THREE.Color(0x0b0b0b);
 
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 5, 25);
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 2, 20); // Initial far shot
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.toneMapping = THREE.ReinhardToneMapping;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
     container.appendChild(renderer.domElement);
 
-    // ── Controls ──
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxDistance = 50;
-    controls.minDistance = 5;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.5;
-    controls.target.set(0, 0, 0);
+    // ── Lighting (Soft Studio Setup) ──
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
 
-    // ── Post-Processing (Bloom) ──
-    const renderScene = new THREE.RenderPass(scene, camera);
-    const bloomPass = new THREE.UnrealBloomPass(
-        new THREE.Vector2(window.innerWidth, window.innerHeight),
-        1.5, // strength
-        0.4, // radius
-        0.85 // threshold
-    );
-    const composer = new THREE.EffectComposer(renderer);
-    composer.addPass(renderScene);
-    composer.addPass(bloomPass);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    dirLight.position.set(10, 20, 10);
+    scene.add(dirLight);
 
-    // ── Environment (Cyber Grid) ──
-    const gridHelper = new THREE.GridHelper(100, 50, 0x0ea5e9, 0x0ea5e9);
-    gridHelper.position.y = -10;
-    gridHelper.material.opacity = 0.15;
-    gridHelper.material.transparent = true;
-    scene.add(gridHelper);
+    const fillLight = new THREE.DirectionalLight(0x8b5cf6, 0.3);
+    fillLight.position.set(-10, 0, -10);
+    scene.add(fillLight);
 
-    // Particles background
-    const pGeo = new THREE.BufferGeometry();
-    const pMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, transparent: true, opacity: 0.4 });
-    const pCount = 2000;
-    const pPos = new Float32Array(pCount * 3);
-    for(let i=0; i<pCount*3; i++) {
-        pPos[i] = (Math.random() - 0.5) * 100;
+    // ── Materials (Frosted Glass / Premium Solid) ──
+    const glassMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        metalness: 0.1,
+        roughness: 0.2,
+        transmission: 0.9, // glass effect
+        ior: 1.5,
+        thickness: 0.5,
+        transparent: true,
+        opacity: 1
+    });
+
+    const solidMaterial = new THREE.MeshStandardMaterial({
+        color: 0x1f2937,
+        metalness: 0.8,
+        roughness: 0.2,
+    });
+
+    const highlightMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xffffff,
+        emissiveIntensity: 0.5
+    });
+
+    // ── Objects Dictionary ──
+    const objects = {};
+    const htmlLabels = [];
+    const particleSystems = [];
+
+    // Helper: Create Node + Label
+    function createNode(id, geometry, material, pos, labelTitle, labelSub) {
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(...pos);
+        mesh.scale.set(0.01, 0.01, 0.01); // Start hidden for intro animation
+        scene.add(mesh);
+        objects[id] = mesh;
+
+        // HTML Label
+        const div = document.createElement('div');
+        div.className = 'label';
+        div.innerHTML = `<div class="label-title">${labelTitle}</div><div class="label-subtitle">${labelSub}</div>`;
+        document.getElementById('labels-container').appendChild(div);
+        htmlLabels.push({ mesh, div });
+
+        return mesh;
     }
-    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-    const particleSystem = new THREE.Points(pGeo, pMat);
-    scene.add(particleSystem);
 
-    // ── Node Construction ──
-    const nodeMeshes = {};
-    const nodeAnimators = [];
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
+    // 1. Market Engine (Center)
+    createNode('engine', new THREE.BoxGeometry(2, 2, 2), glassMaterial, [0, 0, 0], 'Market Engine', 'Multinomial Logit Demand');
 
-    function createFuturisticNode(nodeData, key) {
-        const group = new THREE.Group();
-        group.position.set(...nodeData.pos);
-        group.userData = { id: key, ...nodeData };
+    // 2. Agents (Orbiting)
+    createNode('agent1', new THREE.SphereGeometry(0.8, 32, 32), solidMaterial, [-5, 0, -3], 'Heuristic Agent', 'Rule-based');
+    createNode('agent2', new THREE.SphereGeometry(0.8, 32, 32), solidMaterial, [5, 0, -3], 'LLM Agent', 'Llama 3');
+    createNode('agent3', new THREE.SphereGeometry(0.8, 32, 32), solidMaterial, [4, 0, 4], 'RL Agent', 'Q-Learning');
+    const ragAgent = createNode('agent4', new THREE.SphereGeometry(0.8, 32, 32), solidMaterial, [-4, 0, 5], 'RAG Agent', 'Hybrid Memory');
 
-        const r = nodeData.size;
-        const color = new THREE.Color(nodeData.color);
+    // 3. Database Layer (Below)
+    createNode('database', new THREE.CylinderGeometry(2, 2, 0.5, 32), solidMaterial, [0, -4, 0], 'PostgreSQL', 'pgvector embeddings');
 
-        // Inner Core (Glowing)
-        const coreGeo = new THREE.IcosahedronGeometry(r * 0.4, 1);
-        const coreMat = new THREE.MeshBasicMaterial({ color: color });
-        const core = new THREE.Mesh(coreGeo, coreMat);
-        group.add(core);
+    // 4. Regulator (Above)
+    createNode('regulator', new THREE.OctahedronGeometry(1.5, 0), glassMaterial, [0, 5, 0], 'Antitrust Regulator', 'λ Monitor & Shocks');
 
-        // Outer Wireframe Shell
-        const shellGeo = new THREE.IcosahedronGeometry(r, 1);
-        const shellMat = new THREE.MeshBasicMaterial({ color: color, wireframe: true, transparent: true, opacity: 0.3 });
-        const shell = new THREE.Mesh(shellGeo, shellMat);
-        group.add(shell);
+    // 5. Dashboard (Top)
+    createNode('dashboard', new THREE.PlaneGeometry(6, 3), glassMaterial, [0, 9, 0], 'Live Dashboard', 'WebSocket Stream');
+    objects.dashboard.rotation.x = -Math.PI * 0.1;
 
-        // Rings
-        const ringGeo1 = new THREE.TorusGeometry(r * 1.3, 0.02, 16, 64);
-        const ringMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
-        const ring1 = new THREE.Mesh(ringGeo1, ringMat);
-        ring1.rotation.x = Math.PI / 2;
-        group.add(ring1);
+    // ── Particle System (Data Flow) ──
+    function createFlow(fromId, toId, colorHex, count = 20) {
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(count * 3);
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const mat = new THREE.PointsMaterial({ color: colorHex, size: 0.1, transparent: true, opacity: 0 });
+        const points = new THREE.Points(geo, mat);
+        scene.add(points);
+        
+        particleSystems.push({
+            points,
+            from: objects[fromId],
+            to: objects[toId],
+            progress: Array.from({length: count}, () => Math.random())
+        });
+        return points;
+    }
 
-        const ringGeo2 = new THREE.TorusGeometry(r * 1.6, 0.01, 16, 64);
-        const ring2 = new THREE.Mesh(ringGeo2, ringMat);
-        ring2.rotation.y = Math.PI / 3;
-        group.add(ring2);
+    const flowAgentsToEngine = [
+        createFlow('agent1', 'engine', 0xffffff),
+        createFlow('agent2', 'engine', 0xffffff),
+        createFlow('agent3', 'engine', 0xffffff),
+        createFlow('agent4', 'engine', 0xffffff)
+    ];
+    const flowDbToRag = createFlow('database', 'agent4', 0x10B981, 40);
+    const flowEngineToReg = createFlow('engine', 'regulator', 0xF43F5E);
+    const flowEngineToDash = createFlow('engine', 'dashboard', 0x6366F1, 50);
 
-        // HTML Label via CSS2D approach (manual sync)
-        const labelDiv = document.createElement('div');
-        labelDiv.style.position = 'absolute';
-        labelDiv.style.color = '#' + color.getHexString();
-        labelDiv.style.fontFamily = "'Orbitron', sans-serif";
-        labelDiv.style.fontSize = '12px';
-        labelDiv.style.fontWeight = 'bold';
-        labelDiv.style.letterSpacing = '1px';
-        labelDiv.style.textShadow = `0 0 5px ${labelDiv.style.color}`;
-        labelDiv.style.pointerEvents = 'none';
-        labelDiv.innerText = nodeData.label;
-        document.body.appendChild(labelDiv);
+    // ── GSAP Cinematic Timeline ──
+    
+    // We create a master timeline that lasts ~45 seconds
+    const tl = gsap.timeline({
+        paused: true,
+        onUpdate: function() {
+            document.getElementById('progressBar').style.width = (this.progress() * 100) + '%';
+        }
+    });
 
-        scene.add(group);
-        nodeMeshes[key] = { group, core, shell, ring1, ring2, labelDiv };
+    // Camera targets for smooth panning
+    const camTarget = new THREE.Vector3(0, 0, 0);
+    let currentLookAt = new THREE.Vector3(0, 0, 0);
 
-        // Animation logic
-        nodeAnimators.push((t) => {
-            group.position.y = nodeData.pos[1] + Math.sin(t * 2 + nodeData.pos[0]) * 0.3;
-            core.rotation.x = t;
-            core.rotation.y = t * 1.5;
-            shell.rotation.x = -t * 0.5;
-            shell.rotation.y = -t * 0.2;
-            ring1.rotation.x = (Math.PI / 2) + Math.sin(t) * 0.2;
-            ring1.rotation.y = Math.cos(t * 0.5) * 0.2;
-            ring2.rotation.z = t * 0.8;
+    // Initial state setup
+    tl.set(htmlLabels.map(l => l.div), { opacity: 0, y: 10 });
+    
+    // Sequence 1: Intro (0s - 4s)
+    tl.to(camera.position, { z: 15, duration: 4, ease: "power2.inOut" }, 0)
+      .to(objects.engine.scale, { x: 1, y: 1, z: 1, duration: 2, ease: "back.out(1.5)" }, 0.5)
+      .to(htmlLabels.find(l => l.mesh === objects.engine).div, { opacity: 1, y: 0, duration: 1 }, 1);
 
-            // Sync HTML label position
-            const vector = new THREE.Vector3();
-            vector.setFromMatrixPosition(group.matrixWorld);
-            vector.y += r * 1.2; // slightly above
+    // Sequence 2: Agents Appear & Pricing starts (4s - 10s)
+    tl.to([objects.agent1.scale, objects.agent2.scale, objects.agent3.scale, objects.agent4.scale], 
+          { x: 1, y: 1, z: 1, duration: 1.5, stagger: 0.2, ease: "back.out(1.2)" }, 3)
+      .to(htmlLabels.filter(l => l.mesh !== objects.engine).map(l => l.div), 
+          { opacity: 1, y: 0, duration: 1, stagger: 0.1 }, 3.5)
+      // Turn on particles
+      .to(flowAgentsToEngine.map(f => f.material), { opacity: 0.8, duration: 1 }, 4.5);
+
+    // Sequence 3: RAG Memory Deep Dive (10s - 18s)
+    tl.to(camTarget, { x: -4, y: 0, z: 5, duration: 3, ease: "power3.inOut" }, 9)
+      .to(camera.position, { x: -4, y: 2, z: 10, duration: 3, ease: "power3.inOut" }, 9)
+      // Show Database
+      .to(objects.database.scale, { x: 1, y: 1, z: 1, duration: 1.5, ease: "power2.out" }, 10.5)
+      .to(flowDbToRag.material, { opacity: 1, duration: 1 }, 11)
+      // Agent material lights up
+      .to(objects.agent4.material, { emissiveIntensity: 0.8, emissive: new THREE.Color(0x10B981), duration: 1 }, 12);
+
+    // Sequence 4: Reasoning Scratchpad (18s - 24s)
+    tl.to('#scratchpad', { opacity: 1, x: 0, duration: 1, ease: "power2.out" }, 13)
+      .to('#scratchpad', { opacity: 0, x: 20, duration: 1, ease: "power2.in" }, 18);
+
+    // Sequence 5: Collusion Emerges (24s - 32s)
+    tl.to(camTarget, { x: 0, y: 0, z: 0, duration: 3, ease: "power2.inOut" }, 18.5)
+      .to(camera.position, { x: 0, y: 3, z: 16, duration: 3, ease: "power2.inOut" }, 18.5)
+      // Turn off DB flow, agent dim
+      .to(flowDbToRag.material, { opacity: 0, duration: 1 }, 18.5)
+      .to(objects.agent4.material, { emissiveIntensity: 0, duration: 1 }, 18.5)
+      // Gauge appears
+      .to('#lambda-gauge', { opacity: 1, scale: 1, duration: 1, ease: "back.out(1.5)" }, 20)
+      // Animate Lambda value via dummy object
+      .to({ val: 0 }, { 
+          val: 20.6, 
+          duration: 4, 
+          ease: "power1.inOut",
+          onUpdate: function() { 
+              document.getElementById('lambda-val').innerText = this.targets()[0].val.toFixed(1); 
+          }
+      }, 21)
+      // Turn gauge red
+      .add(() => document.getElementById('lambda-gauge').classList.add('danger'), 23);
+
+    // Sequence 6: Regulator & Shock (32s - 40s)
+    tl.to(objects.regulator.scale, { x: 1, y: 1, z: 1, duration: 1.5, ease: "back.out(1.2)" }, 26)
+      .to(flowEngineToReg.material, { opacity: 0.8, duration: 1 }, 27)
+      // Shock hits Agent 2
+      .to(objects.agent2.material, { emissiveIntensity: 1, emissive: new THREE.Color(0xef4444), duration: 0.2 }, 29)
+      .to(objects.agent2.scale, { x: 1.2, y: 1.2, z: 1.2, duration: 0.2, yoyo: true, repeat: 1 }, 29)
+      // Ripples to other agents
+      .to([objects.agent1.material, objects.agent3.material, objects.agent4.material], 
+          { emissiveIntensity: 0.4, emissive: new THREE.Color(0xef4444), duration: 0.5, stagger: 0.1 }, 29.5)
+      .to([objects.agent1.material, objects.agent2.material, objects.agent3.material, objects.agent4.material], 
+          { emissiveIntensity: 0, duration: 2 }, 31);
+
+    // Sequence 7: Dashboard (40s - 48s)
+    tl.to(camTarget, { x: 0, y: 4, z: 0, duration: 4, ease: "power2.inOut" }, 33)
+      .to(camera.position, { x: 0, y: 8, z: 22, duration: 4, ease: "power2.inOut" }, 33)
+      .to(objects.dashboard.scale, { x: 1, y: 1, z: 1, duration: 1.5, ease: "power2.out" }, 35)
+      .to(flowEngineToDash.material, { opacity: 0.6, duration: 1 }, 35.5)
+      .to('#lambda-gauge', { opacity: 0, duration: 1 }, 33);
+
+    // Sequence 8: Epic Vertical Pull-out (48s - 55s)
+    tl.to(camTarget, { x: 0, y: 2, z: 0, duration: 5, ease: "power3.inOut" }, 40)
+      .to(camera.position, { x: 0, y: 6, z: 32, duration: 5, ease: "power3.inOut" }, 40)
+      .to(objects.database.scale, { x: 1, y: 1, z: 1, duration: 1 }, 40) // Make sure DB is visible in wide shot
+      .to(htmlLabels.map(l => l.div), { opacity: 1, duration: 1 }, 40); // Ensure all labels visible
+
+    // ── Controls Logic ──
+    const playBtn = document.getElementById('playBtn');
+    const replayBtn = document.getElementById('replayBtn');
+    const iconPlay = document.getElementById('icon-play');
+    const iconPause = document.getElementById('icon-pause');
+
+    let isPlaying = true;
+    tl.play(); // Auto-start
+
+    playBtn.addEventListener('click', () => {
+        if (isPlaying) {
+            tl.pause();
+            iconPause.style.display = 'none';
+            iconPlay.style.display = 'block';
+        } else {
+            tl.play();
+            iconPlay.style.display = 'none';
+            iconPause.style.display = 'block';
+        }
+        isPlaying = !isPlaying;
+    });
+
+    replayBtn.addEventListener('click', () => {
+        tl.restart();
+        isPlaying = true;
+        iconPlay.style.display = 'none';
+        iconPause.style.display = 'block';
+        document.getElementById('lambda-gauge').classList.remove('danger');
+        document.getElementById('lambda-val').innerText = '0.0';
+    });
+
+    // ── Render Loop ──
+    const clock = new THREE.Clock();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+        const time = clock.getElapsedTime();
+
+        // Smooth camera lookAt tracking
+        currentLookAt.lerp(camTarget, 0.05);
+        camera.lookAt(currentLookAt);
+
+        // Gentle floating for all objects
+        Object.values(objects).forEach((mesh, index) => {
+            // Store initial Y if not stored
+            if(mesh.userData.baseY === undefined) mesh.userData.baseY = mesh.position.y;
+            mesh.position.y = mesh.userData.baseY + Math.sin(time * 1.5 + index) * 0.15;
+            
+            // Subtle rotation
+            if(mesh !== objects.dashboard && mesh !== objects.database) {
+                mesh.rotation.y += 0.005;
+                mesh.rotation.x += 0.002;
+            }
+        });
+
+        // Animate Particle Flows
+        particleSystems.forEach(sys => {
+            const positions = sys.points.geometry.attributes.position.array;
+            
+            for(let i=0; i<sys.progress.length; i++) {
+                sys.progress[i] += delta * 0.5; // speed
+                if(sys.progress[i] > 1) sys.progress[i] = 0;
+                
+                const t = sys.progress[i];
+                // Simple linear interpolation between nodes
+                const start = sys.from.position;
+                const end = sys.to.position;
+                
+                positions[i*3] = start.x + (end.x - start.x) * t;
+                positions[i*3+1] = start.y + (end.y - start.y) * t;
+                positions[i*3+2] = start.z + (end.z - start.z) * t;
+            }
+            sys.points.geometry.attributes.position.needsUpdate = true;
+        });
+
+        // Sync HTML Labels to 3D positions
+        htmlLabels.forEach(item => {
+            if (item.div.style.opacity === '0') return; // Skip calculation if invisible
+
+            const vector = item.mesh.position.clone();
+            // Offset label to be above the object
+            vector.y += 1.2; 
             vector.project(camera);
 
             const x = (vector.x * .5 + .5) * window.innerWidth;
             const y = (vector.y * -.5 + .5) * window.innerHeight;
-            
-            if (vector.z < 1) { // in front of camera
-                labelDiv.style.transform = `translate(-50%, -50%) translate(${x}px,${y}px)`;
-                labelDiv.style.display = 'block';
-                labelDiv.style.opacity = (1 - vector.z) * 2; // fade in distance
+
+            if (vector.z < 1) { // In front of camera
+                item.div.style.transform = `translate(-50%, -50%) translate(${x}px,${y}px)`;
+                item.div.style.display = 'block';
             } else {
-                labelDiv.style.display = 'none';
+                item.div.style.display = 'none';
             }
         });
 
-        // Invisible hit box for raycasting
-        const hitGeo = new THREE.SphereGeometry(r * 1.8, 16, 16);
-        const hitMat = new THREE.MeshBasicMaterial({ visible: false });
-        const hitMesh = new THREE.Mesh(hitGeo, hitMat);
-        hitMesh.userData = { id: key };
-        group.add(hitMesh);
-    }
-
-    Object.keys(NODES).forEach(key => createFuturisticNode(NODES[key], key));
-
-    // ── Connections (Bezier Curves & Data Packets) ──
-    const pathAnimators = [];
-    
-    LINKS.forEach(link => {
-        const fromPos = new THREE.Vector3(...NODES[link.from].pos);
-        const toPos = new THREE.Vector3(...NODES[link.to].pos);
-        const midPos = fromPos.clone().lerp(toPos, 0.5);
-        midPos.y += 3; // Arc height
-
-        const curve = new THREE.QuadraticBezierCurve3(fromPos, midPos, toPos);
-        const points = curve.getPoints(50);
-        
-        // Link Line
-        const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-        const lineMat = new THREE.LineBasicMaterial({ 
-            color: NODES[link.from].color, 
-            transparent: true, 
-            opacity: 0.2 
-        });
-        const line = new THREE.Line(lineGeo, lineMat);
-        scene.add(line);
-
-        // Data Packets (Glowing spheres travelling along curve)
-        const packetCount = 3;
-        for(let i=0; i<packetCount; i++) {
-            const pGeo = new THREE.SphereGeometry(0.15, 8, 8);
-            const pMat = new THREE.MeshBasicMaterial({ color: NODES[link.from].color });
-            const packet = new THREE.Mesh(pGeo, pMat);
-            scene.add(packet);
-
-            let t = i / packetCount;
-            pathAnimators.push((delta) => {
-                t += delta * 0.2;
-                if(t > 1) t = 0;
-                
-                // Get position on curve
-                const pos = curve.getPointAt(t);
-                
-                // Account for node Y bobbing dynamically
-                const yBobFrom = nodeMeshes[link.from].group.position.y - NODES[link.from].pos[1];
-                const yBobTo = nodeMeshes[link.to].group.position.y - NODES[link.to].pos[1];
-                pos.y += THREE.MathUtils.lerp(yBobFrom, yBobTo, t);
-
-                packet.position.copy(pos);
-            });
-        }
-    });
-
-    // ── Interaction ──
-    const infoPanel = document.getElementById('infoPanel');
-    const closeBtn = document.getElementById('closePanel');
-    
-    function updatePanel(key) {
-        const data = NODES[key];
-        const colorHex = '#' + data.color.toString(16).padStart(6, '0');
-        
-        document.documentElement.style.setProperty('--node-color', colorHex);
-        
-        document.getElementById('panelPhase').innerText = data.phase;
-        document.getElementById('panelPhase').style.color = colorHex;
-        document.getElementById('panelTitle').innerText = data.label;
-        document.getElementById('panelSubtitle').innerText = data.subtitle;
-        
-        const filesHtml = data.files.map(f => `<li>${f}</li>`).join('');
-        document.getElementById('panelFiles').innerHTML = filesHtml;
-        document.getElementById('panelResult').innerHTML = data.result;
-
-        document.getElementById('dataBoxFiles').style.borderColor = colorHex + '44';
-        document.getElementById('dataBoxResults').style.borderColor = colorHex + '44';
-
-        infoPanel.classList.add('visible');
-
-        // Focus camera
-        controls.autoRotate = false;
-        const targetPos = nodeMeshes[key].group.position;
-        // animate camera target
-        const startTarget = controls.target.clone();
-        let frame = 0;
-        function animTarget() {
-            frame++;
-            const a = frame / 30;
-            controls.target.lerpVectors(startTarget, targetPos, a);
-            if(frame < 30) requestAnimationFrame(animTarget);
-        }
-        animTarget();
-    }
-
-    closeBtn.addEventListener('click', () => {
-        infoPanel.classList.remove('visible');
-        controls.autoRotate = true;
-    });
-
-    window.addEventListener('pointerdown', (event) => {
-        if(event.button !== 0) return; // Only left click selects
-        
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-
-        // Collect hit meshes
-        const interactables = Object.values(nodeMeshes).map(n => n.group.children[4]); // The invisible hit sphere
-        const intersects = raycaster.intersectObjects(interactables);
-
-        if (intersects.length > 0) {
-            const key = intersects[0].object.userData.id;
-            updatePanel(key);
-            
-            // Interaction feedback
-            const shell = nodeMeshes[key].shell;
-            shell.scale.setScalar(1.2);
-            setTimeout(() => { shell.scale.setScalar(1.0); }, 200);
-        }
-    });
-
-    // Cursor pointer on hover
-    window.addEventListener('pointermove', (event) => {
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        raycaster.setFromCamera(mouse, camera);
-        const interactables = Object.values(nodeMeshes).map(n => n.group.children[4]);
-        const intersects = raycaster.intersectObjects(interactables);
-        document.body.style.cursor = intersects.length > 0 ? 'pointer' : 'crosshair';
-    });
-
-    // ── Animation Loop ──
-    const clock = new THREE.Clock();
-    const timeDisplay = document.getElementById('time-display');
-
-    function animate() {
-        requestAnimationFrame(animate);
-        
-        const delta = clock.getDelta();
-        const elapsed = clock.getElapsedTime();
-
-        controls.update();
-
-        // Update Nodes
-        nodeAnimators.forEach(anim => anim(elapsed));
-        
-        // Update Data Packets
-        pathAnimators.forEach(anim => anim(delta));
-
-        // Rotate background particles slowly
-        particleSystem.rotation.y = elapsed * 0.05;
-
-        // Update HUD time
-        const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
-        const secs = Math.floor(elapsed % 60).toString().padStart(2, '0');
-        timeDisplay.innerText = `${mins}:${secs}`;
-
-        composer.render();
+        renderer.render(scene, camera);
     }
 
     animate();
 
-    // ── Handle Resize ──
+    // ── Resize Handler ──
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
-        composer.setSize(window.innerWidth, window.innerHeight);
     });
 
     </script>
