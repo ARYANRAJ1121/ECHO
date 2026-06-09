@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECHO — 3D Project Visualization</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #000;
+            color: #e2e8f0;
+            font-family: 'Inter', system-ui, sans-serif;
+            overflow: hidden;
+            cursor: grab;
+        }
+        body:active { cursor: grabbing; }
+
+        #canvas3d {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+
+        /* ── Header ── */
+        .header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            padding: 1.2rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+            pointer-events: none;
+        }
+        .header > * { pointer-events: auto; }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+        .logo-diamond {
+            width: 28px; height: 28px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            transform: rotate(45deg);
+            border-radius: 6px;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+        .logo h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        .logo h1 span { color: #3b82f6; }
+        .header-hint {
+            font-size: 0.78rem;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .header-hint kbd {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: inherit;
+            font-size: 0.72rem;
+        }
+
+        /* ── Info Panel ── */
+        .info-panel {
+            position: fixed;
+            right: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 380px;
+            max-height: 75vh;
+            z-index: 200;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            padding: 2rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            overflow-y: auto;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .info-panel.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .info-panel .close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #94a3b8;
+            border-radius: 8px;
+            width: 30px; height: 30px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .info-panel .close-btn:hover {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .info-panel .phase-tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            margin-bottom: 0.8rem;
+        }
+        .info-panel h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .info-panel .subtitle {
+            color: #64748b;
+            font-size: 0.82rem;
+            margin-bottom: 1.2rem;
+            line-height: 1.5;
+        }
+        .info-panel .detail-section {
+            margin-bottom: 1rem;
+        }
+        .info-panel .detail-section h3 {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+        .info-panel .file-list {
+            list-style: none;
+        }
+        .info-panel .file-list li {
+            font-size: 0.82rem;
+            padding: 6px 10px;
+            margin-bottom: 3px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            border-left: 3px solid;
+            font-family: 'Fira Code', 'Consolas', monospace;
+        }
+        .info-panel .result-box {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 10px;
+            padding: 0.8rem 1rem;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        .info-panel .result-box strong {
+            color: #60a5fa;
+        }
+
+        /* ── Legend ── */
+        .legend {
+            position: fixed;
+            left: 2rem;
+            bottom: 2rem;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px;
+            padding: 1rem 1.2rem;
+        }
+        .legend-title {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #475569;
+            margin-bottom: 4px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .legend-item:hover { color: #e2e8f0; }
+        .legend-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* ── Timeline ── */
+        .timeline {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 0;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 30px;
+            padding: 8px 16px;
+        }
+        .timeline-dot {
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            z-index: 2;
+            border: 2px solid;
+        }
+        .timeline-dot:hover {
+            transform: scale(1.4);
+            box-shadow: 0 0 15px currentColor;
+        }
+        .timeline-dot.active {
+            transform: scale(1.5);
+            box-shadow: 0 0 20px currentColor;
+        }
+        .timeline-line {
+            width: 28px;
+            height: 2px;
+            background: rgba(255,255,255,0.1);
+            z-index: 1;
+        }
+        .timeline-label {
+            position: absolute;
+            bottom: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.62rem;
+            font-weight: 600;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s;
+            color: #94a3b8;
+            pointer-events: none;
+        }
+        .timeline-dot:hover .timeline-label,
+        .timeline-dot.active .timeline-label {
+            opacity: 1;
+        }
+
+        /* Scrollbar */
+        .info-panel::-webkit-scrollbar { width: 4px; }
+        .info-panel::-webkit-scrollbar-track { background: transparent; }
+        .info-panel::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .info-panel { width: 320px; right: 1rem; }
+            .legend { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas3d"></canvas>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">
+            <div class="logo-diamond"></div>
+            <h1>ECHO <span>Architecture</span></h1>
+        </div>
+        <div class="header-hint">
+            <span><kbd>Click</kbd> node to inspect</span>
+            <span><kbd>Drag</kbd> to orbit</span>
+            <span><kbd>Scroll</kbd> to zoom</span>
+        </div>
+    </div>
+
+    <!-- Info Panel (populated by JS) -->
+    <div class="info-panel" id="infoPanel">
+        <button class="close-btn" id="closePanel">×</button>
+        <div id="panelContent"></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+        <div class="legend-title">Modules</div>
+        <div class="legend-item" data-node="engine"><div class="legend-dot" style="background:#3b82f6"></div>Market Engine</div>
+        <div class="legend-item" data-node="agents"><div class="legend-dot" style="background:#8b5cf6"></div>AI Agents</div>
+        <div class="legend-item" data-node="regulator"><div class="legend-dot" style="background:#ef4444"></div>Regulator</div>
+        <div class="legend-item" data-node="database"><div class="legend-dot" style="background:#10b981"></div>Database</div>
+        <div class="legend-item" data-node="rag"><div class="legend-dot" style="background:#06b6d4"></div>RAG Memory</div>
+        <div class="legend-item" data-node="analysis"><div class="legend-dot" style="background:#f59e0b"></div>Analysis</div>
+        <div class="legend-item" data-node="dashboard"><div class="legend-dot" style="background:#ec4899"></div>Dashboard</div>
+        <div class="legend-item" data-node="api"><div class="legend-dot" style="background:#a78bfa"></div>API Server</div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="timeline" id="timeline"></div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    /* ═══════════════════════════════════════════════════════
+       ECHO — 3D Project Architecture Visualization
+       Three.js interactive scene
+       ═══════════════════════════════════════════════════════ */
+
+    // ── Node Definitions ──
+    const NODES = {
+        engine: {
+            label: 'Market Engine',
+            phase: 'Phase 1',
+            phaseColor: '#3b82f6',
+            color: 0x3b82f6,
+            position: [0, 0, 0],
+            size: 1.8,
+            shape: 'octahedron',
+            subtitle: 'The core simulation loop — runs N rounds of a Bertrand pricing game with MNL demand.',
+            files: ['market/demand.py', 'market/engine.py'],
+            result: 'Multinomial Logit demand model computes market shares via softmax. Nash solver finds p* = $1.52, Monopoly solver finds p_mono = $1.60. Collusion Index λ = (p̄ − Nash) / (Mono − Nash).',
+        },
+        agents: {
+            label: 'AI Agents',
+            phase: 'Phase 3 / 6',
+            phaseColor: '#8b5cf6',
+            color: 0x8b5cf6,
+            position: [-5, -1, 2],
+            size: 1.5,
+            shape: 'icosahedron',
+            subtitle: 'Four agent types compete: Heuristic rules, LLM (Llama 3), Q-Learning RL, and RAG-enhanced LLM.',
+            files: ['agents/base_agent.py', 'agents/heuristic_agent.py', 'agents/llm_agent.py', 'agents/rl_agent.py', 'agents/rag_agent.py'],
+            result: '<strong>Heuristic: λ = 0.06</strong> (competitive).<br><strong>LLM: λ = 20.6</strong> — prices 2× Nash!<br><strong>RL:</strong> Gradual convergence upward.<br>LLM colludes via reasoning, RL via reward optimization. Same outcome, different mechanism.',
+        },
+        regulator: {
+            label: 'Antitrust Regulator',
+            phase: 'Phase 5',
+            phaseColor: '#ef4444',
+            color: 0xef4444,
+            position: [5, 1, 2],
+            size: 1.4,
+            shape: 'dodecahedron',
+            subtitle: 'Three independent detection methods: λ monitoring, NLP scratchpad analysis, and demand shock perturbation.',
+            files: ['regulator/detector.py', 'regulator/nlp_cluster.py', 'regulator/perturbation.py'],
+            result: '<strong>Method 1:</strong> λ Monitor — 3-tier alerts (watch/warning/alert) when λ > 0.3/0.5/0.7.<br><strong>Method 2:</strong> NLP Clustering — cosine similarity of agent scratchpads (flag if > 0.6).<br><strong>Method 3:</strong> Demand Shock — reduce quality 30%, measure cross-firm reaction.',
+        },
+        database: {
+            label: 'PostgreSQL + pgvector',
+            phase: 'Phase 2',
+            phaseColor: '#10b981',
+            color: 0x10b981,
+            position: [0, -4.5, -1],
+            size: 1.3,
+            shape: 'box',
+            subtitle: 'Persistent storage: 6 tables (simulations, rounds, firm_rounds, scratchpads, collusion_alerts, embeddings).',
+            files: ['database/schema.sql', 'database/db.py', 'docker-compose.yml'],
+            result: 'Every round auto-saved. 10,000 rounds = 50,000 firm records stored. pgvector extension enables RAG similarity search on 768-dim embeddings.',
+        },
+        rag: {
+            label: 'RAG Memory',
+            phase: 'Phase 4',
+            phaseColor: '#06b6d4',
+            color: 0x06b6d4,
+            position: [-4, -3.5, -2],
+            size: 1.1,
+            shape: 'torus',
+            subtitle: 'Hybrid retrieval-augmented memory: semantic vector search + SQL structural filtering.',
+            files: ['database/memory.py', 'agents/rag_agent.py'],
+            result: '<strong>3 search strategies:</strong><br>• search_similar() — pure cosine similarity<br>• hybrid_search() — vector + WHERE profit/lambda filters<br>• smart_search() — auto-picks strategy based on context.<br><strong>Novel research question:</strong> Does episodic memory accelerate collusion?',
+        },
+        analysis: {
+            label: 'Analysis & Figures',
+            phase: 'Phase 5.5 / 7',
+            phaseColor: '#f59e0b',
+            color: 0xf59e0b,
+            position: [4.5, -3, -2],
+            size: 1.1,
+            shape: 'cone',
+            subtitle: '7 publication-ready figures + empirical validation against real-world gasoline and Amazon pricing data.',
+            files: ['analysis/plots.py', 'analysis/real_data.py'],
+            result: '<strong>Empirical validation:</strong><br>• US Gasoline λ = 0.91 (EIA/FRED data)<br>• Amazon Electronics λ = 0.87 (Kaggle calibrated)<br><strong>Figures:</strong> Price evolution, λ trajectory, RAG vs No-RAG, LLM vs RL, semantic similarity, profit distributions.',
+        },
+        api: {
+            label: 'FastAPI Server',
+            phase: 'Phase 8',
+            phaseColor: '#a78bfa',
+            color: 0xa78bfa,
+            position: [0, 3.5, 1],
+            size: 1.2,
+            shape: 'cylinder',
+            subtitle: 'WebSocket streaming + REST API. Bridges the engine to the live dashboard in real-time.',
+            files: ['api_server.py'],
+            result: '<strong>WebSocket:</strong> /ws/simulate — streams round data + scratchpads live.<br><strong>REST:</strong> /api/status, /api/history, /api/agents/{id}/scratchpad, /api/validation.<br><strong>POST:</strong> /api/simulation/shock/{firm_id} — trigger demand shock mid-sim.',
+        },
+        dashboard: {
+            label: 'Live Dashboard',
+            phase: 'Phase 8',
+            phaseColor: '#ec4899',
+            color: 0xec4899,
+            position: [0, 6.5, 0],
+            size: 1.5,
+            shape: 'ring',
+            subtitle: 'Real-time glassmorphism dashboard — watch AI agents collude live during your viva.',
+            files: ['dashboard/index.html', 'dashboard/style.css', 'dashboard/script.js'],
+            result: '<strong>Features:</strong><br>• Price + λ trajectory charts (Chart.js)<br>• Regulator gauge with severity glow<br>• Scratchpad viewer — read AI reasoning live<br>• ⚡ Demand shock button — intervene mid-sim<br>• Summary overlay with collusion verdict',
+        },
+    };
+
+    // ── Connections (data flows) ──
+    const CONNECTIONS = [
+        { from: 'agents', to: 'engine', label: 'prices', color: 0x8b5cf6 },
+        { from: 'engine', to: 'agents', label: 'observations', color: 0x3b82f6 },
+        { from: 'engine', to: 'regulator', label: 'λ + data', color: 0xef4444 },
+        { from: 'engine', to: 'database', label: 'save rounds', color: 0x10b981 },
+        { from: 'database', to: 'rag', label: 'embeddings', color: 0x06b6d4 },
+        { from: 'rag', to: 'agents', label: 'memories', color: 0x06b6d4 },
+        { from: 'engine', to: 'api', label: 'stream', color: 0xa78bfa },
+        { from: 'api', to: 'dashboard', label: 'WebSocket', color: 0xec4899 },
+        { from: 'database', to: 'analysis', label: 'query', color: 0xf59e0b },
+        { from: 'regulator', to: 'engine', label: 'shocks', color: 0xef4444 },
+    ];
+
+    // ── Timeline phases ──
+    const PHASES = [
+        { id: 'engine', label: 'P1: Engine', color: '#3b82f6' },
+        { id: 'database', label: 'P2: DB', color: '#10b981' },
+        { id: 'agents', label: 'P3: LLM', color: '#8b5cf6' },
+        { id: 'rag', label: 'P4: RAG', color: '#06b6d4' },
+        { id: 'regulator', label: 'P5: Detect', color: '#ef4444' },
+        { id: 'analysis', label: 'P5.5-7: Viz', color: '#f59e0b' },
+        { id: 'dashboard', label: 'P8: Dash', color: '#ec4899' },
+    ];
+
+    // ═══════════════════════════════════
+    // Three.js Scene Setup
+    // ═══════════════════════════════════
+
+    const canvas = document.getElementById('canvas3d');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 2, 14);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x020617);
+
+    // ── Lighting ──
+    const ambient = new THREE.AmbientLight(0x334155, 0.6);
+    scene.add(ambient);
+
+    const directional = new THREE.DirectionalLight(0xffffff, 0.4);
+    directional.position.set(5, 10, 5);
+    scene.add(directional);
+
+    const pointLight1 = new THREE.PointLight(0x3b82f6, 1.2, 30);
+    pointLight1.position.set(-5, 3, 5);
+    scene.add(pointLight1);
+
+    const pointLight2 = new THREE.PointLight(0x8b5cf6, 0.8, 30);
+    pointLight2.position.set(5, -2, 5);
+    scene.add(pointLight2);
+
+    // ── Starfield ──
+    const starGeometry = new THREE.BufferGeometry();
+    const starCount = 3000;
+    const starPositions = new Float32Array(starCount * 3);
+    const starSizes = new Float32Array(starCount);
+    for (let i = 0; i < starCount; i++) {
+        starPositions[i * 3] = (Math.random() - 0.5) * 150;
+        starPositions[i * 3 + 1] = (Math.random() - 0.5) * 150;
+        starPositions[i * 3 + 2] = (Math.random() - 0.5) * 150;
+        starSizes[i] = Math.random() * 2.0;
+    }
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeometry.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+    const starMaterial = new THREE.PointsMaterial({
+        color: 0x94a3b8,
+        size: 0.08,
+        transparent: true,
+        opacity: 0.6,
+        sizeAttenuation: true,
+    });
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+
+    // ═══════════════════════════════════
+    // Create Nodes
+    // ═══════════════════════════════════
+
+    const nodeMeshes = {};
+    const nodeGlows = {};
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let hoveredNode = null;
+
+    function createGeometry(shape, size) {
+        switch (shape) {
+            case 'octahedron': return new THREE.OctahedronGeometry(size, 0);
+            case 'icosahedron': return new THREE.IcosahedronGeometry(size, 0);
+            case 'dodecahedron': return new THREE.DodecahedronGeometry(size, 0);
+            case 'box': return new THREE.BoxGeometry(size * 1.4, size * 1.4, size * 1.4);
+            case 'torus': return new THREE.TorusGeometry(size * 0.8, size * 0.3, 16, 32);
+            case 'cone': return new THREE.ConeGeometry(size * 0.8, size * 1.6, 6);
+            case 'cylinder': return new THREE.CylinderGeometry(size * 0.6, size * 0.6, size * 1.2, 8);
+            case 'ring': return new THREE.TorusGeometry(size * 0.9, size * 0.25, 8, 32);
+            default: return new THREE.SphereGeometry(size, 32, 32);
+        }
+    }
+
+    Object.entries(NODES).forEach(([key, node]) => {
+        const geo = createGeometry(node.shape, node.size);
+        const mat = new THREE.MeshPhongMaterial({
+            color: node.color,
+            transparent: true,
+            opacity: 0.75,
+            shininess: 120,
+            emissive: node.color,
+            emissiveIntensity: 0.15,
+            wireframe: false,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(...node.position);
+        mesh.userData = { nodeKey: key };
+        scene.add(mesh);
+        nodeMeshes[key] = mesh;
+
+        // Wireframe overlay
+        const wireMat = new THREE.MeshBasicMaterial({
+            color: node.color,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.12,
+        });
+        const wire = new THREE.Mesh(geo.clone(), wireMat);
+        wire.position.copy(mesh.position);
+        wire.scale.setScalar(1.05);
+        scene.add(wire);
+        nodeGlows[key] = wire;
+
+        // Glow sphere
+        const glowGeo = new THREE.SphereGeometry(node.size * 1.6, 16, 16);
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: node.color,
+            transparent: true,
+            opacity: 0.04,
+        });
+        const glow = new THREE.Mesh(glowGeo, glowMat);
+        glow.position.copy(mesh.position);
+        scene.add(glow);
+    });
+
+    // ── Labels (CSS2D-style using sprites) ──
+    function createLabel(text, position, color) {
+        const canvas2d = document.createElement('canvas');
+        const ctx = canvas2d.getContext('2d');
+        canvas2d.width = 512;
+        canvas2d.height = 64;
+
+        ctx.clearRect(0, 0, 512, 64);
+        ctx.font = '600 32px Inter, system-ui, sans-serif';
+        ctx.fillStyle = color || '#e2e8f0';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 256, 32);
+
+        const texture = new THREE.CanvasTexture(canvas2d);
+        const spriteMat = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            opacity: 0.9,
+            depthWrite: false,
+        });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.position.set(position[0], position[1] + 2.2, position[2]);
+        sprite.scale.set(4, 0.5, 1);
+        scene.add(sprite);
+        return sprite;
+    }
+
+    Object.entries(NODES).forEach(([key, node]) => {
+        const hexColor = '#' + node.color.toString(16).padStart(6, '0');
+        createLabel(node.label, node.position, hexColor);
+    });
+
+    // ═══════════════════════════════════
+    // Connections (animated particles)
+    // ═══════════════════════════════════
+
+    const connectionParticles = [];
+
+    CONNECTIONS.forEach(conn => {
+        const fromPos = new THREE.Vector3(...NODES[conn.from].position);
+        const toPos = new THREE.Vector3(...NODES[conn.to].position);
+
+        // Static line
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([fromPos, toPos]);
+        const lineMat = new THREE.LineBasicMaterial({
+            color: conn.color,
+            transparent: true,
+            opacity: 0.08,
+        });
+        const line = new THREE.Line(lineGeo, lineMat);
+        scene.add(line);
+
+        // Animated particles along the line
+        const particleCount = 4;
+        for (let i = 0; i < particleCount; i++) {
+            const pGeo = new THREE.SphereGeometry(0.06, 8, 8);
+            const pMat = new THREE.MeshBasicMaterial({
+                color: conn.color,
+                transparent: true,
+                opacity: 0.7,
+            });
+            const particle = new THREE.Mesh(pGeo, pMat);
+            particle.userData = {
+                from: fromPos.clone(),
+                to: toPos.clone(),
+                t: i / particleCount,
+                speed: 0.003 + Math.random() * 0.002,
+            };
+            scene.add(particle);
+            connectionParticles.push(particle);
+        }
+    });
+
+    // ═══════════════════════════════════
+    // Orbit Controls (simple implementation)
+    // ═══════════════════════════════════
+
+    let isDragging = false;
+    let prevMouseX = 0, prevMouseY = 0;
+    let cameraTheta = 0, cameraPhi = 0.2;
+    let cameraRadius = 14;
+    let targetTheta = 0, targetPhi = 0.2, targetRadius = 14;
+    let targetLookAt = new THREE.Vector3(0, 1, 0);
+    let currentLookAt = new THREE.Vector3(0, 1, 0);
+    let autoRotate = true;
+
+    canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+        autoRotate = false;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        if (isDragging) {
+            const dx = e.clientX - prevMouseX;
+            const dy = e.clientY - prevMouseY;
+            targetTheta -= dx * 0.005;
+            targetPhi = Math.max(-0.8, Math.min(1.2, targetPhi + dy * 0.005));
+            prevMouseX = e.clientX;
+            prevMouseY = e.clientY;
+        }
+    });
+
+    canvas.addEventListener('mouseup', () => { isDragging = false; });
+    canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+    canvas.addEventListener('wheel', (e) => {
+        targetRadius = Math.max(6, Math.min(25, targetRadius + e.deltaY * 0.01));
+        autoRotate = false;
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        prevMouseX = e.touches[0].clientX;
+        prevMouseY = e.touches[0].clientY;
+        autoRotate = false;
+    });
+    canvas.addEventListener('touchmove', (e) => {
+        if (isDragging && e.touches.length === 1) {
+            const dx = e.touches[0].clientX - prevMouseX;
+            const dy = e.touches[0].clientY - prevMouseY;
+            targetTheta -= dx * 0.005;
+            targetPhi = Math.max(-0.8, Math.min(1.2, targetPhi + dy * 0.005));
+            prevMouseX = e.touches[0].clientX;
+            prevMouseY = e.touches[0].clientY;
+        }
+    });
+    canvas.addEventListener('touchend', () => { isDragging = false; });
+
+    // ═══════════════════════════════════
+    // Click / Hover Detection
+    // ═══════════════════════════════════
+
+    function showInfoPanel(key) {
+        const node = NODES[key];
+        const panel = document.getElementById('infoPanel');
+        const content = document.getElementById('panelContent');
+
+        const filesHtml = node.files.map(f =>
+            `<li style="border-color:${node.phaseColor}">${f}</li>`
+        ).join('');
+
+        content.innerHTML = `
+            <div class="phase-tag" style="background:${node.phaseColor}22; color:${node.phaseColor}; border:1px solid ${node.phaseColor}44;">
+                ${node.phase}
+            </div>
+            <h2>${node.label}</h2>
+            <p class="subtitle">${node.subtitle}</p>
+            <div class="detail-section">
+                <h3>Files</h3>
+                <ul class="file-list">${filesHtml}</ul>
+            </div>
+            <div class="detail-section">
+                <h3>Key Results</h3>
+                <div class="result-box">${node.result}</div>
+            </div>
+        `;
+
+        panel.classList.add('visible');
+
+        // Animate camera to focus on node
+        const pos = NODES[key].position;
+        targetLookAt = new THREE.Vector3(pos[0], pos[1], pos[2]);
+        targetRadius = 10;
+        autoRotate = false;
+    }
+
+    function hideInfoPanel() {
+        document.getElementById('infoPanel').classList.remove('visible');
+    }
+
+    document.getElementById('closePanel').addEventListener('click', hideInfoPanel);
+
+    canvas.addEventListener('click', (e) => {
+        raycaster.setFromCamera(mouse, camera);
+        const meshes = Object.values(nodeMeshes);
+        const intersects = raycaster.intersectObjects(meshes);
+        if (intersects.length > 0) {
+            const key = intersects[0].object.userData.nodeKey;
+            if (key) showInfoPanel(key);
+        }
+    });
+
+    // Legend clicks
+    document.querySelectorAll('.legend-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const key = item.dataset.node;
+            if (key) showInfoPanel(key);
+        });
+    });
+
+    // ═══════════════════════════════════
+    // Timeline
+    // ═══════════════════════════════════
+
+    const timelineEl = document.getElementById('timeline');
+    PHASES.forEach((phase, i) => {
+        if (i > 0) {
+            const line = document.createElement('div');
+            line.className = 'timeline-line';
+            timelineEl.appendChild(line);
+        }
+        const dot = document.createElement('div');
+        dot.className = 'timeline-dot';
+        dot.style.borderColor = phase.color;
+        dot.style.background = phase.color + '33';
+        dot.style.color = phase.color;
+        dot.innerHTML = `<div class="timeline-label">${phase.label}</div>`;
+        dot.addEventListener('click', () => {
+            document.querySelectorAll('.timeline-dot').forEach(d => d.classList.remove('active'));
+            dot.classList.add('active');
+            showInfoPanel(phase.id);
+        });
+        timelineEl.appendChild(dot);
+    });
+
+    // ═══════════════════════════════════
+    // Animation Loop
+    // ═══════════════════════════════════
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
+        const dt = clock.getDelta();
+
+        // Auto-rotate
+        if (autoRotate) {
+            targetTheta += 0.001;
+        }
+
+        // Smooth camera
+        cameraTheta += (targetTheta - cameraTheta) * 0.04;
+        cameraPhi += (targetPhi - cameraPhi) * 0.04;
+        cameraRadius += (targetRadius - cameraRadius) * 0.04;
+        currentLookAt.lerp(targetLookAt, 0.03);
+
+        camera.position.x = currentLookAt.x + cameraRadius * Math.sin(cameraTheta) * Math.cos(cameraPhi);
+        camera.position.y = currentLookAt.y + cameraRadius * Math.sin(cameraPhi);
+        camera.position.z = currentLookAt.z + cameraRadius * Math.cos(cameraTheta) * Math.cos(cameraPhi);
+        camera.lookAt(currentLookAt);
+
+        // Animate nodes
+        Object.entries(nodeMeshes).forEach(([key, mesh]) => {
+            const base = NODES[key].position;
+            mesh.position.y = base[1] + Math.sin(t * 0.6 + base[0]) * 0.15;
+            mesh.rotation.x += 0.003;
+            mesh.rotation.y += 0.005;
+
+            // Sync wireframe
+            const wire = nodeGlows[key];
+            wire.position.copy(mesh.position);
+            wire.rotation.copy(mesh.rotation);
+        });
+
+        // Animate connection particles
+        connectionParticles.forEach(p => {
+            p.userData.t += p.userData.speed;
+            if (p.userData.t > 1) p.userData.t -= 1;
+
+            const t2 = p.userData.t;
+            p.position.lerpVectors(p.userData.from, p.userData.to, t2);
+
+            // Follow node Y bobbing
+            const fromKey = Object.entries(NODES).find(([_, n]) =>
+                n.position[0] === p.userData.from.x &&
+                n.position[2] === p.userData.from.z
+            );
+            const toKey = Object.entries(NODES).find(([_, n]) =>
+                n.position[0] === p.userData.to.x &&
+                n.position[2] === p.userData.to.z
+            );
+            if (fromKey && toKey && nodeMeshes[fromKey[0]] && nodeMeshes[toKey[0]]) {
+                const fromY = nodeMeshes[fromKey[0]].position.y;
+                const toY = nodeMeshes[toKey[0]].position.y;
+                p.position.y = fromY + (toY - fromY) * t2;
+            }
+
+            // Pulse opacity
+            p.material.opacity = 0.3 + 0.5 * Math.sin(t2 * Math.PI);
+        });
+
+        // Hover detection
+        raycaster.setFromCamera(mouse, camera);
+        const meshArr = Object.values(nodeMeshes);
+        const intersects = raycaster.intersectObjects(meshArr);
+
+        // Reset previous hover
+        if (hoveredNode && nodeMeshes[hoveredNode]) {
+            nodeMeshes[hoveredNode].material.emissiveIntensity = 0.15;
+            nodeMeshes[hoveredNode].scale.setScalar(1);
+        }
+
+        if (intersects.length > 0) {
+            const key = intersects[0].object.userData.nodeKey;
+            if (key) {
+                hoveredNode = key;
+                nodeMeshes[key].material.emissiveIntensity = 0.5;
+                nodeMeshes[key].scale.setScalar(1.1);
+                canvas.style.cursor = 'pointer';
+            }
+        } else {
+            hoveredNode = null;
+            canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
+        }
+
+        // Slowly rotate starfield
+        stars.rotation.y += 0.0001;
+        stars.rotation.x += 0.00005;
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // ── Resize ──
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ── Keyboard ──
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') hideInfoPanel();
+        if (e.key === 'r' || e.key === 'R') {
+            targetTheta = 0;
+            targetPhi = 0.2;
+            targetRadius = 14;
+            targetLookAt = new THREE.Vector3(0, 1, 0);
+            autoRotate = true;
+            hideInfoPanel();
+        }
+    });
+    </script>
+</body>
+</html>
