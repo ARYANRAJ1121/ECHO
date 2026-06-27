@@ -6,3 +6,4 @@ seaborn
 requests
 fastapi
 uvicorn[standard]
+scikit-learn
