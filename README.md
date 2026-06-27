@@ -11,6 +11,7 @@ A simulation framework for studying tacit coordination among autonomous AI prici
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
@@ -36,6 +37,7 @@ Algorithmic pricing systems are already deployed at scale (Amazon, Uber, airline
 | Heuristic (rule-based) | 0.06 | ~$1.53 | Competitive — near Nash equilibrium |
 | LLM (Llama 3 8B) | 20.61 | ~$3.20 | Supra-competitive — significant price inflation |
 | Q-Learning (RL) | Converges ↑ | Rises over rounds | Gradual coordination via reward optimization |
+| DQN (Deep RL) | Converges ↑ | Rises over rounds | Neural network-based coordination via experience replay |
 
 > **LLM agents priced at approximately 2× the Nash equilibrium level.** Scratchpad analysis revealed strategic reasoning patterns: agents monitored competitor pricing and adjusted upward, consistent with tacit coordination behavior described in the algorithmic pricing literature.
 
@@ -52,10 +54,12 @@ Algorithmic pricing systems are already deployed at scale (Amazon, Uber, airline
 
 1. **LLM Tacit Coordination** — Demonstrating that LLM-based pricing agents develop supra-competitive pricing without explicit coordination instructions
 2. **RAG Memory Ablation** — Investigating whether retrieval-augmented episodic memory (hybrid RAG with semantic + structural filtering) accelerates or dampens emergent coordination
-3. **Heterogeneous Agent Comparison** — Controlled comparison of LLM, Q-Learning RL, and rule-based agents under identical market conditions
-4. **Multi-Method Detection Pipeline** — Three independent detection methods: λ-index monitoring, scratchpad NLP similarity analysis, and demand shock perturbation testing
+3. **Heterogeneous Agent Comparison** — Controlled comparison of LLM, DQN, Q-Learning RL, and rule-based agents under identical market conditions
+4. **Multi-Method Detection Pipeline** — Five independent detection methods: λ-index monitoring, NLP similarity, sentiment analysis, ML strategy classification, and demand shock perturbation
 5. **Scratchpad Reasoning Analysis** — Extracting and analyzing agent decision rationale via structured prompting to identify coordination signals
 6. **Live Monitoring Dashboard** — Real-time WebSocket-based dashboard for observing emergent collusion with demand shock intervention
+7. **Deep RL Comparison** — DQN agent with experience replay and target network, demonstrating that collusion is architecture-independent
+8. **Predictive Price Forecasting** — Time-series regression model for early-warning detection of price convergence
 
 ---
 
@@ -86,6 +90,7 @@ Where `λ = 0` corresponds to the Nash equilibrium (full competition) and `λ = 
 | **LLM Agent** | Llama 3 8B via Ollama | Structured prompting with `<scratchpad>` reasoning + `<price>` output |
 | **RAG Agent** | LLM + Hybrid RAG memory | Episodic memory retrieval (semantic + SQL filtering) before pricing |
 | **RL Agent** | Tabular Q-Learning | Bellman equation over discretized price–state space, ε-greedy exploration |
+| **DQN Agent** | Deep Q-Network | 3-layer neural network with experience replay + target network (numpy) |
 | **Heuristic** | Rule-based baselines | Fixed markup, market-following, undercutting strategies |
 
 ### Detection Methods
@@ -94,6 +99,8 @@ Where `λ = 0` corresponds to the Nash equilibrium (full competition) and `λ = 
 |--------|--------|-----------|
 | λ Monitor | Price levels | Continuous tracking against Nash/Monopoly benchmarks with 3-tier alerts |
 | NLP Clustering | Reasoning similarity | Embedding-based cosine similarity across agent scratchpads |
+| Sentiment Analysis | Intent classification | Cooperative/competitive/predatory intent scoring with drift detection |
+| Strategy Classifier | Behavioral labeling | Random Forest (sklearn) classifying agent behavior from 9 engineered features |
 | Demand Shocks | Coordinated response | Exogenous perturbation to one firm; measure cross-firm reaction |
 
 ---
@@ -123,7 +130,7 @@ Where `λ = 0` corresponds to the Nash equilibrium (full competition) and `λ = 
          │ prices                │ observations
 ┌────────▼───────────────────────▼─────────────────────┐
 │              Agent Pool (N=5)                        │
-│  LLM (Llama 3) │ RAG │ RL (Q-Learn) │ Heuristic    │
+│  LLM │ RAG │ RL (Q-Learn) │ DQN (Deep RL) │ Heur.  │
 └────────┬───────────────┬─────────────────────────────┘
          │               │
 ┌────────▼────────┐ ┌────▼──────────────────────┐
@@ -147,11 +154,13 @@ antitrust_sim/
 │   ├── heuristic_agent.py     # Steady, Follower, Undercut strategies
 │   ├── llm_agent.py           # LLM agent (Ollama API, scratchpad parsing)
 │   ├── rl_agent.py            # Q-Learning agent (tabular, ε-greedy)
+│   ├── dqn_agent.py           # Deep Q-Network agent (neural net RL, numpy)
 │   └── rag_agent.py           # RAG-enhanced LLM agent (hybrid memory)
 │
 ├── regulator/
 │   ├── detector.py            # λ monitoring and 3-tier alerts
 │   ├── nlp_cluster.py         # Scratchpad embedding similarity analysis
+│   ├── sentiment.py           # NLP intent analysis (cooperative/competitive/predatory)
 │   └── perturbation.py        # Demand shock perturbation experiments
 │
 ├── database/
@@ -161,7 +170,9 @@ antitrust_sim/
 │
 ├── analysis/
 │   ├── plots.py               # Publication-ready figures (Figures 1-7)
-│   └── real_data.py           # Empirical validation (EIA gasoline, Amazon)
+│   ├── real_data.py           # Empirical validation (EIA gasoline, Amazon)
+│   ├── strategy_classifier.py # Random Forest agent behavior classifier (sklearn)
+│   └── forecaster.py          # Time-series price forecasting (Linear Regression)
 │
 ├── dashboard/
 │   ├── index.html             # Live dashboard UI (glassmorphism design)
@@ -251,6 +262,29 @@ Supports Heuristic, Q-Learning, and LLM agent modes.
 
 ---
 
+## AI/ML Techniques Inventory
+
+ECHO uses **14 distinct AI/ML techniques** across the codebase:
+
+| # | Technique | Category | Module |
+|---|-----------|----------|--------|
+| 1 | Llama 3 (LLM) | Generative AI | `agents/llm_agent.py` |
+| 2 | Prompt Engineering | NLP | `agents/llm_agent.py` |
+| 3 | Tabular Q-Learning | Reinforcement Learning | `agents/rl_agent.py` |
+| 4 | Deep Q-Network (DQN) | Deep Reinforcement Learning | `agents/dqn_agent.py` |
+| 5 | RAG (Retrieval-Augmented Generation) | Information Retrieval + GenAI | `agents/rag_agent.py` |
+| 6 | Text Embeddings (nomic-embed-text) | Representation Learning | `database/memory.py` |
+| 7 | Vector Similarity Search (pgvector) | Database AI | `database/memory.py` |
+| 8 | Hybrid RAG (Semantic + SQL) | Advanced IR | `database/memory.py` |
+| 9 | NLP Semantic Clustering | NLP | `regulator/nlp_cluster.py` |
+| 10 | Sentiment & Intent Analysis | NLP | `regulator/sentiment.py` |
+| 11 | Anomaly Detection (λ Monitor) | Statistical AI | `regulator/detector.py` |
+| 12 | Causal Perturbation Testing | Experimental AI | `regulator/perturbation.py` |
+| 13 | Random Forest Classifier | Supervised ML (sklearn) | `analysis/strategy_classifier.py` |
+| 14 | Time-Series Forecasting | Predictive ML | `analysis/forecaster.py` |
+
+---
+
 ## Development Roadmap
 
 See [`todo.md`](todo.md) for detailed task breakdowns.
@@ -266,6 +300,8 @@ See [`todo.md`](todo.md) for detailed task breakdowns.
 | 6 | Q-Learning RL baseline agents | ✅ Complete |
 | 7 | Analysis & visualization (6 research figures) | ✅ Complete |
 | 8 | FastAPI + live dashboard | ✅ Complete |
+| 9 | Deep Q-Network (DQN) agent | ✅ Complete |
+| 10 | NLP sentiment analysis + strategy classifier + price forecasting | ✅ Complete |
 
 ---
 
