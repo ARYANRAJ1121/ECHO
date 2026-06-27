@@ -161,6 +161,47 @@ def build_rl_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
     return engine, n_rounds
 
 
+def build_dqn_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
+    """
+    Wire up 5 DQN agents (Deep RL).
+    No GPU needed. Pure numpy neural network.
+    Needs ~1000+ rounds to converge.
+    """
+    from agents.dqn_agent import DQNPricingAgent
+
+    demand_model = LogitDemandModel(
+        n_firms=5,
+        mu=0.5,
+        marginal_cost=1.0,
+        quality=None,
+        outside_quality=0.0,
+        market_size=1.0,
+    )
+
+    agents = [
+        DQNPricingAgent(
+            firm_id=i,
+            n_prices=15,
+            gamma=0.95,
+            epsilon_start=1.0,
+            epsilon_min=0.01,
+            epsilon_decay=0.995,
+            price_floor=1.0,
+            price_ceiling=5.0,
+        )
+        for i in range(5)
+    ]
+
+    engine = MarketEngine(
+        demand_model=demand_model,
+        agents=agents,
+        price_floor=1.0,
+        price_ceiling=5.0,
+    )
+
+    return engine, n_rounds
+
+
 def print_results(engine: MarketEngine, show_scratchpads: bool = False) -> None:
     """Print simulation results."""
     records = engine.records
@@ -224,8 +265,8 @@ def print_results(engine: MarketEngine, show_scratchpads: bool = False) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ECHO Simulation")
-    parser.add_argument("--mode", choices=["llm", "dummy", "rag", "rl"], default="llm",
-                        help="Agent type: 'llm', 'rag' (with memory), or 'dummy' (heuristic)")
+    parser.add_argument("--mode", choices=["llm", "dummy", "rag", "rl", "dqn"], default="llm",
+                        help="Agent type: 'llm', 'rag', 'rl', 'dqn', or 'dummy'")
     parser.add_argument("--rounds", type=int, default=10,
                         help="Number of rounds to simulate (use 10000+ for RL)")
     parser.add_argument("--db", action="store_true",
@@ -274,6 +315,8 @@ if __name__ == "__main__":
         engine, n_rounds = build_llm_simulation(args.rounds)
     elif args.mode == "rl":
         engine, n_rounds = build_rl_simulation(args.rounds)
+    elif args.mode == "dqn":
+        engine, n_rounds = build_dqn_simulation(args.rounds)
     else:
         engine, n_rounds = build_dummy_simulation(args.rounds)
 
