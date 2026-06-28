@@ -257,9 +257,21 @@ def print_results(engine: MarketEngine, show_scratchpads: bool = False) -> None:
         print("=" * 80)
         for agent in rl_agents:
             stats = agent.stats()
-            print(f"  {agent.name}: {stats['total_q_updates']} updates | "
-                  f"{stats['q_table_size']} states discovered | "
-                  f"final epsilon: {stats['final_epsilon']:.4f}")
+            if "total_q_updates" in stats:
+                # Tabular Q-Learning agent
+                print(f"  {agent.name}: {stats['total_q_updates']} updates | "
+                      f"{stats['q_table_size']} states discovered | "
+                      f"final epsilon: {stats['final_epsilon']:.4f}")
+            elif "training_steps" in stats:
+                # DQN agent
+                avg_loss = f"{stats['avg_loss']:.6f}" if stats.get('avg_loss') else "N/A"
+                print(f"  {agent.name}: {stats['training_steps']} training steps | "
+                      f"{stats['replay_buffer_size']} experiences | "
+                      f"avg loss: {avg_loss} | "
+                      f"final epsilon: {stats['final_epsilon']:.4f} | "
+                      f"params: {stats['network_params']}")
+            else:
+                print(f"  {agent.name}: {stats}")
         print("=" * 80)
 
 
