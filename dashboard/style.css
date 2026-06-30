@@ -887,3 +887,136 @@ input[type="number"] { width: 100px; }
         grid-template-columns: 1fr;
     }
 }
+
+/* ══════════════════ AI ANALYSIS PANEL ══════════════════ */
+
+.ai-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.ai-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--glass-border);
+    margin-bottom: 1rem;
+}
+
+.ai-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0.75rem 0.5rem;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.ai-tab:hover {
+    color: var(--text-bright);
+}
+
+.ai-tab.active {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+}
+
+.ai-content {
+    display: none;
+    flex: 1;
+    min-height: 150px;
+}
+
+.ai-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Strategy List */
+.strategy-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.75rem;
+    background: rgba(6, 10, 20, 0.4);
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.5rem;
+}
+
+.strategy-item:last-child {
+    margin-bottom: 0;
+}
+
+.s-firm {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    font-size: 0.85rem;
+    width: 70px;
+}
+
+.s-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    width: 90px;
+    text-align: center;
+}
+
+.s-conf {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    width: 60px;
+}
+
+/* Sentiment Bars */
+.sentiment-bar-container {
+    margin-bottom: 1.25rem;
+}
+
+.sentiment-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-bottom: 0.4rem;
+}
+
+.sentiment-labels span:last-child {
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+}
+
+.sentiment-bar {
+    height: 8px;
+    background: rgba(6, 10, 20, 0.8);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.sentiment-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sentiment-fill.coop {
+    background: var(--yellow);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
+.sentiment-fill.comp {
+    background: var(--blue);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+}

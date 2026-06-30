@@ -28,7 +28,6 @@ plt.rcParams.update({
     "savefig.bbox": "tight",
 })
 
-
 class Plotter:
     def __init__(self, db_params: dict | None = None):
         if db_params is None:
@@ -282,7 +281,6 @@ def main():
             plotter.plot_mode_comparison("llm", "rl")
             plotter.plot_mode_comparison("llm", "rag")
             plotter.plot_mode_comparison("dummy", "llm")
-            
     except psycopg2.Error as e:
         print(f"Database error: {e}")
         print("Is PostgreSQL running via docker compose?")
@@ -295,3 +293,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+ 

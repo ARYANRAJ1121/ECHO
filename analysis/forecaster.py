@@ -96,6 +96,7 @@ class PriceForecaster:
         self,
         avg_prices: list[float],
     ) -> tuple[np.ndarray, np.ndarray]:
+
         """
         Build feature matrix from average price time series.
 

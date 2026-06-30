@@ -79,7 +79,6 @@ class MarketEngine:
             raise ValueError(
                 f"Got {len(agents)} agents but demand model expects {demand_model.n_firms} firms."
             )
-
         self.demand_model = demand_model
         self.agents = agents
         self.price_floor = price_floor
@@ -108,6 +107,9 @@ class MarketEngine:
         7. (Optional) Save to PostgreSQL via db_logger
 
         Returns the full list of round records.
+
+
+
         """
         print(f"\nRunning {n_rounds} rounds...")
         print(f"  Nash price:     {self.benchmarks.nash_price:.4f}")
@@ -116,6 +118,7 @@ class MarketEngine:
         print()
 
         for round_num in range(1, n_rounds + 1):
+            
             record = self._run_one_round(round_num)
             self.records.append(record)
             self.price_history.append(record.prices)

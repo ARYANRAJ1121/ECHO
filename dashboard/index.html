@@ -30,6 +30,7 @@
                     <select id="agent-mode">
                         <option value="dummy">Heuristic (Fast)</option>
                         <option value="rl">Q-Learning (RL)</option>
+                        <option value="dqn">Deep Q-Network (DQN)</option>
                         <option value="llm">LLM — Llama 3</option>
                     </select>
                 </div>
@@ -145,6 +146,56 @@
                     </div>
                     <div class="alerts-feed" id="alerts-feed">
                         <div class="empty-state">No alerts triggered yet.</div>
+                    </div>
+                </div>
+
+                <!-- AI Analysis -->
+                <div class="card glass-panel ai-panel">
+                    <div class="card-header">
+                        <h2>🤖 AI Analysis</h2>
+                    </div>
+                    <div class="ai-tabs">
+                        <button class="ai-tab active" data-tab="strategy">Strategy</button>
+                        <button class="ai-tab" data-tab="sentiment">Sentiment</button>
+                        <button class="ai-tab" data-tab="forecast">Forecast</button>
+                    </div>
+                    
+                    <div class="ai-content active" id="ai-strategy">
+                        <div class="empty-state" id="strategy-empty">Run simulation to analyze behavior.</div>
+                        <div id="strategy-list" class="hidden">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    
+                    <div class="ai-content" id="ai-sentiment">
+                        <div class="empty-state" id="sentiment-empty">Available in LLM/RAG mode.</div>
+                        <div id="sentiment-list" class="hidden">
+                            <div class="sentiment-bar-container">
+                                <div class="sentiment-labels">
+                                    <span>Market Cooperative</span>
+                                    <span id="market-coop-val">0%</span>
+                                </div>
+                                <div class="sentiment-bar">
+                                    <div class="sentiment-fill coop" id="market-coop-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div class="sentiment-bar-container">
+                                <div class="sentiment-labels">
+                                    <span>Market Competitive</span>
+                                    <span id="market-comp-val">0%</span>
+                                </div>
+                                <div class="sentiment-bar">
+                                    <div class="sentiment-fill comp" id="market-comp-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-content" id="ai-forecast">
+                        <div class="empty-state" id="forecast-empty">Forecast available at end of simulation.</div>
+                        <div class="chart-wrapper hidden" id="forecast-wrapper">
+                            <canvas id="forecastChart"></canvas>
+                        </div>
                     </div>
                 </div>
 

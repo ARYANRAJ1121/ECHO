@@ -310,6 +310,3 @@ class ScratchpadSentimentAnalyzer:
                 for s in self.snapshots
             ],
         }
-"""
-sentiment.py -- Scratchpad Sentiment & Intent Analysis module.
-"""

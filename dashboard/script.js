@@ -6,6 +6,7 @@
 let ws = null;
 let priceChart = null;
 let lambdaChart = null;
+let forecastChart = null;
 let isRunning = false;
 let totalRounds = 100;
 let currentRound = 0;
@@ -182,6 +183,58 @@ function initCharts() {
             },
         },
     });
+
+    // ── Forecast Chart ──
+    const forecastCtx = document.getElementById('forecastChart');
+    if (forecastCtx) {
+        forecastChart = new Chart(forecastCtx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Predicted Price',
+                        data: [],
+                        borderColor: '#10b981',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        tension: 0.1,
+                    },
+                    {
+                        label: 'Confidence Interval (Upper)',
+                        data: [],
+                        borderColor: 'transparent',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: '+1', // Fill to next dataset (lower CI)
+                        pointRadius: 0,
+                    },
+                    {
+                        label: 'Confidence Interval (Lower)',
+                        data: [],
+                        borderColor: 'transparent',
+                        backgroundColor: 'transparent',
+                        pointRadius: 0,
+                    }
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        title: { display: true, text: 'Round', color: '#64748b' },
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        title: { display: true, text: 'Price ($)', color: '#64748b' },
+                    },
+                },
+            }
+        });
+    }
 }
 
 // ══════════════════════════════════════
@@ -285,6 +338,102 @@ function addAlert(round, type, detail) {
     badge.textContent = alertCount;
     if (alertCount > 0) {
         badge.className = 'badge running';
+    }
+}
+
+// ══════════════════════════════════════
+// AI Analysis Panel
+// ══════════════════════════════════════
+
+function initAITabs() {
+    const tabs = document.querySelectorAll('.ai-tab');
+    const contents = document.querySelectorAll('.ai-content');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+
+            tab.classList.add('active');
+            const target = document.getElementById(`ai-${tab.dataset.tab}`);
+            if (target) target.classList.add('active');
+        });
+    });
+}
+
+function updateStrategyLabels(strategies) {
+    const empty = document.getElementById('strategy-empty');
+    const list = document.getElementById('strategy-list');
+    
+    if (!strategies || Object.keys(strategies).length === 0) return;
+    
+    if (empty) empty.classList.add('hidden');
+    if (list) list.classList.remove('hidden');
+
+    list.innerHTML = '';
+    
+    for (let i = 0; i < 5; i++) {
+        if (strategies[i]) {
+            const strat = strategies[i];
+            let color = '#64748b'; // default
+            if (strat.strategy === 'competitive') color = '#3b82f6';
+            else if (strat.strategy === 'cooperative') color = '#f59e0b';
+            else if (strat.strategy === 'predatory') color = '#ef4444';
+            else if (strat.strategy === 'exploratory') color = '#8b5cf6';
+            
+            const confPct = Math.round(strat.confidence * 100);
+            
+            list.innerHTML += `
+                <div class="strategy-item">
+                    <span class="s-firm"><span class="firm-color-dot" style="background:${COLORS[i]}"></span>F${i+1}</span>
+                    <span class="s-badge" style="background:${color}20; color:${color}; border: 1px solid ${color}40">${strat.strategy.toUpperCase()}</span>
+                    <span class="s-conf">${confPct}% conf</span>
+                </div>
+            `;
+        }
+    }
+}
+
+function updateSentiment(sentiment) {
+    const empty = document.getElementById('sentiment-empty');
+    const list = document.getElementById('sentiment-list');
+    
+    if (!sentiment) return;
+    
+    if (empty) empty.classList.add('hidden');
+    if (list) list.classList.remove('hidden');
+
+    const coopPct = Math.round(sentiment.mean_cooperative * 100);
+    const compPct = Math.round(sentiment.mean_competitive * 100);
+    
+    document.getElementById('market-coop-val').textContent = `${coopPct}%`;
+    document.getElementById('market-coop-fill').style.width = `${coopPct}%`;
+    
+    document.getElementById('market-comp-val').textContent = `${compPct}%`;
+    document.getElementById('market-comp-fill').style.width = `${compPct}%`;
+}
+
+function renderForecast(forecastData) {
+    const empty = document.getElementById('forecast-empty');
+    const wrapper = document.getElementById('forecast-wrapper');
+    
+    if (!forecastData || forecastData.length === 0) return;
+    
+    if (empty) empty.classList.add('hidden');
+    if (wrapper) wrapper.classList.remove('hidden');
+
+    if (forecastChart) {
+        const labels = forecastData.map(d => d.round);
+        const prices = forecastData.map(d => d.price);
+        const uppers = forecastData.map(d => d.ci_upper);
+        const lowers = forecastData.map(d => d.ci_lower);
+
+        forecastChart.data.labels = labels;
+        forecastChart.data.datasets[0].data = prices;
+        forecastChart.data.datasets[1].data = uppers;
+        forecastChart.data.datasets[2].data = lowers;
+        
+        forecastChart.update();
     }
 }
 
@@ -543,6 +692,26 @@ function resetUI() {
     // Reset firm table
     initFirmTable();
 
+    // Reset AI panels
+    document.getElementById('strategy-empty').classList.remove('hidden');
+    document.getElementById('strategy-list').classList.add('hidden');
+    
+    const mode = document.getElementById('agent-mode').value;
+    const sentEmpty = document.getElementById('sentiment-empty');
+    const sentList = document.getElementById('sentiment-list');
+    if (mode === 'llm' || mode === 'rag') {
+        sentEmpty.classList.remove('hidden');
+        sentList.classList.add('hidden');
+        sentEmpty.textContent = 'Waiting for LLM analysis...';
+    } else {
+        sentEmpty.classList.remove('hidden');
+        sentList.classList.add('hidden');
+        sentEmpty.textContent = 'Available in LLM/RAG mode.';
+    }
+
+    document.getElementById('forecast-empty').classList.remove('hidden');
+    document.getElementById('forecast-wrapper').classList.add('hidden');
+
     // Status
     const badge = document.getElementById('status-badge');
     badge.className = 'badge running';
@@ -609,6 +778,16 @@ function handleMessage(msg) {
             updateScratchpad(activeScratchpadFirm);
         }
 
+        // AI Strategies
+        if (msg.strategies) {
+            updateStrategyLabels(msg.strategies);
+        }
+
+        // AI Sentiment
+        if (msg.sentiment) {
+            updateSentiment(msg.sentiment);
+        }
+
         // Shock events from server
         if (msg.shocks && msg.shocks.length > 0) {
             msg.shocks.forEach(s => {
@@ -628,6 +807,13 @@ function handleMessage(msg) {
         isRunning = false;
 
         showSummary(msg.data, msg.regulator);
+
+        if (msg.forecast) {
+            renderForecast(msg.forecast);
+            // Switch to forecast tab automatically
+            const fTab = document.querySelector('.ai-tab[data-tab="forecast"]');
+            if (fTab) fTab.click();
+        }
         return;
     }
 
@@ -750,6 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCharts();
     initFirmTable();
     initScratchpadTabs();
+    initAITabs();
 
     document.getElementById('start-btn').addEventListener('click', startSimulation);
     document.getElementById('load-validation').addEventListener('click', loadValidationData);
@@ -764,6 +951,7 @@ document.addEventListener('DOMContentLoaded', () => {
         switch (e.target.value) {
             case 'dummy': roundsInput.value = 100; break;
             case 'rl':    roundsInput.value = 5000; break;
+            case 'dqn':   roundsInput.value = 500; break;
             case 'llm':   roundsInput.value = 10; break;
         }
     });
