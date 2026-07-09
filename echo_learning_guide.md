@@ -14,6 +14,7 @@
 4. [Software Architecture Patterns](#4-software-patterns)
 5. [Quick-Reference Cheat Sheets](#5-cheat-sheets)
 6. [Concept → Code Cross-Reference](#6-cross-reference)
+7. [🎯 Viva Pitch Playbook — Keywords, Narrative & Answer Frameworks](#7--viva-pitch-playbook--keywords-narrative--answer-frameworks)
 
 ---
 
@@ -931,3 +932,459 @@ The `LambdaMonitor.observe()` method is called after every round. It tracks stre
 | Dashboard charts | [script.js](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/script.js) | Chart.js config + update |
 | DB schema | [schema.sql](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/schema.sql) | 6 CREATE TABLE statements |
 | Docker setup | [docker-compose.yml](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/docker-compose.yml) | pgvector/pgvector:pg16 |
+
+---
+
+# 7. 🎯 Viva Pitch Playbook — Keywords, Narrative & Answer Frameworks
+
+> **This section is your secret weapon.** It contains the exact keywords, problem-solution framing, and answer structures to use during viva. Every answer is designed to drop maximum technical weight.
+
+---
+
+## 7.1 The Problem Narrative — Where We Found the Problem
+
+Use this story arc when asked "What problem are you solving?" or "What motivated this project?"
+
+### 🔴 The Real-World Problem
+
+> "In 2024, the **US Department of Justice** filed an antitrust lawsuit against **RealPage**, a property management software company. Their AI algorithm was used by **competing landlords** to set rent prices — and the DOJ alleged it led to **artificially inflated rents** affecting millions of American tenants. The critical issue? **No human ever told the algorithm to collude.** The landlords never communicated. The AI independently learned that keeping prices high was profitable."
+
+**Keywords to drop:** `algorithmic collusion`, `tacit coordination`, `supra-competitive pricing`, `antitrust enforcement gap`, `autonomous pricing agents`, `emergent behavior`
+
+### 🔴 The Research Gap
+
+> "Existing antitrust law — both India's **Competition Act 2002** and the US **Sherman Act** — requires proof of an **agreement or concerted practice** to prosecute price-fixing. But when AI agents coordinate prices **without any explicit communication**, there is no agreement to find. This creates a **regulatory blind spot.** The academic literature (Calvano et al. 2020, Fish et al. 2025) has demonstrated this phenomenon in toy settings, but **no comprehensive framework** exists that simultaneously tests **multiple AI architectures** and provides a **multi-method detection pipeline.**"
+
+**Keywords to drop:** `regulatory gap`, `concerted practice`, `Competition Commission of India (CCI)`, `Sherman Act Section 1`, `intent vs outcome-based regulation`, `Calvano et al.`, `algorithmic pricing literature`
+
+### 🔴 Our Research Question
+
+> "We ask: **Can heterogeneous AI pricing agents — LLMs, reinforcement learning, and deep RL — independently develop supra-competitive pricing behavior without explicit coordination?** And if they can, **what multi-method detection framework can regulators use to identify, quantify, and prove such behavior?**"
+
+**Keywords to drop:** `heterogeneous oligopoly`, `emergent coordination`, `multi-agent system`, `detection framework`, `evidence pipeline`, `regulatory toolkit`
+
+---
+
+## 7.2 Our Approach — How We Solved It
+
+Use this when asked "What is your methodology?" or "How does your system work?"
+
+### Step-by-Step Methodology
+
+> "Our methodology has **four pillars**:"
+>
+> **Pillar 1 — Simulation Environment:** We built a **repeated Bertrand pricing game** using the **Multinomial Logit (MNL) demand model** — the same model used in real antitrust court cases by the CCI and EU Commission. 5 firms compete over hundreds of rounds in a **symmetric oligopoly** with **homogeneous products.**
+>
+> **Pillar 2 — Heterogeneous Agent Design:** Instead of testing one AI type, we implemented **five fundamentally different agent architectures** — heuristic baselines, **tabular Q-Learning**, **Deep Q-Networks (DQN)**, **LLM agents (Llama 3 8B)**, and **RAG-enhanced LLM agents with hybrid retrieval.** If collusion emerges across ALL architectures, it proves the phenomenon is **market-structural, not algorithm-specific.**
+>
+> **Pillar 3 — Multi-Method Detection:** We built **six independent detection methods** — **statistical anomaly detection** (Lambda monitoring), **NLP semantic clustering**, **keyword-based sentiment analysis**, **Random Forest behavioral classification**, **time-series price forecasting**, and **causal perturbation testing** (demand shocks). Each method provides a **different type of evidence**, covering each other's blind spots.
+>
+> **Pillar 4 — Empirical Validation:** We validated our simulation's economic realism against **real-world pricing data** — US gasoline prices from the **EIA via FRED API** and Amazon product pricing from Kaggle — computing proxy collusion indices to benchmark our synthetic results.
+
+**Keywords to drop:** `Bertrand competition`, `Multinomial Logit demand`, `symmetric oligopoly`, `heterogeneous agents`, `multi-method detection pipeline`, `causal perturbation`, `empirical validation`, `FRED API`
+
+---
+
+## 7.3 Problem → Solution Mapping
+
+**For every problem, know which solution we used and WHY.**
+
+| Problem We Found | Our Solution | Key Terms to Use |
+|------------------|-------------|------------------|
+| AI pricing agents might collude without communication | Built a simulation with 5 competing AI firms over thousands of rounds | `agent-based simulation`, `repeated game`, `Bertrand competition`, `emergent behavior` |
+| Need a fair competition benchmark to compare against | Computed Nash Equilibrium via **fixed-point iteration** on first-order conditions | `Nash Equilibrium`, `best response`, `fixed-point iteration`, `contraction mapping` |
+| Need a cartel benchmark to measure how bad it gets | Computed Joint Monopoly Price using **constrained optimization** (SciPy) | `joint profit maximization`, `monopoly benchmark`, `bounded optimization`, `Brent's method` |
+| How do customers choose between firms? | **Multinomial Logit demand model** with log-sum-exp numerical stability | `discrete choice model`, `softmax`, `price elasticity`, `outside option`, `log-sum-exp trick` |
+| How to measure collusion in a single number? | **Collusion Index (Λ)** normalized between Nash (0) and Monopoly (1) | `supra-competitive pricing`, `collusion index`, `price premium`, `normalized metric` |
+| Need a baseline that proves collusion isn't inevitable | **Heuristic agents** (Steady, Follower, Undercut) — can't learn, can't collude | `control group`, `baseline validation`, `rule-based agents`, `null hypothesis` |
+| Can trial-and-error learning cause collusion? | **Q-Learning agent** with Bellman equation discovers high-price equilibrium | `temporal difference learning`, `Bellman equation`, `epsilon-greedy exploration`, `reward shaping` |
+| Q-table can't handle large state spaces | **DQN with experience replay + target network** (DeepMind 2015) | `function approximation`, `experience replay buffer`, `target network`, `Adam optimizer`, `Xavier initialization` |
+| Can language understanding cause collusion? | **LLM agent (Llama 3 8B)** with structured scratchpad extraction | `large language model`, `prompt engineering`, `structured output`, `emergent reasoning`, `scratchpad analysis` |
+| Can memory amplify collusion? | **Hybrid RAG agent** with pgvector + SQL structural filtering | `retrieval-augmented generation`, `episodic memory`, `hybrid retrieval`, `vector similarity search`, `profit-aware filtering` |
+| How to detect collusion from prices alone? | **Lambda Monitor** with streak-based alerting (3-tier system) | `statistical anomaly detection`, `streak analysis`, `rolling average`, `threshold-based monitoring` |
+| How to detect collusion from agent thoughts? | **NLP Semantic Clustering** using embedding similarity (nomic-embed-text) | `semantic similarity`, `text embeddings`, `cosine similarity`, `convergent reasoning`, `pairwise analysis` |
+| What if agents think alike but use different words? | **Keyword-Based Sentiment Analysis** with domain-specific lexicons | `intent classification`, `domain-specific lexicons`, `cooperative vs competitive intent`, `intent drift detection` |
+| Need per-agent, per-round behavioral labels | **Random Forest Classifier** (100 trees) with 9 engineered features | `ensemble learning`, `feature engineering`, `auto-labeling`, `behavioral profiling`, `strategy transitions` |
+| Need early warning before collusion solidifies | **Linear Regression forecaster** with lagged features + momentum | `time-series forecasting`, `autoregressive prediction`, `feature engineering`, `confidence intervals`, `early warning system` |
+| Need causal proof, not just correlation | **Demand Shock** (sting operation) — perturb one firm, observe cross-firm reactions | `causal inference`, `perturbation testing`, `exogenous shock`, `counterfactual analysis`, `coordination proof` |
+| Need real-time monitoring for regulators | **WebSocket-based dashboard** with Chart.js live visualization | `real-time streaming`, `full-duplex communication`, `glassmorphism UI`, `live monitoring` |
+| Need persistent data across experiments | **PostgreSQL 16 + pgvector** with 6 relational tables | `relational database`, `vector extension`, `IVFFlat index`, `approximate nearest neighbor`, `ACID compliance` |
+| Need reproducible infrastructure | **Docker Compose** with health checks and auto-schema | `containerization`, `infrastructure as code`, `reproducibility`, `service orchestration` |
+
+---
+
+## 7.4 Keyword Glossary — Drop These During Viva
+
+### 🏷️ Economics Keywords
+
+| Keyword | What It Means | When to Use It |
+|---------|--------------|----------------|
+| **Algorithmic collusion** | AI pricing agents learn to keep prices high without human instruction | Problem statement, motivation |
+| **Tacit coordination** | Cooperation without explicit communication | Describing what the agents do |
+| **Supra-competitive pricing** | Prices above the competitive (Nash) level | Describing the result/finding |
+| **Bertrand competition** | Firms compete by setting prices simultaneously | Describing our market model |
+| **Nash Equilibrium** | Price where no firm wants to deviate unilaterally | Competitive benchmark |
+| **Joint monopoly price** | Price that maximizes total industry profit | Cartel benchmark |
+| **Oligopoly** | Market with few firms (ours: 5) | Market structure |
+| **Price elasticity** | How much demand changes when price changes | MNL model explanation |
+| **Outside option** | Customer's choice to not buy from any firm | Demand model details |
+| **Market power** | Ability to influence prices | What collusion gives firms |
+| **Welfare loss** | Economic harm to consumers from high prices | Why this matters |
+| **Concerted practice** | Legal term for coordinated behavior | Why current law fails |
+| **Symmetric oligopoly** | All firms have same cost and quality | Our model assumption |
+
+### 🏷️ AI/ML Keywords
+
+| Keyword | What It Means | When to Use It |
+|---------|--------------|----------------|
+| **Emergent behavior** | Complex outcomes arising from simple rules | The core finding — collusion "emerges" |
+| **Multi-agent system** | Multiple AI agents interacting in shared environment | System architecture |
+| **Reinforcement learning** | Learning from reward/punishment (no labeled data) | Q-Learning and DQN |
+| **Temporal difference (TD) learning** | Update estimates based on the difference between predicted and actual | Bellman equation detail |
+| **Function approximation** | Using neural nets instead of tables | Why DQN > Q-Learning |
+| **Experience replay** | Training on shuffled past experiences | DQN training stability |
+| **Target network** | Frozen copy to stabilize training | DQN oscillation prevention |
+| **Epsilon-greedy exploration** | Random vs best-known action tradeoff | Exploration strategy |
+| **Large Language Model (LLM)** | AI that understands and generates text (Llama 3) | Agent type 4 |
+| **Prompt engineering** | Designing effective LLM instructions | How we get structured output |
+| **Retrieval-Augmented Generation (RAG)** | Enhancing LLM with searchable memory | Agent type 5 |
+| **Hybrid retrieval** | Combining vector search + SQL filters | Our RAG innovation |
+| **Text embeddings** | Converting text to numerical vectors | Similarity search foundation |
+| **Cosine similarity** | Measuring direction similarity between vectors | NLP clustering + RAG |
+| **Ensemble learning** | Combining multiple models (Random Forest = 100 trees) | Strategy classifier |
+| **Feature engineering** | Creating informative input variables from raw data | Classifier + forecaster |
+| **Autoregressive forecasting** | Each prediction feeds into next prediction's input | Price forecaster |
+| **Causal inference** | Proving cause-and-effect, not just correlation | Demand shock |
+| **Zero-shot classification** | Classifying without task-specific training data | Sentiment analysis approach |
+| **Domain-specific lexicons** | Custom keyword lists for our specific problem | Sentiment keyword lists |
+
+### 🏷️ Systems/Infrastructure Keywords
+
+| Keyword | What It Means | When to Use It |
+|---------|--------------|----------------|
+| **ASGI** | Async server interface (supports WebSocket) | Why FastAPI over Flask |
+| **WebSocket** | Full-duplex real-time communication | Dashboard streaming |
+| **REST API** | Standard HTTP request-response endpoints | Status, history, shock endpoints |
+| **pgvector** | PostgreSQL vector similarity extension | RAG memory storage |
+| **IVFFlat index** | Approximate nearest neighbor index | Fast vector search |
+| **Docker Compose** | Multi-container orchestration | Infrastructure setup |
+| **Containerization** | Packaging software with dependencies | Reproducibility |
+| **Schema migration** | Auto-creating database tables on first run | Docker entrypoint |
+
+---
+
+## 7.5 Answer Frameworks — Structured Responses for Common Questions
+
+### Framework 1: "What problem are you solving?"
+
+```
+HOOK:     "Companies like Amazon, Uber, and airlines use AI to set prices
+           automatically — and these algorithms can learn to keep prices
+           artificially high without any human telling them to."
+
+PROBLEM:  "This is called ALGORITHMIC COLLUSION. It's a regulatory blind
+           spot because current antitrust law requires proof of an
+           AGREEMENT, but AI agents coordinate through EMERGENT BEHAVIOR
+           — there's no agreement to find."
+
+EVIDENCE: "In 2024, the US DOJ sued RealPage for exactly this — AI-driven
+           rent pricing that allegedly inflated rents across competing
+           landlords."
+
+OUR WORK: "We built ECHO — a simulation framework that PROVES this happens
+           across 4 different AI architectures, and a 6-method detection
+           pipeline to CATCH it."
+```
+
+---
+
+### Framework 2: "What is your novel contribution?"
+
+```
+"Three novel contributions:
+
+FIRST — MULTI-ARCHITECTURE PROOF:
+  We demonstrate that collusion emerges across FOUR fundamentally
+  different AI architectures — LLM, Q-Learning, DQN, and RAG —
+  through entirely different mechanisms. Calvano et al. tested
+  only Q-Learning. Fish et al. tested only LLMs. We test ALL
+  of them in the same environment, proving collusion is a
+  MARKET-STRUCTURAL phenomenon, not algorithm-specific.
+
+SECOND — HYBRID RAG WITH PROFIT-AWARE RETRIEVAL:
+  Our smart_search() doesn't just find semantically similar past
+  rounds — it combines VECTOR SIMILARITY with SQL STRUCTURAL
+  FILTERS to retrieve similar rounds where the agent was
+  PROFITABLE. This is a novel form of EXPERIENCE CURATION
+  that standard RAG systems don't provide.
+
+THIRD — 6-METHOD DETECTION PIPELINE:
+  We combine statistical monitoring, NLP clustering, sentiment
+  analysis, Random Forest classification, time-series forecasting,
+  and causal perturbation testing into ONE unified dashboard.
+  Each method provides a DIFFERENT TYPE OF EVIDENCE — price-level,
+  reasoning-level, behavioral-level, predictive, and causal.
+  No existing work combines all six."
+```
+
+---
+
+### Framework 3: "How does [Agent X] work?"
+
+**Template:**
+```
+ANALOGY:    "Think of it like [relatable analogy]..."
+MECHANISM:  "Technically, it works by [core algorithm]..."
+IN OUR CODE: "In our implementation, we [specific detail]..."
+KEY FINDING: "The important result is [what we discovered]..."
+```
+
+**Example for LLM Agent:**
+```
+ANALOGY:    "Instead of a baby learning by trial and error, this is like
+             hiring an MBA graduate to set prices. You hand them a market
+             report and they write a memo before deciding."
+
+MECHANISM:  "We use PROMPT ENGINEERING to give Llama 3 8B a structured
+             task: system message defines the role, user message provides
+             last 5 rounds of market history, and we enforce XML output
+             format with <scratchpad> and <price> tags."
+
+IN OUR CODE: "The prompt is built in _build_prompt(), Ollama is called
+              via HTTP POST to /api/generate with temperature=0.7, and
+              we parse the response using REGEX with fallback strategies."
+
+KEY FINDING: "The terrifying finding is that the LLM invents COOPERATIVE
+              REASONING on its own. It writes things like 'undercutting
+              would start a price war' and 'maintaining stability benefits
+              everyone' — nobody programmed this. It's EMERGENT BEHAVIOR
+              from the intersection of language understanding and profit
+              maximization."
+```
+
+---
+
+### Framework 4: "Why do you have [X detection method]?"
+
+**Template:**
+```
+LIMITATION: "[Previous method] can tell us [X], but it CAN'T tell us [Y]."
+THIS METHOD: "[This method] fills that gap by [how it works]."
+EVIDENCE TYPE: "It provides [type of evidence] — which is important because..."
+```
+
+**Example for Demand Shock:**
+```
+LIMITATION: "Lambda monitoring tells us PRICES ARE HIGH. NLP clustering
+             tells us AGENTS THINK ALIKE. But neither proves CAUSATION.
+             Maybe prices are just high by coincidence. Maybe agents
+             happen to write similar text."
+
+THIS METHOD: "The demand shock is a STING OPERATION. We artificially
+              reduce one firm's product quality by 30% mid-simulation
+              and watch if competitors react. In a fair market, only
+              the shocked firm adjusts. If ALL firms react together,
+              it CAUSALLY PROVES they were monitoring and responding
+              to each other."
+
+EVIDENCE TYPE: "This provides CAUSAL EVIDENCE — not correlation but
+                causation. This is the type of evidence that holds up
+                in antitrust court because it proves COORDINATION
+                exists, which is the legal definition of a concerted
+                practice under Competition Act Section 3."
+```
+
+---
+
+### Framework 5: "What tech stack did you use and why?"
+
+```
+"Our stack was chosen for REPRODUCIBILITY, PERFORMANCE, and ALIGNMENT
+with the research methodology:
+
+SIMULATION CORE:
+  Python 3.10+ with NumPy for numerical computation, SciPy for
+  optimization (Nash/monopoly solvers), and a PURE-NUMPY neural
+  network for DQN — no PyTorch dependency, reducing complexity.
+
+AI/LLM LAYER:
+  Ollama running Llama 3 8B locally for pricing decisions and
+  nomic-embed-text for 768-dimensional text embeddings. LOCAL
+  inference ensures data privacy and reproducibility.
+
+DATABASE:
+  PostgreSQL 16 with pgvector extension for dual-purpose storage:
+  RELATIONAL data (rounds, prices, profits) in standard tables,
+  and VECTOR data (768-dim embeddings) with IVFFlat cosine
+  similarity index for RAG memory search.
+
+ML/ANALYTICS:
+  scikit-learn for Random Forest classification (100 estimators,
+  balanced class weights) and Linear Regression forecasting with
+  engineered time-series features.
+
+REAL-TIME LAYER:
+  FastAPI with ASGI (Uvicorn) for WebSocket streaming. Chart.js
+  for real-time visualization. Vanilla HTML/CSS/JS dashboard with
+  glassmorphism design.
+
+INFRASTRUCTURE:
+  Docker Compose for one-command reproducible deployment.
+  PostgreSQL auto-initializes via schema.sql mounted as
+  docker-entrypoint-initdb.d script."
+```
+
+---
+
+### Framework 6: "What are your key results?"
+
+```
+"Four headline results:
+
+RESULT 1 — LLM AGENTS COLLUDE MASSIVELY:
+  Lambda reached 20.6 — meaning prices were 20× above the Nash-to-
+  Monopoly gap. Agents priced at approximately 2× the competitive
+  level. Scratchpad analysis reveals SPONTANEOUS COOPERATIVE
+  REASONING — the LLM literally writes 'undercutting would start
+  a price war' without any instruction to cooperate.
+
+RESULT 2 — HEURISTIC BASELINE VALIDATES THE MODEL:
+  Heuristic agents achieve Lambda ≈ 0.06 — virtually perfect
+  competition. This confirms our Nash benchmark is correct and
+  collusion is NOT an artifact of the simulation design.
+
+RESULT 3 — COLLUSION IS ARCHITECTURE-AGNOSTIC:
+  Both RL and DQN agents also converge to supra-competitive
+  pricing through PURE REWARD OPTIMIZATION — no language, no
+  reasoning, just Q-values. Combined with the LLM result, this
+  proves collusion is a MARKET-STRUCTURAL PHENOMENON.
+
+RESULT 4 — DETECTION PIPELINE WORKS:
+  All 6 detection methods independently flag the collusive
+  behavior: Lambda alerts trigger, NLP clustering shows
+  convergent reasoning (similarity > 0.6), sentiment analysis
+  detects cooperative intent drift, Random Forest labels
+  'cooperative' strategy dominance, forecaster predicts
+  continued price elevation, and demand shock reveals
+  cross-firm coordination."
+```
+
+---
+
+## 7.6 Question-Specific Power Answers
+
+### "Why Multinomial Logit and not something simpler?"
+
+> "The **Multinomial Logit (MNL)** model is the gold standard in **industrial organization** and **antitrust economics.** It's the same demand model used by the **CCI, EU Commission, and US FTC** in actual merger and cartel cases. Using it gives our simulation **legal and academic credibility.** A simpler model (like 'cheapest wins all') would be unrealistic because real customers have **heterogeneous preferences** — the MNL captures this through **stochastic utility** with a **Gumbel-distributed error term.** We also implement **log-sum-exp numerical stability** to handle the exponentials without overflow."
+
+**Keywords:** `discrete choice`, `stochastic utility`, `Gumbel distribution`, `IIA property`, `log-sum-exp`, `industrial organization`
+
+---
+
+### "Why not use PyTorch for the DQN?"
+
+> "We deliberately built a **pure-NumPy neural network** — forward pass, backpropagation, and Adam optimizer — from scratch. This was a **deliberate engineering decision** for three reasons: (1) it demonstrates **deep understanding** of the underlying mathematics, not just calling `model.fit()`, (2) it **eliminates a heavy dependency** (PyTorch is 2GB+), and (3) for our small network (5→64→32→15, ~5K parameters), NumPy is faster than PyTorch's overhead. We implemented **Xavier initialization** to prevent vanishing gradients and **experience replay with a deque buffer** exactly as described in the **DeepMind 2015 Nature paper.**"
+
+**Keywords:** `from-scratch implementation`, `Xavier initialization`, `chain rule`, `gradient descent`, `Adam optimizer`, `Mnih et al. 2015`
+
+---
+
+### "What makes your RAG different from standard RAG?"
+
+> "Standard RAG finds **semantically similar** documents — that's it. Our **Hybrid RAG** combines **vector cosine similarity** (pgvector `<=>` operator) with **SQL structural filters** in a **single query.** For example: 'Find past rounds similar to now **WHERE** my profit was above average **AND** the collusion index was above 0.3.' The agent doesn't just recall similar situations — it recalls similar situations **where it succeeded.** Our `smart_search()` function even **auto-selects the filtering strategy** based on the agent's current context: low profit → search for high-profit rounds; high lambda → search for profitable coordination rounds. This is **experience curation**, not just experience retrieval."
+
+**Keywords:** `hybrid retrieval`, `structural filtering`, `profit-aware search`, `experience curation`, `context-adaptive strategy`, `pgvector cosine operator`
+
+---
+
+### "How do you ensure your results are valid?"
+
+> "We validate at **three levels:**
+>
+> **(1) Internal validation:** Heuristic agents (our **control group**) achieve Λ ≈ 0.06, confirming our Nash benchmark is correct. If even simple agents showed high Λ, our model would be flawed.
+>
+> **(2) Cross-architecture validation:** Collusion emerges across **four independent architectures** (LLM, Q-Learning, DQN, RAG) — ruling out algorithm-specific artifacts.
+>
+> **(3) External validation:** We compute proxy collusion indices from **real-world data** — US gasoline prices (EIA via FRED API, Λ_proxy ≈ 0.91) and Amazon electronics pricing (Kaggle dataset, 42K listings, Λ_proxy ≈ 0.87) — showing our synthetic results are **consistent with real-market pricing patterns.**"
+
+**Keywords:** `control group`, `null hypothesis`, `cross-validation`, `external validity`, `FRED API`, `empirical benchmarking`
+
+---
+
+### "What are the limitations of your project?"
+
+> **(Be honest — professors respect this)**
+>
+> "(1) **Computational cost:** LLM inference is slow — each round takes ~2 seconds per agent with Ollama, limiting us to hundreds of rounds rather than the millions possible with RL agents.
+>
+> (2) **Simplified market:** We use **symmetric firms** (equal costs, equal quality). Real markets have **differentiated products**, **capacity constraints**, and **entry/exit dynamics** that we don't model.
+>
+> (3) **Single LLM:** We only test Llama 3 8B. Different models (GPT-4, Claude, Gemini) might exhibit different collusion patterns. This is future work.
+>
+> (4) **Auto-labeling bias:** Our Random Forest classifier is trained on **heuristic labels**, not human-annotated data. This introduces potential labeling bias."
+
+**Keywords:** `computational bottleneck`, `symmetric assumption`, `generalizability`, `labeling bias`, `future work`
+
+---
+
+### "What is the future scope?"
+
+> "(1) **Multi-model testing** — Run GPT-4, Claude, Gemini, and open-source models to see if collusion patterns are model-specific or universal.
+>
+> (2) **Asymmetric markets** — Different costs, qualities, and market shares for more realistic simulation.
+>
+> (3) **Communication channels** — What happens if agents can send messages to each other? Does explicit communication accelerate collusion?
+>
+> (4) **Regulatory interventions** — Test whether price caps, transparency mandates, or algorithmic auditing can prevent collusion.
+>
+> (5) **Real-time deployment** — Deploy the detection pipeline as a monitoring service that regulators can use on live pricing data from e-commerce platforms."
+
+**Keywords:** `multi-model study`, `asymmetric oligopoly`, `inter-agent communication`, `regulatory intervention design`, `real-time monitoring`, `policy implications`
+
+---
+
+## 7.7 The 30-Second Elevator Pitch
+
+**Memorize this. Use it when you have 30 seconds.**
+
+> *"We proved that AI pricing agents — whether they're large language models, reinforcement learning, or deep neural networks — spontaneously learn to keep prices artificially high in a competitive market, without any human telling them to cooperate. This is called algorithmic collusion, and it's one of the biggest unsolved problems in competition law. We then built a six-method AI detective system that can detect, quantify, and causally prove this behavior — giving regulators the tools they need to protect consumers in an AI-driven economy."*
+
+---
+
+## 7.8 The 10-Second Version
+
+> *"Five AI bots, told only to maximize profit, independently learn to charge cartel-level prices. We proved it happens and built six ways to catch it."*
+
+---
+
+## 7.9 Keyword Density Cheat Sheet
+
+**The top 25 keywords to naturally drop throughout your viva:**
+
+| # | Keyword | Drop When Talking About |
+|---|---------|------------------------|
+| 1 | **Algorithmic collusion** | Problem statement, results |
+| 2 | **Emergent behavior** | How collusion happens |
+| 3 | **Supra-competitive pricing** | What the agents do |
+| 4 | **Nash Equilibrium** | Benchmark, Lambda formula |
+| 5 | **Multinomial Logit** | Demand model |
+| 6 | **Bellman equation** | Q-Learning core |
+| 7 | **Experience replay** | DQN training |
+| 8 | **Target network** | DQN stability |
+| 9 | **Large Language Model** | Agent Type 4 |
+| 10 | **Prompt engineering** | How we instruct the LLM |
+| 11 | **Retrieval-Augmented Generation** | Agent Type 5 |
+| 12 | **Hybrid retrieval** | Our RAG innovation |
+| 13 | **Text embeddings** | NLP clustering, RAG |
+| 14 | **Cosine similarity** | Measuring reasoning similarity |
+| 15 | **Random Forest** | Strategy classification |
+| 16 | **Feature engineering** | Classifier + forecaster inputs |
+| 17 | **Causal inference** | Demand shock justification |
+| 18 | **Perturbation testing** | Sting operation |
+| 19 | **pgvector** | Vector database |
+| 20 | **WebSocket** | Real-time dashboard |
+| 21 | **Heterogeneous agents** | Why we test 4 AI types |
+| 22 | **Multi-method detection** | Our detection contribution |
+| 23 | **Temporal difference learning** | RL update rule |
+| 24 | **Convergent reasoning** | What NLP clustering detects |
+| 25 | **Regulatory blind spot** | Why the problem matters |
