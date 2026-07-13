@@ -81,6 +81,7 @@ class DatabaseLogger:
 
     def start_simulation(self, config: dict[str, Any]) -> int:
         """
+
         Register a new simulation run. Returns the sim_id.
 
         Called ONCE at the beginning of a simulation.

@@ -79,7 +79,7 @@ class MarketEngine:
             raise ValueError(
                 f"Got {len(agents)} agents but demand model expects {demand_model.n_firms} firms."
             )
-        self.demand_model = demand_model
+        self.demand_model = demand_model  
         self.agents = agents
         self.price_floor = price_floor
         self.price_ceiling = price_ceiling

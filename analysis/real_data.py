@@ -121,7 +121,7 @@ def download_eia_gasoline() -> pd.DataFrame:
     Returns DataFrame with columns: [date, region, price]
     """
     print("  [DATA] Downloading US EIA gasoline prices from FRED...")
-    
+
     # FRED series IDs for US regional gasoline prices (regular grade)
     # These are weekly averages, $/gallon
     series = {
@@ -137,7 +137,6 @@ def download_eia_gasoline() -> pd.DataFrame:
     url = "https://fred.stlouisfed.org/graph/fredgraph.csv"
     
     all_data = []
-    
     for region_name, series_id in series.items():
         try:
             params = {
@@ -212,7 +211,7 @@ def download_eia_gasoline() -> pd.DataFrame:
         return _generate_gasoline_fallback()
     
     df = pd.DataFrame(all_data)
-    df['date'] = pd.to_datetime(df['date'])
+    df['date'] = pd.to_datetime(df['date']) 
     
     # Check how many regions we got. If < 4, augment with fallback for missing ones.
     regions_found = df['region'].nunique()

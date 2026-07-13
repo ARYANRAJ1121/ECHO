@@ -8,6 +8,7 @@
 --
 -- TABLE DESIGN:
 -- simulations  -> one row per experiment run
+-- simulation -> one row per experiment run
 -- rounds       -> one row per round (linked to simulation)
 -- firm_rounds  -> one row per firm per round (prices, profits, shares)
 -- scratchpads  -> LLM reasoning text (one per firm per round)

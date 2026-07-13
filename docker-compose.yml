@@ -25,6 +25,7 @@ services:
   # pgvector extension enables vector similarity search for RAG (Phase 4).
   db:
     image: pgvector/pgvector:pg16
+
     container_name: echo_db
     restart: unless-stopped
     environment:

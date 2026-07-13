@@ -40,7 +40,6 @@ class DemandResult:
     outside_share: float        # fraction of customers who didn't buy anything
     total_profit: float         # sum of all firms' profits
 
-
 @dataclass
 class Benchmarks:
     """
@@ -247,7 +246,7 @@ class LogitDemandModel:
             method="bounded",
         )
         return float(result.x)
-
+ 
     # ----------------------------------------------------------------
     # BENCHMARKS: Compute + cache both reference prices
     # ----------------------------------------------------------------
@@ -275,6 +274,7 @@ class LogitDemandModel:
             monopoly_profit=float(mono_result.profits.mean()),
         )
 
+
         print(f"  Nash price:     {self._benchmarks.nash_price:.4f}")
         print(f"  Monopoly price: {self._benchmarks.monopoly_price:.4f}")
         print(f"  Nash profit:    {self._benchmarks.nash_profit:.6f}")
@@ -285,6 +285,7 @@ class LogitDemandModel:
     # ----------------------------------------------------------------
     # EQUATION 3: Collusion Index (Lambda)
     # ----------------------------------------------------------------
+
 
     def collusion_index(self, avg_price: float) -> float:
         """

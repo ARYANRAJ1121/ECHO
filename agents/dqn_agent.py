@@ -92,9 +92,11 @@ class SimpleNeuralNetwork:
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """Forward pass. Returns Q-values for all actions."""
+
         self._z1 = x @ self.W1 + self.b1
         self._a1 = self._relu(self._z1)
         self._z2 = self._a1 @ self.W2 + self.b2
+
         self._a2 = self._relu(self._z2)
         self._z3 = self._a2 @ self.W3 + self.b3
         self._input = x
@@ -113,7 +115,6 @@ class SimpleNeuralNetwork:
         """
         pred = self.forward(x)
         batch_size = x.shape[0]
-
         # MSE loss
         loss = float(np.mean((pred - target) ** 2))
 
