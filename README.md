@@ -1,10 +1,12 @@
 <div align="center">
 
-# ECHO
+# ◆ ECHO
 
-**Emergent Collusion in Heterogeneous Oligopolies**
+### Emergent Collusion in Heterogeneous Oligopolies
 
 A simulation framework for studying tacit coordination among autonomous AI pricing agents in repeated Bertrand competition.
+
+🔗 **[Live Demo →](https://echo-green-pi.vercel.app)**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Ollama](https://img.shields.io/badge/Ollama-Llama_3_8B-000000?logo=ollama)](https://ollama.com)
@@ -12,9 +14,18 @@ A simulation framework for studying tacit coordination among autonomous AI prici
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
+[![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?logo=vercel&logoColor=white)](https://echo-green-pi.vercel.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
+
+---
+
+## 🌐 Live Demo
+
+**Try it now → [echo-green-pi.vercel.app](https://echo-green-pi.vercel.app)**
+
+The dashboard runs a fully interactive demo with pre-generated simulation data. Switch between 4 agent modes (Heuristic, Q-Learning, DQN, LLM), watch real-time price charts, observe collusion detection, trigger demand shocks, and view AI analysis — all in the browser, no backend needed.
 
 ---
 
@@ -34,10 +45,10 @@ Algorithmic pricing systems are already deployed at scale (Amazon, Uber, airline
 
 | Agent Type | Collusion Index (λ) | Avg. Price | Interpretation |
 |-----------|---------------------|------------|----------------|
-| Heuristic (rule-based) | 0.06 | ~$1.53 | Competitive — near Nash equilibrium |
-| LLM (Llama 3 8B) | 20.61 | ~$3.20 | Supra-competitive — significant price inflation |
-| Q-Learning (RL) | Converges ↑ | Rises over rounds | Gradual coordination via reward optimization |
-| DQN (Deep RL) | Converges ↑ | Rises over rounds | Neural network-based coordination via experience replay |
+| Heuristic (rule-based) | 0.06 | ~$1.53 | ✅ Competitive — near Nash equilibrium |
+| LLM (Llama 3 8B) | 20.61 | ~$3.20 | 🚨 Supra-competitive — significant price inflation |
+| Q-Learning (RL) | Converges ↑ | Rises over rounds | ⚠️ Gradual coordination via reward optimization |
+| DQN (Deep RL) | Converges ↑ | Rises over rounds | ⚠️ Neural network-based coordination via experience replay |
 
 > **LLM agents priced at approximately 2× the Nash equilibrium level.** Scratchpad analysis revealed strategic reasoning patterns: agents monitored competitor pricing and adjusted upward, consistent with tacit coordination behavior described in the algorithmic pricing literature.
 
@@ -55,9 +66,9 @@ Algorithmic pricing systems are already deployed at scale (Amazon, Uber, airline
 1. **LLM Tacit Coordination** — Demonstrating that LLM-based pricing agents develop supra-competitive pricing without explicit coordination instructions
 2. **RAG Memory Ablation** — Investigating whether retrieval-augmented episodic memory (hybrid RAG with semantic + structural filtering) accelerates or dampens emergent coordination
 3. **Heterogeneous Agent Comparison** — Controlled comparison of LLM, DQN, Q-Learning RL, and rule-based agents under identical market conditions
-4. **Multi-Method Detection Pipeline** — Five independent detection methods: λ-index monitoring, NLP similarity, sentiment analysis, ML strategy classification, and demand shock perturbation
+4. **Multi-Method Detection Pipeline** — Six independent detection methods: λ-index monitoring, NLP similarity, sentiment analysis, ML strategy classification, price forecasting, and demand shock perturbation
 5. **Scratchpad Reasoning Analysis** — Extracting and analyzing agent decision rationale via structured prompting to identify coordination signals
-6. **Live Monitoring Dashboard** — Real-time WebSocket-based dashboard for observing emergent collusion with demand shock intervention
+6. **Live Monitoring Dashboard** — Real-time WebSocket-based dashboard with demo mode for standalone deployment
 7. **Deep RL Comparison** — DQN agent with experience replay and target network, demonstrating that collusion is architecture-independent
 8. **Predictive Price Forecasting** — Time-series regression model for early-warning detection of price convergence
 
@@ -101,6 +112,7 @@ Where `λ = 0` corresponds to the Nash equilibrium (full competition) and `λ = 
 | NLP Clustering | Reasoning similarity | Embedding-based cosine similarity across agent scratchpads |
 | Sentiment Analysis | Intent classification | Cooperative/competitive/predatory intent scoring with drift detection |
 | Strategy Classifier | Behavioral labeling | Random Forest (sklearn) classifying agent behavior from 9 engineered features |
+| Price Forecaster | Future price prediction | Linear Regression with lagged features + momentum for early warning |
 | Demand Shocks | Coordinated response | Exogenous perturbation to one firm; measure cross-firm reaction |
 
 ---
@@ -111,6 +123,7 @@ Where `λ = 0` corresponds to the Nash equilibrium (full competition) and `λ = 
 ┌─────────────────────────────────────────────────────┐
 │   Live Dashboard (HTML/JS + Chart.js + WebSocket)   │
 │  Price Charts │ λ Gauge │ Scratchpads │ Shock Ctrl  │
+│       ↕ Demo mode (Vercel) │ Live mode (local)      │
 └────────────────────────┬────────────────────────────┘
                          │ WebSocket + REST
 ┌────────────────────────▼────────────────────────────┐
@@ -121,6 +134,7 @@ Where `λ = 0` corresponds to the Nash equilibrium (full competition) and `λ = 
 ┌────────────────────────▼────────────────────────────┐
 │             Antitrust Regulator                      │
 │  λ Monitor  │  NLP Similarity  │  Demand Shocks     │
+│  Sentiment  │  Strategy (RF)   │  Forecaster (LR)   │
 └────────────────────────┬────────────────────────────┘
                          │ observes
 ┌────────────────────────▼────────────────────────────┐
@@ -177,12 +191,16 @@ antitrust_sim/
 ├── dashboard/
 │   ├── index.html             # Live dashboard UI (glassmorphism design)
 │   ├── style.css              # Premium dark theme with micro-animations
-│   └── script.js              # Real-time charts, scratchpad viewer, shock ctrl
+│   ├── script.js              # Real-time charts, scratchpad viewer, shock ctrl
+│   └── demo-data.js           # Pre-generated simulation data for Vercel demo
 │
 ├── api_server.py              # FastAPI backend (WebSocket + REST API)
 ├── run_simulation.py          # CLI entry point (all modes)
 ├── docker-compose.yml         # PostgreSQL + pgvector container
+├── vercel.json                # Vercel deployment config (static dashboard)
 ├── requirements.txt           # Python dependencies
+├── echo_project_guide.md      # Complete project guide (layman → technical)
+├── echo_learning_guide.md     # Team learning guide & viva reference
 └── todo.md                    # Development roadmap
 ```
 
@@ -212,6 +230,9 @@ python run_simulation.py --mode dummy --rounds 50
 
 # ─── Q-Learning RL agents (no GPU required) ───
 python run_simulation.py --mode rl --rounds 10000
+
+# ─── Deep Q-Network agents (no GPU required) ───
+python run_simulation.py --mode dqn --rounds 500
 
 # ─── LLM agents (requires Ollama running) ───
 ollama serve                                            # Terminal 1
@@ -244,10 +265,18 @@ The dashboard provides:
 - **Regulator gauge** with color-coded collusion severity
 - **Firm performance table** with live profit deltas
 - **Scratchpad viewer** — read LLM agent reasoning in real-time
+- **AI Analysis panel** — Strategy classification, Sentiment analysis, Price forecast
 - **Demand shock control** — trigger shocks mid-simulation and observe reactions
+- **Empirical Validation** — compare with real-world gasoline and Amazon pricing data
 - **Summary overlay** with collusion verdict at simulation end
 
-Supports Heuristic, Q-Learning, and LLM agent modes.
+Supports Heuristic, Q-Learning, DQN, and LLM agent modes.
+
+### Hosted Demo (Vercel)
+
+The dashboard is deployed as a static site on Vercel with a built-in **demo mode** that procedurally generates realistic simulation data. No backend required — all 4 agent modes are fully interactive.
+
+🔗 **[echo-green-pi.vercel.app](https://echo-green-pi.vercel.app)**
 
 ---
 
@@ -259,6 +288,7 @@ Supports Heuristic, Q-Learning, and LLM agent modes.
 | Collusion Metric | Calvano, Calzolari, Denicolo & Pastorello (2020). *Artificial Intelligence, Algorithmic Pricing, and Collusion.* AER, 110(10), 3267–3297. |
 | LLM Agent Design | Fish et al. (2025). *Algorithmic Collusion by Large Language Models.* arXiv preprint. |
 | Q-Learning Agents | Calvano et al. (2020). *Artificial Intelligence, Algorithmic Pricing, and Collusion.* AER. |
+| DQN Architecture | Mnih et al. (2015). *Human-level control through deep reinforcement learning.* Nature, 518, 529–533. |
 
 ---
 
@@ -285,6 +315,23 @@ ECHO uses **14 distinct AI/ML techniques** across the codebase:
 
 ---
 
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Language** | Python 3.10+ | Core simulation, ML, API |
+| **LLM Runtime** | Ollama (Llama 3 8B) | Agent pricing decisions + text embeddings |
+| **Database** | PostgreSQL 16 + pgvector | Relational data + vector similarity search |
+| **ML Framework** | scikit-learn | Random Forest classifier + Linear Regression |
+| **Numerical** | NumPy, SciPy | MNL demand, DQN neural network (pure NumPy), optimization |
+| **API Server** | FastAPI + Uvicorn (ASGI) | WebSocket streaming + REST endpoints |
+| **Frontend** | HTML/CSS/JS + Chart.js | Real-time dashboard with glassmorphism design |
+| **Deployment** | Vercel (static) | Hosted demo with procedural data generation |
+| **Infrastructure** | Docker Compose | One-command PostgreSQL + pgvector setup |
+| **Data** | Pandas, Matplotlib, Seaborn | Analysis, visualization, empirical validation |
+
+---
+
 ## Development Roadmap
 
 See [`todo.md`](todo.md) for detailed task breakdowns.
@@ -302,12 +349,23 @@ See [`todo.md`](todo.md) for detailed task breakdowns.
 | 8 | FastAPI + live dashboard | ✅ Complete |
 | 9 | Deep Q-Network (DQN) agent | ✅ Complete |
 | 10 | NLP sentiment analysis + strategy classifier + price forecasting | ✅ Complete |
+| 11 | Vercel deployment with interactive demo mode | ✅ Complete |
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [`echo_project_guide.md`](echo_project_guide.md) | Complete project walkthrough — from the real-world problem to every algorithm, technique, and viva Q&A |
+| [`echo_learning_guide.md`](echo_learning_guide.md) | Team learning reference — tools, concepts, algorithms, code cross-reference, and viva pitch playbook |
+| [`todo.md`](todo.md) | Development roadmap with phase-by-phase task tracking |
 
 ---
 
 ## Author
 
-**Aryan Raj**
+**Aryan Raj** — [@ARYANRAJ1121](https://github.com/ARYANRAJ1121)
 
 ## License
 
