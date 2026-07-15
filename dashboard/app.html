@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ECHO — Antitrust Simulation Dashboard</title>
-    <meta name="description" content="Real-time AI collusion detection dashboard for the ECHO antitrust simulation project.">
+    <meta name="description" content="Real-time AI collusion detection dashboard for the ECHO antitrust simulation.">
 
-    <!-- Typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Typography — match landing page -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Annotation plugin for shock lines -->
@@ -16,13 +16,91 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="app-container">
+
+    <!-- ═══════ ONBOARDING OVERLAY ═══════ -->
+    <div class="onboarding-overlay" id="onboarding-overlay">
+        <div class="onboarding-card">
+            <div class="onboarding-header">
+                <span class="onboarding-logo">◆</span>
+                <h2>ECHO <span>Simulation</span></h2>
+                <p class="onboarding-subtitle">Antitrust Collusion Detection Dashboard</p>
+            </div>
+
+            <div class="onboarding-body">
+                <div class="onboarding-section">
+                    <h3>What You're About to See</h3>
+                    <p>Five autonomous AI agents compete in a simulated market, setting prices 
+                    independently each round. The dashboard monitors whether they develop 
+                    <em>tacit collusion</em> — pricing above competitive levels without any 
+                    explicit coordination.</p>
+                </div>
+
+                <div class="onboarding-steps">
+                    <div class="onboarding-step">
+                        <span class="step-num">01</span>
+                        <div>
+                            <strong>Choose a Mode</strong>
+                            <p>Heuristic (rule-based), Q-Learning (RL), DQN (neural network), or LLM (Llama 3). Each agent type exhibits different collusion behavior.</p>
+                        </div>
+                    </div>
+                    <div class="onboarding-step">
+                        <span class="step-num">02</span>
+                        <div>
+                            <strong>Watch Prices Evolve</strong>
+                            <p>The price chart shows all 5 firms plus Nash (competitive) and Monopoly (cartel) benchmarks. Prices rising above Nash = emerging collusion.</p>
+                        </div>
+                    </div>
+                    <div class="onboarding-step">
+                        <span class="step-num">03</span>
+                        <div>
+                            <strong>Monitor the Lambda (Λ) Index</strong>
+                            <p>The collusion gauge tracks Λ from 0 (competitive) to 1+ (cartel). The chart shows how Λ evolves — watch for it crossing the 0.7 alert threshold.</p>
+                        </div>
+                    </div>
+                    <div class="onboarding-step">
+                        <span class="step-num">04</span>
+                        <div>
+                            <strong>Trigger Demand Shocks</strong>
+                            <p>Mid-simulation, reduce one firm's quality by 30%. If <em>other</em> firms react by adjusting prices, that's causal evidence of coordination.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="onboarding-legend">
+                    <h3>Reading the Dashboard</h3>
+                    <div class="legend-grid">
+                        <div class="legend-item">
+                            <span class="legend-color" style="background:#6dbf7b"></span>
+                            <span>Λ &lt; 0.3 — Competitive</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background:#d4a74e"></span>
+                            <span>Λ 0.3–0.7 — Suspicious</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background:#c75050"></span>
+                            <span>Λ &gt; 0.7 — Collusion Alert</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="onboarding-footer">
+                <a href="index.html" class="btn-back">← Back to Project</a>
+                <button class="btn-begin" id="begin-btn">Enter Simulation →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════ MAIN APP ═══════ -->
+    <div class="app-container" id="app-container">
 
         <!-- ═══════ HEADER ═══════ -->
         <header class="glass-panel">
             <div class="logo">
+                <a href="index.html" class="logo-back" title="Back to project">←</a>
                 <span class="logo-icon">◆</span>
-                <h1>ECHO <span class="accent">Antitrust Simulation</span></h1>
+                <h1>ECHO <span class="accent">Simulation</span></h1>
             </div>
             <div class="header-controls">
                 <div class="control-group">
@@ -39,6 +117,7 @@
                     <input type="number" id="rounds" value="100" min="10" max="100000">
                 </div>
                 <button id="start-btn" class="primary-btn">▶ Start Simulation</button>
+                <button class="help-btn" id="help-btn" title="Show guide">?</button>
             </div>
         </header>
 
@@ -152,7 +231,7 @@
                 <!-- AI Analysis -->
                 <div class="card glass-panel ai-panel">
                     <div class="card-header">
-                        <h2>🤖 AI Analysis</h2>
+                        <h2>AI Analysis</h2>
                     </div>
                     <div class="ai-tabs">
                         <button class="ai-tab active" data-tab="strategy">Strategy</button>
@@ -244,7 +323,7 @@
             <!-- ──── FULL-WIDTH: Scratchpad Viewer ──── -->
             <div class="card glass-panel scratchpad-panel" id="scratchpad-panel">
                 <div class="card-header">
-                    <h2>🧠 Agent Reasoning (Scratchpads)</h2>
+                    <h2>Agent Reasoning (Scratchpads)</h2>
                     <span class="badge idle" id="scratchpad-mode-badge">LLM Only</span>
                 </div>
                 <div class="scratchpad-tabs" id="scratchpad-tabs">
@@ -267,5 +346,35 @@
 
     <script src="demo-data.js"></script>
     <script src="script.js"></script>
+    <script>
+        // Onboarding logic
+        const overlay = document.getElementById('onboarding-overlay');
+        const appContainer = document.getElementById('app-container');
+        const beginBtn = document.getElementById('begin-btn');
+        const helpBtn = document.getElementById('help-btn');
+
+        // Check if user has seen onboarding
+        const hasSeenGuide = sessionStorage.getItem('echo-guide-seen');
+
+        if (hasSeenGuide) {
+            overlay.classList.add('hidden');
+            appContainer.classList.add('visible');
+        }
+
+        beginBtn.addEventListener('click', () => {
+            overlay.classList.add('fade-out');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                appContainer.classList.add('visible');
+                sessionStorage.setItem('echo-guide-seen', 'true');
+            }, 400);
+        });
+
+        helpBtn.addEventListener('click', () => {
+            overlay.classList.remove('hidden', 'fade-out');
+            appContainer.classList.remove('visible');
+            sessionStorage.removeItem('echo-guide-seen');
+        });
+    </script>
 </body>
 </html>
