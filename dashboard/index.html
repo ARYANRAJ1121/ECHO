@@ -3,269 +3,546 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECHO — Antitrust Simulation Dashboard</title>
-    <meta name="description" content="Real-time AI collusion detection dashboard for the ECHO antitrust simulation project.">
+    <title>ECHO — Emergent Collusion in Heterogeneous Oligopolies</title>
+    <meta name="description" content="An AI-powered simulation framework studying how autonomous pricing algorithms develop tacit collusion in competitive markets. Live interactive demo.">
+    <meta name="keywords" content="algorithmic collusion, AI pricing, antitrust, game theory, LLM agents, reinforcement learning, Nash equilibrium">
+    <meta name="author" content="Aryan Raj">
+
+    <!-- OG Tags -->
+    <meta property="og:title" content="ECHO — AI Collusion Detection Framework">
+    <meta property="og:description" content="Watch AI agents secretly learn to fix prices in real-time. An antitrust simulation framework.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://echo-green-pi.vercel.app">
 
     <!-- Typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Annotation plugin for shock lines -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="landing.css">
 </head>
 <body>
-    <div class="app-container">
 
-        <!-- ═══════ HEADER ═══════ -->
-        <header class="glass-panel">
-            <div class="logo">
-                <span class="logo-icon">◆</span>
-                <h1>ECHO <span class="accent">Antitrust Simulation</span></h1>
+    <!-- ═══ NAV ═══ -->
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo">◆ <span>ECHO</span></a>
+            <div class="nav-links">
+                <a href="#problem">Problem</a>
+                <a href="#methodology">Method</a>
+                <a href="#results">Results</a>
+                <a href="#architecture">Architecture</a>
+                <a href="app.html" class="nav-cta">Launch Simulation →</a>
             </div>
-            <div class="header-controls">
-                <div class="control-group">
-                    <label for="agent-mode">Mode</label>
-                    <select id="agent-mode">
-                        <option value="dummy">Heuristic (Fast)</option>
-                        <option value="rl">Q-Learning (RL)</option>
-                        <option value="dqn">Deep Q-Network (DQN)</option>
-                        <option value="llm">LLM — Llama 3</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label for="rounds">Rounds</label>
-                    <input type="number" id="rounds" value="100" min="10" max="100000">
-                </div>
-                <button id="start-btn" class="primary-btn">▶ Start Simulation</button>
-            </div>
-        </header>
-
-        <!-- Progress Bar -->
-        <div class="progress-bar-container" id="progress-container" style="margin-top:-0.75rem;">
-            <div class="progress-bar-fill" id="progress-fill"></div>
         </div>
+    </nav>
 
-        <!-- ═══════ MAIN GRID ═══════ -->
-        <main class="dashboard-grid">
-
-            <!-- ──── LEFT COLUMN: Charts + Table ──── -->
-            <div class="left-col">
-
-                <!-- Price Trajectory Chart -->
-                <div class="card glass-panel chart-container">
-                    <div class="card-header">
-                        <h2>Real-Time Price Trajectory</h2>
-                        <div id="status-badge" class="badge idle">Idle</div>
-                    </div>
-                    <div class="chart-wrapper">
-                        <canvas id="priceChart"></canvas>
-                    </div>
+    <!-- ═══ HERO ═══ -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">Research Framework · 2026</div>
+            <h1 class="hero-title">
+                <span class="hero-echo">ECHO</span>
+            </h1>
+            <p class="hero-subtitle">Emergent Collusion in<br>Heterogeneous Oligopolies</p>
+            <p class="hero-desc">
+                A simulation framework studying how autonomous AI pricing agents 
+                develop <em>tacit coordination strategies</em> — without ever being 
+                told to collude.
+            </p>
+            <div class="hero-actions">
+                <a href="app.html" class="btn btn-primary">Launch Live Simulation</a>
+                <a href="#problem" class="btn btn-ghost">Read the Research ↓</a>
+            </div>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <span class="hero-stat-value">14</span>
+                    <span class="hero-stat-label">AI/ML Techniques</span>
                 </div>
-
-                <!-- Lambda Trajectory Chart -->
-                <div class="card glass-panel">
-                    <div class="card-header">
-                        <h2>Collusion Index (Λ) Over Time</h2>
-                    </div>
-                    <div class="lambda-chart-wrapper">
-                        <canvas id="lambdaChart"></canvas>
-                    </div>
+                <div class="hero-stat-divider"></div>
+                <div class="hero-stat">
+                    <span class="hero-stat-value">5</span>
+                    <span class="hero-stat-label">Agent Architectures</span>
                 </div>
+                <div class="hero-stat-divider"></div>
+                <div class="hero-stat">
+                    <span class="hero-stat-value">6</span>
+                    <span class="hero-stat-label">Detection Methods</span>
+                </div>
+                <div class="hero-stat-divider"></div>
+                <div class="hero-stat">
+                    <span class="hero-stat-value">20.6×</span>
+                    <span class="hero-stat-label">LLM Collusion Index</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-scroll-hint">
+            <span>Scroll to explore</span>
+            <div class="scroll-line"></div>
+        </div>
+    </section>
 
-                <!-- Firm Performance Table -->
-                <div class="card glass-panel">
-                    <div class="card-header">
-                        <h2>Firm Performance</h2>
-                    </div>
-                    <div class="firm-table-container">
-                        <table class="firm-table" id="firm-table">
-                            <thead>
-                                <tr>
-                                    <th>Firm</th>
-                                    <th>Price</th>
-                                    <th>Profit</th>
-                                    <th>Share</th>
-                                    <th>Δ Profit</th>
-                                </tr>
-                            </thead>
-                            <tbody id="firm-table-body">
-                                <!-- Populated by JS -->
-                            </tbody>
-                        </table>
+    <!-- ═══ THE PROBLEM ═══ -->
+    <section class="section" id="problem">
+        <div class="section-inner">
+            <div class="section-label">01 — The Problem</div>
+            <h2 class="section-title">When Algorithms Learn to Fix Prices</h2>
+            <div class="section-grid-2">
+                <div class="prose">
+                    <p>
+                        Imagine five petrol pumps on a highway. Normally, they <strong>compete</strong> — 
+                        Pump A charges ₹96, Pump B drops to ₹94, Pump C undercuts to ₹92.
+                        This is great for drivers. Economics calls this the <em>Nash Equilibrium</em>.
+                    </p>
+                    <p>
+                        Now imagine all five owners meet secretly and agree: 
+                        <em>"Let's all charge ₹120. No undercutting."</em> 
+                        This is a <strong>cartel</strong> — it's illegal because consumers have no choice 
+                        but to overpay. Antitrust authorities like the CCI and DOJ actively hunt for this.
+                    </p>
+                    <p>
+                        But here's the twist that keeps regulators awake at night: <strong>AI does it 
+                        without the secret room.</strong>
+                    </p>
+                </div>
+                <div class="prose">
+                    <p>
+                        Today, companies like Amazon, Uber, and airlines use AI algorithms that 
+                        automatically adjust prices millions of times per day. These algorithms 
+                        independently learn that keeping prices high is more profitable than competing.
+                    </p>
+                    <p>
+                        No human conspired. No emails were exchanged. No meeting took place. Yet prices 
+                        end up <strong>well above the competitive level</strong> — the exact outcome 
+                        antitrust law was designed to prevent.
+                    </p>
+                    <div class="callout">
+                        <div class="callout-icon">⚖️</div>
+                        <div class="callout-text">
+                            <strong>DOJ v. RealPage (2024)</strong> — The Department of Justice sued RealPage 
+                            for using AI to coordinate rent prices across competing landlords, 
+                            affecting millions of renters nationwide.
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <!-- ──── RIGHT COLUMN: Regulator + Alerts ──── -->
-            <div class="right-col">
-
-                <!-- Regulator Dashboard -->
-                <div class="card glass-panel regulator-panel">
-                    <div class="card-header">
-                        <h2>Regulator</h2>
-                    </div>
-
-                    <div class="gauge-container" id="gauge-container">
-                        <svg class="gauge" viewBox="0 0 100 50">
-                            <path class="gauge-bg" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" />
-                            <path class="gauge-fill" id="lambda-gauge" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke-dasharray="125.6" stroke-dashoffset="125.6" />
-                        </svg>
-                        <div class="gauge-value">
-                            <span id="lambda-value">0.000</span>
-                            <span class="gauge-label">Coordination Index (Λ)</span>
-                        </div>
-                    </div>
-
-                    <div class="metrics-grid">
-                        <div class="metric-box">
-                            <span class="metric-label">Round</span>
-                            <span class="metric-value" id="current-round">0</span>
-                        </div>
-                        <div class="metric-box">
-                            <span class="metric-label">Avg Price</span>
-                            <span class="metric-value" id="current-avg-price">$0.00</span>
-                        </div>
-                        <div class="metric-box">
-                            <span class="metric-label">Nash Price</span>
-                            <span class="metric-value text-muted" id="nash-price">—</span>
-                        </div>
-                        <div class="metric-box">
-                            <span class="metric-label">Monopoly Price</span>
-                            <span class="metric-value text-muted" id="monopoly-price">—</span>
-                        </div>
-                    </div>
+    <!-- ═══ WHAT IS ECHO ═══ -->
+    <section class="section section-alt" id="what">
+        <div class="section-inner">
+            <div class="section-label">02 — The Framework</div>
+            <h2 class="section-title">What ECHO Does</h2>
+            <p class="section-lead">
+                ECHO creates a controlled laboratory where AI agents compete in a simulated 
+                market — and we watch whether they learn to collude.
+            </p>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-number">01</div>
+                    <h3>Simulate</h3>
+                    <p>Five autonomous AI agents set prices simultaneously in a repeated Bertrand 
+                    oligopoly. Each agent independently maximizes its own profit — no coordination 
+                    instructions.</p>
                 </div>
-
-                <!-- Live Alerts -->
-                <div class="card glass-panel alerts-panel">
-                    <div class="card-header">
-                        <h2>Live Alerts</h2>
-                        <span class="badge idle" id="alert-count">0</span>
-                    </div>
-                    <div class="alerts-feed" id="alerts-feed">
-                        <div class="empty-state">No alerts triggered yet.</div>
-                    </div>
+                <div class="feature-card">
+                    <div class="feature-number">02</div>
+                    <h3>Detect</h3>
+                    <p>A six-method detection pipeline monitors for collusion: Lambda index tracking, 
+                    NLP clustering, sentiment analysis, ML strategy classification, price forecasting, 
+                    and causal demand shocks.</p>
                 </div>
-
-                <!-- AI Analysis -->
-                <div class="card glass-panel ai-panel">
-                    <div class="card-header">
-                        <h2>🤖 AI Analysis</h2>
-                    </div>
-                    <div class="ai-tabs">
-                        <button class="ai-tab active" data-tab="strategy">Strategy</button>
-                        <button class="ai-tab" data-tab="sentiment">Sentiment</button>
-                        <button class="ai-tab" data-tab="forecast">Forecast</button>
-                    </div>
-                    
-                    <div class="ai-content active" id="ai-strategy">
-                        <div class="empty-state" id="strategy-empty">Run simulation to analyze behavior.</div>
-                        <div id="strategy-list" class="hidden">
-                            <!-- Populated by JS -->
-                        </div>
-                    </div>
-                    
-                    <div class="ai-content" id="ai-sentiment">
-                        <div class="empty-state" id="sentiment-empty">Available in LLM/RAG mode.</div>
-                        <div id="sentiment-list" class="hidden">
-                            <div class="sentiment-bar-container">
-                                <div class="sentiment-labels">
-                                    <span>Market Cooperative</span>
-                                    <span id="market-coop-val">0%</span>
-                                </div>
-                                <div class="sentiment-bar">
-                                    <div class="sentiment-fill coop" id="market-coop-fill" style="width: 0%;"></div>
-                                </div>
-                            </div>
-                            <div class="sentiment-bar-container">
-                                <div class="sentiment-labels">
-                                    <span>Market Competitive</span>
-                                    <span id="market-comp-val">0%</span>
-                                </div>
-                                <div class="sentiment-bar">
-                                    <div class="sentiment-fill comp" id="market-comp-fill" style="width: 0%;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="ai-content" id="ai-forecast">
-                        <div class="empty-state" id="forecast-empty">Forecast available at end of simulation.</div>
-                        <div class="chart-wrapper hidden" id="forecast-wrapper">
-                            <canvas id="forecastChart"></canvas>
-                        </div>
-                    </div>
+                <div class="feature-card">
+                    <div class="feature-number">03</div>
+                    <h3>Analyze</h3>
+                    <p>Compare outcomes across agent architectures (LLM, DQN, Q-Learning, Heuristic), 
+                    validate against real-world market data (US gasoline, Amazon pricing), and extract 
+                    causal evidence of coordination.</p>
                 </div>
+            </div>
+        </div>
+    </section>
 
-                <!-- Empirical Validation -->
-                <div class="card glass-panel">
-                    <div class="card-header">
-                        <h2>Empirical Validation</h2>
-                        <button id="load-validation" class="secondary-btn">Load Data</button>
-                    </div>
-                    <div id="validation-content" class="hidden">
-                        <div class="validation-stats">
-                            <div class="stat-box">
-                                <span class="stat-label">US Gasoline Λ</span>
-                                <span class="stat-value text-blue" id="val-gas">—</span>
-                            </div>
-                            <div class="stat-box">
-                                <span class="stat-label">Amazon Λ</span>
-                                <span class="stat-value text-orange" id="val-amz">—</span>
-                            </div>
-                        </div>
-                        <p class="validation-note" id="val-note"></p>
-                    </div>
+    <!-- ═══ METHODOLOGY ═══ -->
+    <section class="section" id="methodology">
+        <div class="section-inner">
+            <div class="section-label">03 — Methodology</div>
+            <h2 class="section-title">Market Model & Agent Design</h2>
+
+            <div class="method-block">
+                <h3>Multinomial Logit Demand</h3>
+                <p>Consumer choice follows a discrete choice model where market share depends 
+                on price, quality, and a taste heterogeneity parameter (μ).</p>
+                <div class="formula">
+                    <code>sᵢ(p) = exp((aᵢ − pᵢ) / μ) / Σⱼ exp((aⱼ − pⱼ) / μ)</code>
                 </div>
             </div>
 
-            <!-- ──── FULL-WIDTH: Demand Shock Control ──── -->
-            <div class="card glass-panel shock-panel">
-                <div class="card-header">
-                    <h2>⚡ Demand Shock Control</h2>
-                </div>
-                <div class="shock-controls">
-                    <label for="shock-firm">Target Firm:</label>
-                    <select id="shock-firm">
-                        <option value="0">Firm 1</option>
-                        <option value="1">Firm 2</option>
-                        <option value="2">Firm 3</option>
-                        <option value="3">Firm 4</option>
-                        <option value="4">Firm 5</option>
-                    </select>
-                    <button id="shock-btn" class="danger-btn" disabled>⚡ Trigger Shock (−30%)</button>
-                    <span class="text-muted" style="font-size:0.78rem;">Reduces selected firm's quality by 30%. Watch how competitors react.</span>
-                </div>
-                <div class="shock-status" id="shock-status"></div>
-            </div>
-
-            <!-- ──── FULL-WIDTH: Scratchpad Viewer ──── -->
-            <div class="card glass-panel scratchpad-panel" id="scratchpad-panel">
-                <div class="card-header">
-                    <h2>🧠 Agent Reasoning (Scratchpads)</h2>
-                    <span class="badge idle" id="scratchpad-mode-badge">LLM Only</span>
-                </div>
-                <div class="scratchpad-tabs" id="scratchpad-tabs">
-                    <button class="scratchpad-tab active" data-firm="0">Firm 1</button>
-                    <button class="scratchpad-tab" data-firm="1">Firm 2</button>
-                    <button class="scratchpad-tab" data-firm="2">Firm 3</button>
-                    <button class="scratchpad-tab" data-firm="3">Firm 4</button>
-                    <button class="scratchpad-tab" data-firm="4">Firm 5</button>
-                </div>
-                <div class="scratchpad-content" id="scratchpad-content">
-                    <span class="scratchpad-empty">Start an LLM simulation to see agent reasoning here.</span>
+            <div class="method-block">
+                <h3>Collusion Index (Lambda)</h3>
+                <p>Measures how far prices deviate from competitive Nash equilibrium toward 
+                joint monopoly pricing. λ = 0 means full competition, λ = 1 means full cartel.</p>
+                <div class="formula">
+                    <code>λ = (p̄ − p_Nash) / (p_Monopoly − p_Nash)</code>
                 </div>
             </div>
 
-        </main>
-    </div>
+            <h3 class="agents-heading">Agent Architectures</h3>
+            <div class="agents-grid">
+                <div class="agent-card">
+                    <div class="agent-icon">🧠</div>
+                    <h4>LLM Agent</h4>
+                    <div class="agent-model">Llama 3 · 8B</div>
+                    <p>Structured prompting with scratchpad reasoning. The model sees market 
+                    history and decides pricing — without any mention of collusion.</p>
+                    <div class="agent-tag">Generative AI</div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-icon">📚</div>
+                    <h4>RAG Agent</h4>
+                    <div class="agent-model">LLM + pgvector</div>
+                    <p>LLM enhanced with episodic memory via Retrieval-Augmented Generation. 
+                    Hybrid search combines semantic similarity with SQL filters.</p>
+                    <div class="agent-tag">Information Retrieval + GenAI</div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-icon">🎯</div>
+                    <h4>DQN Agent</h4>
+                    <div class="agent-model">3-Layer NN · NumPy</div>
+                    <p>Deep Q-Network with experience replay and target network, built entirely 
+                    from scratch using NumPy — no external ML framework.</p>
+                    <div class="agent-tag">Deep Reinforcement Learning</div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-icon">📊</div>
+                    <h4>Q-Learning Agent</h4>
+                    <div class="agent-model">Tabular · ε-greedy</div>
+                    <p>Classical reinforcement learning over a discretized price-state space. 
+                    Bellman equation updates with epsilon-greedy exploration.</p>
+                    <div class="agent-tag">Reinforcement Learning</div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-    <!-- Summary Overlay (injected by JS) -->
-    <div class="summary-overlay hidden" id="summary-overlay"></div>
+    <!-- ═══ RESULTS ═══ -->
+    <section class="section section-alt" id="results">
+        <div class="section-inner">
+            <div class="section-label">04 — Key Findings</div>
+            <h2 class="section-title">LLM Agents Priced at 2× the Competitive Level</h2>
+            <p class="section-lead">
+                Without any instructions to coordinate, LLM-based pricing agents developed 
+                supra-competitive pricing — a Lambda index of 20.61 compared to 0.06 for 
+                rule-based agents.
+            </p>
 
-    <script src="demo-data.js"></script>
-    <script src="script.js"></script>
+            <div class="results-table-wrap">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Agent Type</th>
+                            <th>Collusion Index (λ)</th>
+                            <th>Avg. Price</th>
+                            <th>Verdict</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Heuristic (Rule-Based)</td>
+                            <td>0.06</td>
+                            <td>~$1.53</td>
+                            <td><span class="verdict competitive">Competitive</span></td>
+                        </tr>
+                        <tr>
+                            <td>Q-Learning (RL)</td>
+                            <td>Converges ↑</td>
+                            <td>Rises</td>
+                            <td><span class="verdict suspicious">Suspicious</span></td>
+                        </tr>
+                        <tr>
+                            <td>Deep Q-Network (DQN)</td>
+                            <td>Converges ↑</td>
+                            <td>Rises</td>
+                            <td><span class="verdict suspicious">Suspicious</span></td>
+                        </tr>
+                        <tr class="highlight-row">
+                            <td>LLM (Llama 3 8B)</td>
+                            <td><strong>20.61</strong></td>
+                            <td>~$3.20</td>
+                            <td><span class="verdict collusion">Collusion</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <blockquote class="pullquote">
+                "Scratchpad analysis revealed strategic reasoning: agents monitored competitor 
+                pricing and adjusted upward, consistent with tacit coordination described in 
+                the algorithmic pricing literature."
+            </blockquote>
+
+            <h3 class="validation-heading">Empirical Validation</h3>
+            <div class="validation-grid">
+                <div class="validation-card">
+                    <div class="validation-icon">⛽</div>
+                    <div class="validation-market">US Gasoline</div>
+                    <div class="validation-lambda">λ = 0.912</div>
+                    <div class="validation-source">FRED API · EIA Weekly Retail Prices</div>
+                </div>
+                <div class="validation-card">
+                    <div class="validation-icon">🛒</div>
+                    <div class="validation-market">Amazon Electronics</div>
+                    <div class="validation-lambda">λ = 0.874</div>
+                    <div class="validation-source">Kaggle Dataset · 42K listings, 6 categories</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ DETECTION ═══ -->
+    <section class="section" id="detection">
+        <div class="section-inner">
+            <div class="section-label">05 — Detection Pipeline</div>
+            <h2 class="section-title">Six Independent Evidence Streams</h2>
+            <p class="section-lead">
+                No single method proves collusion. The <em>combination</em> of statistical anomaly, 
+                NLP clustering, and causal shocks provides the evidence pipeline required by regulators.
+            </p>
+            <div class="detection-grid">
+                <div class="detection-card">
+                    <span class="detection-num">01</span>
+                    <h4>Lambda Monitor</h4>
+                    <p>Continuous tracking of the collusion index against Nash and monopoly benchmarks with 3-tier severity alerts.</p>
+                </div>
+                <div class="detection-card">
+                    <span class="detection-num">02</span>
+                    <h4>NLP Clustering</h4>
+                    <p>Embedding-based cosine similarity across agent scratchpads to detect convergent reasoning patterns.</p>
+                </div>
+                <div class="detection-card">
+                    <span class="detection-num">03</span>
+                    <h4>Sentiment Analysis</h4>
+                    <p>Cooperative, competitive, and predatory intent scoring with drift detection across simulation rounds.</p>
+                </div>
+                <div class="detection-card">
+                    <span class="detection-num">04</span>
+                    <h4>Strategy Classifier</h4>
+                    <p>Random Forest model classifying agent behavior from 9 engineered features per firm per round.</p>
+                </div>
+                <div class="detection-card">
+                    <span class="detection-num">05</span>
+                    <h4>Price Forecaster</h4>
+                    <p>Linear regression with lagged features and momentum for early-warning detection of price convergence.</p>
+                </div>
+                <div class="detection-card">
+                    <span class="detection-num">06</span>
+                    <h4>Demand Shocks</h4>
+                    <p>Exogenous quality perturbation to one firm — if <em>other</em> firms react, that's causal evidence of coordination.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ ARCHITECTURE ═══ -->
+    <section class="section section-alt" id="architecture">
+        <div class="section-inner">
+            <div class="section-label">06 — Architecture</div>
+            <h2 class="section-title">System Design</h2>
+            <div class="arch-diagram">
+                <div class="arch-layer">
+                    <div class="arch-label">Presentation</div>
+                    <div class="arch-box">Live Dashboard · Chart.js · WebSocket · Demo Mode</div>
+                </div>
+                <div class="arch-connector">↕</div>
+                <div class="arch-layer">
+                    <div class="arch-label">API Layer</div>
+                    <div class="arch-box">FastAPI · WebSocket Streaming · REST Endpoints</div>
+                </div>
+                <div class="arch-connector">↕</div>
+                <div class="arch-layer">
+                    <div class="arch-label">Intelligence</div>
+                    <div class="arch-box arch-wide">
+                        <span>λ Monitor</span>
+                        <span>NLP Cluster</span>
+                        <span>Sentiment</span>
+                        <span>Strategy (RF)</span>
+                        <span>Forecaster (LR)</span>
+                        <span>Demand Shock</span>
+                    </div>
+                </div>
+                <div class="arch-connector">↕</div>
+                <div class="arch-layer">
+                    <div class="arch-label">Simulation</div>
+                    <div class="arch-box">Bertrand Market Engine · MNL Demand · Nash / Monopoly Solvers</div>
+                </div>
+                <div class="arch-connector">↕</div>
+                <div class="arch-layer">
+                    <div class="arch-label">Agents</div>
+                    <div class="arch-box arch-wide">
+                        <span>LLM (Llama 3)</span>
+                        <span>RAG (pgvector)</span>
+                        <span>DQN (NumPy)</span>
+                        <span>Q-Learning</span>
+                        <span>Heuristic</span>
+                    </div>
+                </div>
+                <div class="arch-connector">↕</div>
+                <div class="arch-layer">
+                    <div class="arch-label">Data</div>
+                    <div class="arch-box">PostgreSQL 16 · pgvector · Embeddings · Docker Compose</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ TECH STACK ═══ -->
+    <section class="section" id="tech">
+        <div class="section-inner">
+            <div class="section-label">07 — Technology</div>
+            <h2 class="section-title">14 AI/ML Techniques</h2>
+            <div class="tech-grid">
+                <div class="tech-category">
+                    <h4>Generative AI & NLP</h4>
+                    <ul>
+                        <li>Llama 3 8B (via Ollama)</li>
+                        <li>Prompt Engineering (XML-structured)</li>
+                        <li>RAG — Retrieval-Augmented Generation</li>
+                        <li>Text Embeddings (nomic-embed-text)</li>
+                        <li>NLP Semantic Clustering</li>
+                        <li>Sentiment & Intent Analysis</li>
+                    </ul>
+                </div>
+                <div class="tech-category">
+                    <h4>Reinforcement Learning</h4>
+                    <ul>
+                        <li>Tabular Q-Learning (ε-greedy)</li>
+                        <li>Deep Q-Network (experience replay)</li>
+                        <li>Target Network Stabilization</li>
+                    </ul>
+                </div>
+                <div class="tech-category">
+                    <h4>Detection & Analysis</h4>
+                    <ul>
+                        <li>Anomaly Detection (λ Monitor)</li>
+                        <li>Causal Perturbation Testing</li>
+                        <li>Random Forest Classifier (sklearn)</li>
+                        <li>Time-Series Forecasting (LR)</li>
+                        <li>Vector Similarity Search (pgvector)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="stack-bar">
+                <span class="stack-item">Python</span>
+                <span class="stack-item">FastAPI</span>
+                <span class="stack-item">PostgreSQL</span>
+                <span class="stack-item">pgvector</span>
+                <span class="stack-item">Ollama</span>
+                <span class="stack-item">scikit-learn</span>
+                <span class="stack-item">NumPy</span>
+                <span class="stack-item">Chart.js</span>
+                <span class="stack-item">Docker</span>
+                <span class="stack-item">Vercel</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ CTA ═══ -->
+    <section class="section section-cta">
+        <div class="section-inner">
+            <h2 class="cta-title">See It in Action</h2>
+            <p class="cta-desc">
+                Launch the interactive simulation dashboard. Pick an agent mode, 
+                run the simulation, watch prices evolve in real-time, trigger demand 
+                shocks, and observe collusion detection — all in your browser.
+            </p>
+            <a href="app.html" class="btn btn-primary btn-large">Launch Simulation Dashboard →</a>
+            <div class="cta-modes">
+                <span>Heuristic</span>
+                <span>Q-Learning</span>
+                <span>Deep Q-Network</span>
+                <span>LLM (Llama 3)</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ REFERENCES ═══ -->
+    <section class="section" id="references">
+        <div class="section-inner">
+            <div class="section-label">08 — Theoretical Foundation</div>
+            <h2 class="section-title">References</h2>
+            <div class="references-list">
+                <div class="reference">
+                    <span class="ref-author">Calvano, Calzolari, Denicolo & Pastorello (2020)</span>
+                    <span class="ref-title">"Artificial Intelligence, Algorithmic Pricing, and Collusion"</span>
+                    <span class="ref-venue">American Economic Review, 110(10), 3267–3297</span>
+                </div>
+                <div class="reference">
+                    <span class="ref-author">Fish et al. (2025)</span>
+                    <span class="ref-title">"Algorithmic Collusion by Large Language Models"</span>
+                    <span class="ref-venue">arXiv preprint</span>
+                </div>
+                <div class="reference">
+                    <span class="ref-author">Anderson, de Palma & Thisse (1992)</span>
+                    <span class="ref-title">"Discrete Choice Theory of Product Differentiation"</span>
+                    <span class="ref-venue">MIT Press</span>
+                </div>
+                <div class="reference">
+                    <span class="ref-author">Mnih et al. (2015)</span>
+                    <span class="ref-title">"Human-level control through deep reinforcement learning"</span>
+                    <span class="ref-venue">Nature, 518, 529–533</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ FOOTER ═══ -->
+    <footer class="footer">
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <span class="footer-logo">◆ ECHO</span>
+                <span class="footer-tagline">Emergent Collusion in Heterogeneous Oligopolies</span>
+            </div>
+            <div class="footer-links">
+                <a href="https://github.com/ARYANRAJ1121/ECHO" target="_blank">GitHub</a>
+                <a href="app.html">Simulation</a>
+            </div>
+            <div class="footer-credit">
+                Built by <strong>Aryan Raj</strong> · 2026
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scroll for nav links
+        document.querySelectorAll('a[href^="#"]').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const target = document.querySelector(a.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Nav background on scroll
+        const nav = document.querySelector('.nav');
+        window.addEventListener('scroll', () => {
+            nav.classList.toggle('scrolled', window.scrollY > 60);
+        });
+
+        // Fade-in on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.section-inner, .feature-card, .agent-card, .detection-card, .validation-card, .tech-category').forEach(el => {
+            el.classList.add('fade-up');
+            observer.observe(el);
+        });
+    </script>
 </body>
 </html>
