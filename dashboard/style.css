@@ -952,6 +952,177 @@ input[type="number"] { width: 100px; }
 }
 
 /* ══════════════════ VALIDATION PANEL ══════════════════ */
+
+/* Market selector tabs */
+.val-tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 0.75rem;
+    background: #F3EDE4;
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    flex-wrap: wrap;
+}
+
+.val-tab {
+    flex: 1;
+    min-width: 60px;
+    padding: 0.35rem 0.4rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    font-family: var(--font-body);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.val-tab:hover { color: var(--text-main); }
+
+.val-tab.active {
+    background: #FAF6F0;
+    color: #C17A4E;
+}
+
+/* Market card */
+.val-market-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.val-market-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.val-market-name {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+.val-verdict-badge {
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: 2px;
+}
+
+.val-verdict-badge.collusion   { background: var(--red-bg); color: var(--red); }
+.val-verdict-badge.suspicious  { background: var(--yellow-bg); color: var(--yellow); }
+.val-verdict-badge.competitive { background: var(--green-bg); color: var(--green); }
+
+/* Lambda 3-column row */
+.val-lambda-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.val-lambda-col {
+    flex: 1;
+    background: #FAF6F0;
+    border-radius: var(--radius-md);
+    padding: 0.6rem 0.5rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.val-lambda-label {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 500;
+}
+
+.val-lambda-value {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-main);
+}
+
+.val-lambda-value.accent {
+    color: #C17A4E;
+}
+
+/* Comparison bars */
+.val-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.val-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.val-bar-label {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    width: 32px;
+    flex-shrink: 0;
+}
+
+.val-bar-track {
+    flex: 1;
+    height: 6px;
+    background: #E5DED2;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.val-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.val-bar-fill.real { background: #8A8070; }
+.val-bar-fill.sim  { background: #C17A4E; }
+
+.val-bar-pct {
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    width: 30px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* Note + source */
+.val-note {
+    font-size: 0.78rem;
+    color: var(--text-bright);
+    line-height: 1.6;
+}
+
+.val-source {
+    font-size: 0.68rem;
+    color: #8A8070;
+    border-top: 1px solid #E5DED2;
+    padding-top: 0.5rem;
+    display: block;
+    font-style: italic;
+}
+
 .validation-stats {
     display: flex;
     gap: 0.75rem;
@@ -990,6 +1161,7 @@ input[type="number"] { width: 100px; }
     color: var(--text-muted);
     line-height: 1.55;
 }
+
 
 /* ══════════════════ SUMMARY OVERLAY ══════════════════ */
 .summary-overlay {

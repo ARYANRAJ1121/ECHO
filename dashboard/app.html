@@ -279,23 +279,63 @@
                 </div>
 
                 <!-- Empirical Validation -->
-                <div class="card glass-panel">
+                <div class="card glass-panel val-panel">
                     <div class="card-header">
                         <h2>Empirical Validation</h2>
                         <button id="load-validation" class="secondary-btn">Load Data</button>
                     </div>
+
+                    <!-- Market selector tabs -->
+                    <div class="val-tabs hidden" id="val-tabs">
+                        <button class="val-tab active" data-market="gasoline">US Gas</button>
+                        <button class="val-tab" data-market="amazon">Amazon</button>
+                        <button class="val-tab" data-market="airlines">Airlines</button>
+                        <button class="val-tab" data-market="uber">Uber</button>
+                        <button class="val-tab" data-market="pharma">Pharma</button>
+                        <button class="val-tab" data-market="memory">Memory</button>
+                    </div>
+
+                    <!-- Per-market detail card -->
                     <div id="validation-content" class="hidden">
-                        <div class="validation-stats">
-                            <div class="stat-box">
-                                <span class="stat-label">US Gasoline Λ</span>
-                                <span class="stat-value text-blue" id="val-gas">—</span>
+                        <div class="val-market-card">
+                            <div class="val-market-header">
+                                <span class="val-market-name" id="val-market-name">—</span>
+                                <span class="val-verdict-badge" id="val-verdict-badge"></span>
                             </div>
-                            <div class="stat-box">
-                                <span class="stat-label">Amazon Λ</span>
-                                <span class="stat-value text-orange" id="val-amz">—</span>
+                            <div class="val-lambda-row">
+                                <div class="val-lambda-col">
+                                    <span class="val-lambda-label">Real-World Λ</span>
+                                    <span class="val-lambda-value" id="val-lambda-real">—</span>
+                                </div>
+                                <div class="val-lambda-col">
+                                    <span class="val-lambda-label">ECHO Sim Λ</span>
+                                    <span class="val-lambda-value accent" id="val-lambda-sim">—</span>
+                                </div>
+                                <div class="val-lambda-col">
+                                    <span class="val-lambda-label">Delta</span>
+                                    <span class="val-lambda-value" id="val-lambda-delta">—</span>
+                                </div>
                             </div>
+                            <!-- Comparison bar -->
+                            <div class="val-bar-wrap">
+                                <div class="val-bar-row">
+                                    <span class="val-bar-label">Real</span>
+                                    <div class="val-bar-track">
+                                        <div class="val-bar-fill real" id="val-bar-real"></div>
+                                    </div>
+                                    <span class="val-bar-pct" id="val-bar-real-pct"></span>
+                                </div>
+                                <div class="val-bar-row">
+                                    <span class="val-bar-label">ECHO</span>
+                                    <div class="val-bar-track">
+                                        <div class="val-bar-fill sim" id="val-bar-sim"></div>
+                                    </div>
+                                    <span class="val-bar-pct" id="val-bar-sim-pct"></span>
+                                </div>
+                            </div>
+                            <p class="val-note" id="val-note"></p>
+                            <span class="val-source" id="val-source"></span>
                         </div>
-                        <p class="validation-note" id="val-note"></p>
                     </div>
                 </div>
             </div>
