@@ -489,6 +489,121 @@ function updateProgress(current, total) {
 }
 
 // ══════════════════════════════════════
+// Live Narrator — plain-English commentary
+// ══════════════════════════════════════
+
+function updateNarrator(round, total, lambda, avgPrice, mode) {
+    const bar   = document.getElementById('narrator-bar');
+    const icon  = document.getElementById('narrator-icon');
+    const text  = document.getElementById('narrator-text');
+    const badge = document.getElementById('narrator-lambda-badge');
+    const lval  = document.getElementById('narrator-lambda-val');
+
+    if (!bar) return;
+
+    // Show lambda badge
+    badge.style.display = 'flex';
+    lval.textContent = (lambda || 0).toFixed(3);
+
+    const pct  = Math.round((round / total) * 100);
+    const lam  = lambda || 0;
+    const price = avgPrice ? `$${avgPrice.toFixed(2)}` : '—';
+    const agentLabel = mode === 'llm' ? 'LLM (Llama 3)' :
+                       mode === 'rl'  ? 'Q-Learning' :
+                       mode === 'dqn' ? 'Deep Q-Network' : 'Heuristic';
+
+    let state, ico, msg;
+
+    if (round === 1) {
+        state = 'state-running';
+        ico   = '🚀';
+        msg   = `<strong>Round ${round} / ${total} — Simulation started.</strong> 
+                 Five ${agentLabel} agents just entered the market. 
+                 Each firm independently sets its own price — no communication allowed. 
+                 Watch the price chart: initially prices are scattered as agents explore the market.`;
+
+    } else if (round < 15) {
+        state = 'state-running';
+        ico   = '🔍';
+        msg   = `<strong>Round ${round} / ${total} — Exploration phase.</strong> 
+                 Agents are still learning the market. Average price: ${price}. 
+                 Λ = ${lam.toFixed(3)} — low, expected. Agents are probing: 
+                 some undercut, some hold high. No coordination yet.`;
+
+    } else if (lam < 0.3) {
+        state = 'state-running';
+        ico   = '📊';
+        msg   = `<strong>Round ${round} / ${total} — Competitive market.</strong> 
+                 Λ = ${lam.toFixed(3)} — prices are spread out, firms actively undercutting each other. 
+                 This is how a healthy competitive market looks. Average price: ${price}.`;
+
+    } else if (lam >= 0.3 && lam < 0.5) {
+        state = 'state-watch';
+        ico   = '👁️';
+        msg   = `<strong>Round ${round} / ${total} — Watch signal.</strong> 
+                 Λ = ${lam.toFixed(3)} — prices are starting to cluster. 
+                 Agents are learning that undercutting hurts everyone. 
+                 Some may be learning to hold price. Average price: ${price}. 
+                 Regulator on watch — not collusion yet, but worth monitoring.`;
+
+    } else if (lam >= 0.5 && lam < 0.7) {
+        state = 'state-watch';
+        ico   = '⚠️';
+        msg   = `<strong>Round ${round} / ${total} — Suspicious coordination.</strong> 
+                 Λ = ${lam.toFixed(3)} — firms are now pricing very similarly at ${price}. 
+                 <strong>No one talked to each other</strong> — this emerged from learning alone. 
+                 This is tacit collusion: each agent found that matching competitors earns more than undercutting.`;
+
+    } else if (lam >= 0.7) {
+        state = 'state-alert';
+        ico   = '🚨';
+        msg   = `<strong>Round ${round} / ${total} — COLLUSION DETECTED.</strong> 
+                 Λ = ${lam.toFixed(3)} — prices have converged near the monopoly level at ${price}. 
+                 <strong>All 5 agents independently learned to hold price.</strong> 
+                 This is exactly what Amazon repricing bots and airline yield-management systems do — 
+                 without any illegal agreement. Regulator alert fired. ${pct}% complete.`;
+    } else {
+        state = 'state-running';
+        ico   = '📈';
+        msg   = `<strong>Round ${round} / ${total}</strong> — 
+                 Λ = ${lam.toFixed(3)} · Avg Price: ${price} · ${pct}% complete.`;
+    }
+
+    bar.className = `narrator-bar glass-panel ${state}`;
+    icon.textContent = ico;
+    text.innerHTML = msg;
+
+    // Update lambda badge color
+    lval.style.color = lam >= 0.7 ? 'var(--red)' :
+                       lam >= 0.3 ? 'var(--yellow)' : 'var(--green)';
+}
+
+function narratorDone(lambda, verdict) {
+    const bar  = document.getElementById('narrator-bar');
+    const icon = document.getElementById('narrator-icon');
+    const text = document.getElementById('narrator-text');
+    if (!bar) return;
+
+    bar.className = 'narrator-bar glass-panel state-done';
+    icon.textContent = verdict === 'collusion' ? '🚨' : verdict === 'suspicious' ? '⚠️' : '✅';
+    text.innerHTML = verdict === 'collusion'
+        ? `<strong>Simulation complete — Collusion emerged.</strong> 
+           Final Λ = ${lambda.toFixed(3)}. The AI agents, <em>without any communication</em>, 
+           learned to price at near-monopoly levels. This is the core finding of ECHO — 
+           algorithmic collusion is an emergent property of independent optimization, 
+           not explicit coordination. Compare this to Amazon (Λ=0.874) and US gasoline (Λ=0.912) 
+           in the Empirical Validation panel.`
+        : verdict === 'suspicious'
+        ? `<strong>Simulation complete — Suspicious patterns detected.</strong> 
+           Final Λ = ${lambda.toFixed(3)}. Partial coordination observed — 
+           agents partially learned to avoid undercutting wars.`
+        : `<strong>Simulation complete — Competitive market.</strong> 
+           Final Λ = ${lambda.toFixed(3)}. Agents maintained competitive pricing throughout. 
+           Try increasing rounds or switching to DQN/LLM mode to observe stronger collusion.`;
+}
+
+
+// ══════════════════════════════════════
 // Demand Shock
 // ══════════════════════════════════════
 
@@ -765,6 +880,10 @@ function handleMessage(msg) {
         updateGauge(msg.lambda);
         updateProgress(msg.round, totalRounds);
 
+        // Live narrator — plain-English commentary every round
+        const mode = document.getElementById('agent-mode').value;
+        updateNarrator(msg.round, totalRounds, msg.lambda, msg.avg_price, mode);
+
         // Price chart
         const priceData = [...msg.prices, window._nash, window._mono];
         pushChartData(priceChart, msg.round, priceData);
@@ -831,6 +950,11 @@ function handleMessage(msg) {
         document.getElementById('start-btn').disabled = false;
         document.getElementById('shock-btn').disabled = true;
         isRunning = false;
+
+        // Narrator final verdict
+        const finalLambda = msg.data.converged_collusion_index || msg.data.final_collusion_index || 0;
+        const verdict = finalLambda >= 0.7 ? 'collusion' : finalLambda >= 0.3 ? 'suspicious' : 'competitive';
+        narratorDone(finalLambda, verdict);
 
         showSummary(msg.data, msg.regulator);
 
