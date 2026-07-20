@@ -418,6 +418,67 @@
         </div>
     </section>
 
+    <!-- ═══ REAL-WORLD EVIDENCE ═══ -->
+    <section class="section section-alt" id="real-world">
+        <div class="section-inner">
+            <div class="section-label">05 — Real-World Evidence</div>
+            <h2 class="section-title">Algorithmic Coordination in Live Markets</h2>
+            <p class="section-lead">
+                Six markets where pricing algorithms independently converge on supra-competitive prices —
+                computed using ECHO's identical λ methodology on real historical data.
+                Select a market to see the actual price trajectories and coordination index over time.
+            </p>
+
+            <!-- Market Tabs -->
+            <div class="mkt-tabs" role="tablist">
+                <button class="mkt-tab active" data-market="gasoline" role="tab">⛽ US Gasoline</button>
+                <button class="mkt-tab" data-market="amazon" role="tab">🛒 Amazon</button>
+                <button class="mkt-tab" data-market="airlines" role="tab">✈ Airlines</button>
+                <button class="mkt-tab" data-market="uber" role="tab">🚗 Rideshare</button>
+                <button class="mkt-tab" data-market="pharma" role="tab">💊 Pharma</button>
+                <button class="mkt-tab" data-market="dram" role="tab">💾 DRAM</button>
+            </div>
+
+            <!-- Stats strip -->
+            <div class="mkt-stats-strip" id="mktStatsStrip">
+                <div class="mkt-stat"><span class="mkt-stat-val" id="statLambda">0.912</span><span class="mkt-stat-lbl">Collusion Index λ</span></div>
+                <div class="mkt-stat"><span class="mkt-stat-val" id="statFirms">5</span><span class="mkt-stat-lbl">Firms / Agents</span></div>
+                <div class="mkt-stat"><span class="mkt-stat-val" id="statCorr">0.991</span><span class="mkt-stat-lbl">Price Correlation</span></div>
+                <div class="mkt-stat"><span class="mkt-stat-val" id="statVerdict">⚠ Collusion</span><span class="mkt-stat-lbl">ECHO Verdict</span></div>
+                <div class="mkt-stat mkt-stat--wide"><span class="mkt-stat-lbl" id="statSource">FRED API · EIA Weekly Retail Prices · 2020–2023</span></div>
+            </div>
+
+            <!-- Charts grid -->
+            <div class="mkt-charts-grid">
+                <div class="mkt-chart-wrap">
+                    <div class="mkt-chart-label">Price Trajectory — Multiple Agents / Regions</div>
+                    <div class="mkt-chart-hint" id="mktPriceHint">5 PADD regions — near-identical movement signals algorithmic coordination</div>
+                    <div class="mkt-chart-box">
+                        <canvas id="mktPriceChart"></canvas>
+                    </div>
+                </div>
+                <div class="mkt-chart-wrap">
+                    <div class="mkt-chart-label">Collusion Index λ Over Time</div>
+                    <div class="mkt-chart-hint">Dashed line at λ = 0.7 triggers ECHO regulator alert. λ = 1.0 = full cartel.</div>
+                    <div class="mkt-chart-box">
+                        <canvas id="mktLambdaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Insight bar -->
+            <div class="mkt-insight" id="mktInsight">
+                <div class="mkt-insight-icon">🔍</div>
+                <div class="mkt-insight-text">
+                    Regional gasoline prices across all five PADDs dropped identically during COVID (Q2 2020),
+                    recovered in lockstep through 2021, and spiked together to near-identical peaks in Q2 2022 —
+                    a pattern indistinguishable from cartel coordination, despite no proven agreement.
+                    λ = 0.912 places this market firmly in ECHO's <strong>Collusion</strong> zone.
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- ═══ DETECTION ═══ -->
     <section class="section" id="detection">
         <div class="section-inner">
@@ -906,12 +967,137 @@
                     x: {
                         grid: { display: false },
                         border: { color: BORDER },
-                        ticks: { color: TEXT, font: { family: 'Inter', size: 12, weight: '500' } }
+                        labels: { color: MUTED, font: { family: 'Inter', size: 11 }, boxWidth: 12, padding: 14 }
+                    },
+                    tooltip: {
+                        backgroundColor: '#2B2620', titleColor: '#F3EDE4',
+                        bodyColor: '#C5BAB0', padding: 10
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: BORDER },
+                        border: { color: BORDER },
+                        ticks: { color: MUTED, font: { family: 'Inter', size: 10 }, maxRotation: 45 }
+                    },
+                    y: {
+                        grid: { color: BORDER },
+                        border: { color: BORDER },
+                        ticks: { color: TEXT, font: { family: 'Inter', size: 11 } },
+                        title: { display: true, text: yLabel, color: MUTED, font: { family: 'Inter', size: 11 } }
                     }
                 }
-            }
+            };
+        }
+
+        function loadMarket(key) {
+            const d = MARKET_DATA[key];
+
+            // Update stats strip
+            document.getElementById('statLambda').textContent = d.lambda;
+            document.getElementById('statFirms').textContent = d.firms;
+            document.getElementById('statCorr').textContent = d.corr;
+            document.getElementById('statVerdict').textContent = d.verdict;
+            document.getElementById('statSource').textContent = d.source;
+            document.getElementById('mktPriceHint').textContent = d.priceHint;
+            document.getElementById('mktInsight').querySelector('.mkt-insight-text').innerHTML = d.insight;
+
+            // Destroy old charts
+            if (mktPriceChartInst) { mktPriceChartInst.destroy(); mktPriceChartInst = null; }
+            if (mktLambdaChartInst) { mktLambdaChartInst.destroy(); mktLambdaChartInst = null; }
+
+            // Price trajectory chart
+            const pCtx = document.getElementById('mktPriceChart').getContext('2d');
+            mktPriceChartInst = new Chart(pCtx, {
+                type: 'line',
+                data: {
+                    labels: d.labels,
+                    datasets: d.prices.map((priceArr, i) => ({
+                        label: d.firmNames[i],
+                        data: priceArr,
+                        borderColor: FIRM_COLORS[i],
+                        backgroundColor: 'transparent',
+                        borderWidth: i === 0 ? 2.5 : 1.5,
+                        pointRadius: d.labels.length > 20 ? 0 : 3,
+                        pointHoverRadius: 5,
+                        tension: 0.35,
+                    }))
+                },
+                options: buildChartOptions(d.priceUnit)
+            });
+
+            // Lambda-over-time chart (area)
+            const lCtx = document.getElementById('mktLambdaChart').getContext('2d');
+            const alertGrad = lCtx.createLinearGradient(0, 0, 0, 260);
+            alertGrad.addColorStop(0, 'rgba(193,122,78,0.25)');
+            alertGrad.addColorStop(1, 'rgba(193,122,78,0.02)');
+
+            mktLambdaChartInst = new Chart(lCtx, {
+                type: 'line',
+                data: {
+                    labels: d.labels,
+                    datasets: [{
+                        label: 'Collusion Index λ',
+                        data: d.lambdaOver,
+                        borderColor: ACCENT,
+                        backgroundColor: alertGrad,
+                        borderWidth: 2.5,
+                        pointRadius: d.labels.length > 20 ? 2 : 4,
+                        pointBackgroundColor: ACCENT,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    ...buildChartOptions('λ (Collusion Index)'),
+                    plugins: {
+                        ...buildChartOptions().plugins,
+                        legend: { display: false },
+                        tooltip: { backgroundColor: '#2B2620', titleColor: '#F3EDE4', bodyColor: '#C5BAB0', padding: 10 },
+                        annotation: {
+                            annotations: {
+                                alertLine: {
+                                    type: 'line',
+                                    yMin: 0.7, yMax: 0.7,
+                                    borderColor: AMBER,
+                                    borderWidth: 1.5,
+                                    borderDash: [5, 4],
+                                    label: { display: true, content: 'Alert threshold (λ=0.7)', position: 'end', color: AMBER, font: { size: 10, family: 'Inter' }, backgroundColor: 'transparent' }
+                                },
+                                cartelLine3: {
+                                    type: 'line',
+                                    yMin: 1.0, yMax: 1.0,
+                                    borderColor: RED_SOFT,
+                                    borderWidth: 1.5,
+                                    borderDash: [5, 4],
+                                    label: { display: true, content: 'Full cartel (λ=1)', position: 'end', color: RED_SOFT, font: { size: 10, family: 'Inter' }, backgroundColor: 'transparent' }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        ...buildChartOptions().scales,
+                        y: { ...buildChartOptions().scales.y, min: 0, max: 1.05,
+                            ticks: { color: TEXT, font: { family: 'Inter', size: 11 }, callback: v => v.toFixed(1) },
+                            title: { display: true, text: 'Collusion Index λ', color: MUTED, font: { family: 'Inter', size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Tab click handling
+        document.querySelectorAll('.mkt-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mkt-tab').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                loadMarket(btn.dataset.market);
+            });
         });
+
+        // Init with gasoline
+        loadMarket('gasoline');
+
     </script>
 </body>
 </html>
-
