@@ -1110,3 +1110,273 @@ em {
         margin-left: 0;
     }
 }
+
+/* ── Nav Publication Link ── */
+.nav-publication {
+    color: #C17A4E !important;
+    font-weight: 600;
+    border: 1px solid #C17A4E;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    transition: background 0.2s, color 0.2s;
+}
+.nav-publication:hover {
+    background: #C17A4E;
+    color: #FAF6F0 !important;
+}
+
+/* ── λ Note (Why λ > 1) ── */
+.lambda-note {
+    display: flex;
+    gap: 1rem;
+    background: #F3EDE4;
+    border-left: 3px solid #C17A4E;
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.93rem;
+    line-height: 1.7;
+    color: #4A3F35;
+}
+.lambda-note-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    padding-top: 0.1rem;
+    color: #C17A4E;
+}
+.lambda-note-body strong {
+    color: #2B2620;
+}
+
+/* ── Robustness Block ── */
+.robustness-block {
+    margin: 2.5rem 0;
+    padding: 2rem;
+    border: 1px solid #E5DED2;
+    border-radius: 8px;
+    background: #FAF6F0;
+}
+.robustness-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+@media (max-width: 768px) {
+    .robustness-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.robustness-card {
+    background: #F3EDE4;
+    border: 1px solid #E5DED2;
+    border-radius: 6px;
+    padding: 1.25rem 1.25rem 1rem;
+}
+.robustness-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+.robustness-card h4 {
+    font-family: 'Source Serif 4', serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2B2620;
+    margin-bottom: 0.4rem;
+}
+.robustness-card p {
+    font-size: 0.88rem;
+    color: #4A3F35;
+    line-height: 1.65;
+}
+.robustness-card strong {
+    color: #C17A4E;
+}
+
+/* ── Publication Card ── */
+.publication-card {
+    border: 1px solid #E5DED2;
+    border-radius: 8px;
+    padding: 2rem 2.5rem;
+    background: #FAF6F0;
+    max-width: 780px;
+    margin: 2rem auto 0;
+    position: relative;
+}
+.pub-badge {
+    display: inline-block;
+    background: #C17A4E;
+    color: #FAF6F0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.75rem;
+    border-radius: 20px;
+    margin-bottom: 1rem;
+}
+.pub-title {
+    font-family: 'Source Serif 4', serif;
+    font-size: 1.2rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: #2B2620;
+    margin-bottom: 0.75rem;
+    font-style: italic;
+}
+.pub-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    font-size: 0.88rem;
+    color: #8A8070;
+    margin-bottom: 1rem;
+}
+.pub-author {
+    font-weight: 600;
+    color: #2B2620;
+}
+.pub-sep { color: #C5BAB0; }
+.pub-venue { font-style: italic; }
+.pub-abstract {
+    font-size: 0.9rem;
+    color: #4A3F35;
+    line-height: 1.75;
+    border-top: 1px solid #E5DED2;
+    padding-top: 1rem;
+    margin-bottom: 1.25rem;
+}
+.pub-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+.btn-sm {
+    font-size: 0.82rem;
+    padding: 0.4rem 1rem;
+}
+
+/* ── Empirical Chart Wrapper ── */
+.emp-chart-wrap {
+    background: #F3EDE4;
+    border: 1px solid #E5DED2;
+    border-radius: 8px;
+    padding: 1.75rem 2rem;
+    margin: 2rem 0 1.5rem;
+}
+.emp-chart-title {
+    font-family: 'Source Serif 4', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #2B2620;
+    margin-bottom: 0.3rem;
+}
+.emp-chart-subtitle {
+    font-size: 0.82rem;
+    color: #8A8070;
+    margin-bottom: 1.25rem;
+    letter-spacing: 0.01em;
+}
+.emp-chart-container {
+    position: relative;
+    height: 320px;
+    width: 100%;
+}
+
+/* ── Market Detail Cards ── */
+.emp-market-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+    margin: 2rem 0 1rem;
+}
+@media (max-width: 1024px) {
+    .emp-market-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+    .emp-market-grid { grid-template-columns: 1fr; }
+}
+
+.emp-market-card {
+    background: #FAF6F0;
+    border: 1px solid #E5DED2;
+    border-radius: 8px;
+    padding: 1.25rem 1.25rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.emp-market-card:hover {
+    box-shadow: 0 4px 20px rgba(43,38,32,0.08);
+    transform: translateY(-2px);
+}
+.emp-market-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+.emp-market-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+.emp-market-name {
+    font-family: 'Source Serif 4', serif;
+    font-size: 0.97rem;
+    font-weight: 600;
+    color: #2B2620;
+    flex: 1;
+}
+.emp-lambda-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
+}
+.emp-lambda-badge.high {
+    background: rgba(192,94,94,0.12);
+    color: #B04444;
+    border: 1px solid rgba(192,94,94,0.25);
+}
+.emp-lambda-badge.medium {
+    background: rgba(212,168,73,0.12);
+    color: #9A7420;
+    border: 1px solid rgba(212,168,73,0.3);
+}
+.emp-market-meta {
+    font-size: 0.78rem;
+    color: #8A8070;
+    font-style: italic;
+}
+.emp-market-desc {
+    font-size: 0.87rem;
+    color: #4A3F35;
+    line-height: 1.65;
+    flex: 1;
+}
+.emp-verdict-tag {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.65rem;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+    margin-top: 0.25rem;
+    align-self: flex-start;
+}
+.collusion-tag {
+    background: rgba(192,94,94,0.1);
+    color: #B04444;
+    border: 1px solid rgba(192,94,94,0.2);
+}
+.suspicious-tag {
+    background: rgba(212,168,73,0.1);
+    color: #9A7420;
+    border: 1px solid rgba(212,168,73,0.25);
+}
