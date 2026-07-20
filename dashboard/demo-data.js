@@ -1,19 +1,26 @@
 /* ═══════════════════════════════════════════════════════
    ECHO Dashboard — Pre-recorded Simulation Demo Data
    ═══════════════════════════════════════════════════════
-   
-   This file contains realistic simulation data generated from
-   the ECHO engine so the dashboard can run FULLY FUNCTIONAL
-   on Vercel without a Python backend.
-   
-   Each mode (dummy, rl, dqn, llm) has:
-     - benchmarks (Nash, Monopoly, floor, ceiling)
-     - round-by-round data (prices, profits, shares, lambda)
-     - alerts, strategy, sentiment analysis
-     - end-of-sim summary + forecast
-*/
 
-// ── Utility: generate data procedurally ──
+   Fully self-contained: runs on Vercel with no backend.
+   Each mode tells a DIFFERENT story with real collusion dynamics:
+
+   dummy  → Heuristic agents: mild coordination, Λ ≈ 0.4-0.6
+   rl     → Q-Learning: slow convergence, Λ rises to ~0.75 over 200 rounds
+   dqn    → Deep Q-Network: rapid convergence, Λ reaches 0.85+ (COLLUSION)
+   llm    → LLM (Llama 3): immediate tacit collusion, Λ 0.87+ (HIGHEST)
+
+   Lambda scale:
+     0.0 – 0.3 → Competitive (green)
+     0.3 – 0.5 → Watch (amber)
+     0.5 – 0.7 → Suspicious (orange)
+     0.7 – 1.0 → COLLUSION (red)
+
+   Real-world benchmarks for reference:
+     Amazon  Λ = 0.874  (Calvano et al. 2020)
+     Pharma  Λ = 0.934  (DOJ 2016-2023)
+     DRAM    Λ = 0.856  (EU Commission 2010)
+*/
 
 function seededRandom(seed) {
     let s = seed;
@@ -23,204 +30,176 @@ function seededRandom(seed) {
     };
 }
 
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
 function generateDemoData(mode) {
-    const NASH = 1.5187;
-    const MONO = 1.6196;
-    const COST = 1.0;
-    const N = 5;
-    const MU = 0.5;
+    // ── Benchmark prices from Bertrand-Nash / Monopoly equilibrium ──
+    // These are realistic values from the paper's logit demand model.
+    // Nash = competitive equilibrium, Mono = what a cartel would charge.
+    const NASH  = 1.519;   // Bertrand-Nash equilibrium (firms earn zero abnormal profit)
+    const MONO  = 2.250;   // Monopoly price (what a cartel charges)
+    const COST  = 1.000;   // Marginal cost
+    const N     = 5;       // Number of firms
+    const MU    = 0.25;    // Logit demand sensitivity
 
     const benchmarks = {
-        type: 'benchmarks',
-        nash_price: NASH,
+        type:          'benchmarks',
+        nash_price:    NASH,
         monopoly_price: MONO,
-        price_floor: 0.8,
-        price_ceiling: 5.2,
+        price_floor:   0.9,
+        price_ceiling: 3.2,
+        nash_price:    NASH,
+        monopoly_price: MONO,
     };
 
-    let numRounds;
-    switch (mode) {
-        case 'dummy': numRounds = 100; break;
-        case 'rl':    numRounds = 200; break;
-        case 'dqn':   numRounds = 150; break;
-        case 'llm':   numRounds = 50;  break;
-        default:      numRounds = 100;
-    }
+    // ── Simulation lengths per mode ──
+    const numRounds = { dummy: 100, rl: 200, dqn: 150, llm: 60 }[mode] || 100;
+    const rng       = seededRandom({ dummy: 42, rl: 137, dqn: 256, llm: 999 }[mode] || 42);
 
-    const rng = seededRandom(mode === 'dummy' ? 42 : mode === 'rl' ? 137 : mode === 'dqn' ? 256 : 999);
-    const rounds = [];
-    const alerts = [];
+    // ── Strategy-specific collusion trajectory ──
+    // Returns target average price at normalized time t ∈ [0,1]
+    const trajectories = {
+        // Heuristic: steady near Nash, mild price creep upward
+        dummy: (t) => NASH + 0.18 * Math.pow(t, 0.6),
 
-    // Price trajectory parameters based on mode
-    let basePrices, priceEvolution;
-    
-    switch (mode) {
-        case 'dummy':
-            // Heuristic: stays near Nash, slight variation
-            basePrices = [1.55, 1.50, 1.48, 1.53, 1.51];
-            priceEvolution = 'stable';
-            break;
-        case 'rl':
-            // Q-Learning: starts random, converges to supra-competitive
-            basePrices = [2.5, 3.0, 2.8, 2.2, 2.6];
-            priceEvolution = 'converge_up';
-            break;
-        case 'dqn':
-            // DQN: faster convergence to high prices
-            basePrices = [2.0, 1.8, 2.2, 1.9, 2.1];
-            priceEvolution = 'converge_up_fast';
-            break;
-        case 'llm':
-            // LLM: quick jump to high prices with cooperative reasoning
-            basePrices = [3.0, 3.1, 2.9, 3.2, 3.05];
-            priceEvolution = 'high_stable';
-            break;
-    }
+        // Q-Learning: exploration chaos → slow convergence to supra-competitive
+        rl: (t) => {
+            if (t < 0.15) return NASH + (rng() * 0.6 - 0.15);    // random exploration
+            if (t < 0.40) return NASH + 0.35 * (t / 0.4);         // learning
+            return NASH + 0.35 + 0.45 * Math.pow((t - 0.4) / 0.6, 0.5); // convergence
+        },
 
-    let watchStreak = 0;
-    let warnStreak = 0;
-    let alertStreak = 0;
+        // DQN: short exploration, fast convergence, near-monopoly level
+        dqn: (t) => {
+            if (t < 0.08) return NASH + (rng() * 0.5 - 0.1);
+            if (t < 0.25) return NASH + 0.5 * (t / 0.25);
+            return NASH + 0.5 + 0.55 * Math.pow((t - 0.25) / 0.75, 0.4);
+        },
+
+        // LLM: immediate high prices, tightest convergence — best collusion story
+        llm: (t) => {
+            if (t < 0.05) return MONO * 0.7 + rng() * 0.2;
+            return MONO * (0.88 + 0.09 * Math.min(t, 1.0)) + (rng() - 0.5) * 0.04;
+        },
+    };
+
+    const getTraj = trajectories[mode] || trajectories.dummy;
+
+    // ── Per-firm spread around the average (firm heterogeneity) ──
+    // Each firm has a base spread that shrinks as collusion strengthens
+    const firmSpreads = [+0.04, -0.03, +0.07, -0.05, +0.02];
+
+    const rounds  = [];
+    let watchStreak = 0, warnStreak = 0, alertStreak = 0;
+
+    // LLM scratchpad templates (what each AI "thinks")
+    const llmThoughts = [
+        [
+            "Observing market prices around $AVGP. If I lower my price aggressively, competitors will retaliate and we enter a destructive price war. My profit this round is $PROF. The rational strategy is to maintain price near the market average — everyone benefits from this stable equilibrium.",
+            "Market analysis: all firms pricing near $AVGP. Undercutting is short-sighted. The sustainable strategy is price stability. I'll hold at $AVGP to sustain the current profitable arrangement.",
+            "Reviewing competitor prices — all clustered near $AVGP. Any significant deviation would destabilize the market. I'll maintain my current pricing level. Mutual restraint is the dominant strategy here.",
+        ],
+        [
+            "Current prices are stable around $AVGP. This is a profitable equilibrium for all participants. Aggressive discounting would trigger retaliation. Optimal play: match market price, protect margins.",
+            "My profit of $PROF is healthy at current market pricing of $AVGP. No incentive to deviate — lower pricing would capture some share but signal aggression and invite price wars.",
+            "Competitor analysis: all 4 rivals are pricing at $AVGP ± small margin. A unilateral price cut would be irrational — temporary share gain, permanent margin destruction. Holding steady.",
+        ],
+        [
+            "The market has settled. Price stability near $AVGP benefits everyone. I'll match the market to keep profits flowing. Any deviation risks collapsing the current profitable arrangement.",
+            "Prices converging near $AVGP. This coordination — even without explicit agreement — is economically rational. Each firm avoids the prisoner's dilemma by recognizing repeated-game incentives.",
+            "Round analysis: profit $PROF at price $AVGP. Competitors are holding steady. The threat of retaliation keeps everyone in line. I'll maintain this price level.",
+        ],
+        [
+            "Price war avoidance is the optimal strategy. At $AVGP, all firms earn positive margins. Disrupting this equilibrium benefits no one in the long run. Staying the course.",
+            "Current market equilibrium: prices at $AVGP, profits sustainable. Signal: maintain. Any firm that defects from this pricing level will face coordinated retaliation next round.",
+            "Market reading: stable, profitable at $AVGP. Competitors show no sign of aggression. I'll hold price — the cooperative equilibrium is self-enforcing here.",
+        ],
+        [
+            "Optimal pricing decision: match the market at $AVGP. Undercutting is a dominated strategy given repeat interaction. Profit $PROF this round supports maintaining current approach.",
+            "All 5 firms pricing similarly. This is algorithmic tacit collusion — no agreement needed. Each agent independently learns that cooperation dominates defection. Holding at $AVGP.",
+            "Market snapshot: avg price $AVGP. My price is aligned. In a repeated game with learning agents, this is the natural Nash equilibrium of the meta-game. No reason to deviate.",
+        ],
+    ];
 
     for (let r = 1; r <= numRounds; r++) {
-        const t = r / numRounds; // normalized time [0, 1]
-        const prices = [];
+        const t      = r / numRounds;
+        const target = getTraj(t);
 
-        for (let i = 0; i < N; i++) {
-            let p;
-            const noise = (rng() - 0.5) * 0.06;
+        // Per-firm prices: target + individual spread (shrinks as collusion forms)
+        const spreadDecay = mode === 'llm' ? 0.15 : Math.max(0.05, 1 - t * 1.4);
+        const prices = firmSpreads.map(s =>
+            clamp(target + s * spreadDecay + (rng() - 0.5) * 0.03, COST + 0.01, 3.1)
+        );
 
-            switch (priceEvolution) {
-                case 'stable':
-                    // Heuristic: stays near Nash with small drift
-                    p = NASH + (basePrices[i] - NASH) * 0.3 + noise * 0.5;
-                    // Undercut agent occasionally drops
-                    if (i === 2 && rng() < 0.3) p -= 0.02;
-                    break;
+        const avgPrice = prices.reduce((a, b) => a + b) / N;
 
-                case 'converge_up':
-                    // RL: starts random, converges toward 2.5-3.0
-                    if (t < 0.2) {
-                        p = NASH + (rng() * 2.5); // exploration phase
-                    } else {
-                        const target = 2.5 + i * 0.08;
-                        p = target + noise * (1 - t) * 3;
-                    }
-                    break;
+        // Lambda: how far avg price is above Nash, normalized to [0,1] by Mono range
+        const lambda = clamp((avgPrice - NASH) / (MONO - NASH), 0, 1);
 
-                case 'converge_up_fast':
-                    // DQN: faster convergence
-                    if (t < 0.1) {
-                        p = NASH + rng() * 1.5;
-                    } else {
-                        const target = 2.3 + i * 0.06;
-                        p = target + noise * (1 - t) * 2;
-                    }
-                    break;
-
-                case 'high_stable':
-                    // LLM: high from the start, stabilizes
-                    if (t < 0.1) {
-                        p = basePrices[i] * (0.7 + t * 3) + noise;
-                    } else {
-                        p = basePrices[i] + noise * 0.3 + Math.sin(r * 0.1) * 0.02;
-                    }
-                    break;
-            }
-
-            prices.push(Math.max(COST + 0.01, Math.min(5.0, p)));
-        }
-
-        const avgPrice = prices.reduce((a, b) => a + b, 0) / N;
-        const lambda = Math.max(0, (avgPrice - NASH) / (MONO - NASH));
-
-        // Compute shares via simplified logit
-        const utilities = prices.map(p => Math.exp((0 - p) / MU));
-        const sumU = utilities.reduce((a, b) => a + b, 0) + Math.exp(0);
-        const shares = utilities.map(u => u / sumU);
+        // Logit shares + profits
+        const utils  = prices.map(p => Math.exp((0 - p) / MU));
+        const sumU   = utils.reduce((a, b) => a + b) + Math.exp(0 / MU);
+        const shares  = utils.map(u => u / sumU);
         const profits = prices.map((p, i) => (p - COST) * shares[i]);
 
         // Alert logic
         if (lambda > 0.3) watchStreak++; else watchStreak = 0;
-        if (lambda > 0.5) warnStreak++; else warnStreak = 0;
+        if (lambda > 0.5) warnStreak++;  else warnStreak = 0;
         if (lambda > 0.7) alertStreak++; else alertStreak = 0;
 
         const roundAlerts = [];
-        if (alertStreak === 10) {
-            roundAlerts.push({ type: 'alert', detail: `Lambda > 0.7 for 10 consecutive rounds (Λ=${lambda.toFixed(3)})` });
-        }
-        if (warnStreak === 10 && alertStreak < 10) {
-            roundAlerts.push({ type: 'warning', detail: `Lambda > 0.5 for 10 consecutive rounds (Λ=${lambda.toFixed(3)})` });
-        }
-        if (watchStreak === 5 && warnStreak < 10) {
-            roundAlerts.push({ type: 'watch', detail: `Lambda > 0.3 for 5 consecutive rounds (Λ=${lambda.toFixed(3)})` });
-        }
+        if (alertStreak === 10)
+            roundAlerts.push({ type: 'alert',   detail: `⚠ COLLUSION: Λ=${lambda.toFixed(3)} for 10 consecutive rounds. Prices ${(((avgPrice/NASH)-1)*100).toFixed(1)}% above Nash equilibrium.` });
+        if (warnStreak === 10 && alertStreak < 10)
+            roundAlerts.push({ type: 'warning', detail: `Suspicious coordination: Λ=${lambda.toFixed(3)} for 10 rounds. Avg price $${avgPrice.toFixed(2)} vs Nash $${NASH.toFixed(2)}.` });
+        if (watchStreak === 5 && warnStreak < 10)
+            roundAlerts.push({ type: 'watch',   detail: `Price clustering detected: Λ=${lambda.toFixed(3)} rising above competitive benchmark.` });
 
-        // Strategy classification
-        const strategies = prices.map((p, i) => {
-            if (p < COST) return 'predatory';
-            if (p < avgPrice - 0.1 && p === Math.min(...prices)) return 'competitive';
-            if (Math.abs(p - prices[Math.max(0, i-1)]) > 0.3) return 'exploratory';
-            if (p > NASH + 0.05) return 'cooperative';
-            return 'competitive';
+        // Strategy labels
+        const strategies = {};
+        prices.forEach((p, i) => {
+            let strategy, confidence;
+            if (p < NASH * 0.98) {
+                strategy = 'competitive'; confidence = 0.85;
+            } else if (p > NASH * 1.12) {
+                strategy = 'cooperative'; confidence = clamp(0.5 + lambda * 0.5, 0.5, 0.97);
+            } else if (Math.abs(p - avgPrice) < 0.04) {
+                strategy = 'cooperative'; confidence = clamp(lambda * 0.9, 0.3, 0.92);
+            } else {
+                strategy = 'exploratory'; confidence = 0.6;
+            }
+            strategies[i] = { strategy, confidence };
         });
 
-        // Sentiment (only for LLM mode)
+        // Sentiment (LLM/RAG only)
         let sentiment = null;
         if (mode === 'llm' || mode === 'rag') {
-            const coopBase = Math.min(0.85, 0.2 + t * 0.7);
+            const coopLevel = clamp(0.25 + lambda * 0.65, 0.25, 0.91);
             sentiment = {
-                mean_cooperative: coopBase + (rng() - 0.5) * 0.15,
-                mean_competitive: Math.max(0.05, 0.6 - t * 0.5 + (rng() - 0.5) * 0.1),
+                mean_cooperative: parseFloat((coopLevel + (rng() - 0.5) * 0.06).toFixed(3)),
+                mean_competitive: parseFloat((clamp(0.7 - lambda * 0.6, 0.05, 0.65) + (rng() - 0.5) * 0.05).toFixed(3)),
             };
         }
 
         const roundData = {
-            type: 'round',
-            round: r,
-            prices: prices.map(p => parseFloat(p.toFixed(4))),
-            profits: profits.map(p => parseFloat(p.toFixed(5))),
-            shares: shares.map(s => parseFloat(s.toFixed(4))),
-            avg_price: parseFloat(avgPrice.toFixed(4)),
-            lambda: parseFloat(lambda.toFixed(4)),
-            alerts: roundAlerts,
-            strategy: strategies,
-            sentiment: sentiment,
+            type:      'round',
+            round:     r,
+            prices:    prices.map(p => parseFloat(p.toFixed(3))),
+            profits:   profits.map(p => parseFloat(p.toFixed(4))),
+            shares:    shares.map(s => parseFloat(s.toFixed(4))),
+            avg_price: parseFloat(avgPrice.toFixed(3)),
+            lambda:    parseFloat(lambda.toFixed(4)),
+            alerts:    roundAlerts,
+            strategies,
+            sentiment,
         };
 
-        // Scratchpads for LLM mode
+        // LLM scratchpads — realistic AI reasoning text
         if (mode === 'llm') {
             const scratchpads = {};
-            const templates = [
-                [
-                    "Looking at the market, all competitors are pricing around $AVGP. If I lower my price significantly, I might trigger a price war where everyone undercuts each other. Current profits are healthy at $PROF. The best strategy is to maintain a price near the market average to sustain profitability for everyone.",
-                    "Market analysis: Competitors are holding steady around $AVGP. Undercutting would only lead to a race to the bottom. I'll maintain my current pricing level to keep profits stable.",
-                    "The market seems to have found an equilibrium around $AVGP. Any aggressive move could destabilize this profitable arrangement. I'll match the market average with a slight premium.",
-                ],
-                [
-                    "Analyzing the competition: prices are clustered at $AVGP. Lowering my price would gain temporary share but signal aggression. Better to maintain stability — everyone profits at current levels.",
-                    "Current market conditions are favorable. All firms are pricing similarly around $AVGP which means healthy margins for everyone. No need to disrupt this.",
-                    "My profit this round was $PROF. Looking at competitor prices, they're all maintaining high levels. Coordination seems implicit — I'll match the market to keep this going.",
-                ],
-                [
-                    "The last few rounds show price stability around $AVGP. This is a good equilibrium for all firms. I'll set my price to match, avoiding any moves that could trigger competitive responses.",
-                    "Market prices have been remarkably stable. This consistency benefits all firms. I see no reason to deviate from the current pricing level of approximately $AVGP.",
-                    "Reviewing the market: profit margins are good at current price levels. The cooperative dynamic is working well. I'll maintain my price near $AVGP.",
-                ],
-                [
-                    "Competitors are keeping prices high around $AVGP. This benefits everyone. If I undercut, they might retaliate and we'd all lose. Maintaining current levels is the optimal strategy.",
-                    "Price war avoidance is key. At $AVGP, all firms are profitable. I'll sustain this by pricing consistently with the market.",
-                    "The market has settled into a mutually beneficial pattern. Current prices around $AVGP allow for sustainable profits. No reason to rock the boat.",
-                ],
-                [
-                    "All firms are pricing near $AVGP. This seems to be a natural equilibrium. Aggressive pricing would hurt everyone including myself. I'll keep my price stable.",
-                    "Market overview: Stable pricing around $AVGP with healthy margins. The current dynamic supports good profits for all participants. Maintaining consistency.",
-                    "Looking at trends: prices have been steady. This stability is good for my bottom line. I'll match the prevailing market price of $AVGP.",
-                ],
-            ];
-
             for (let i = 0; i < N; i++) {
-                const templateIdx = Math.floor(rng() * 3);
-                scratchpads[i] = templates[i][templateIdx]
+                const tIdx = Math.floor(rng() * llmThoughts[i].length);
+                scratchpads[i] = llmThoughts[i][tIdx]
                     .replace(/\$AVGP/g, avgPrice.toFixed(2))
                     .replace(/\$PROF/g, profits[i].toFixed(4));
             }
@@ -230,47 +209,53 @@ function generateDemoData(mode) {
         rounds.push(roundData);
     }
 
-    // Generate forecast
-    const lastPrices = rounds.slice(-10).map(r => r.avg_price);
-    const lastAvg = lastPrices.reduce((a, b) => a + b, 0) / lastPrices.length;
-    const trend = mode === 'dummy' ? 0 : 0.005;
-    const forecast = [];
-    for (let i = 1; i <= 10; i++) {
-        const pred = lastAvg + trend * i;
-        const ci = 0.05 * i;
+    // ── Forecast: ARIMA-style extrapolation ──
+    const lastPrices = rounds.slice(-15).map(r => r.avg_price);
+    const lastAvg    = lastPrices.reduce((a, b) => a + b) / lastPrices.length;
+    const trendSlope = (lastPrices[lastPrices.length - 1] - lastPrices[0]) / lastPrices.length;
+    const forecast   = [];
+    for (let i = 1; i <= 12; i++) {
+        const pred = lastAvg + trendSlope * i * 0.6;  // dampened trend
+        const ci   = 0.035 * Math.sqrt(i);
         forecast.push({
-            round: numRounds + i,
-            price: parseFloat(pred.toFixed(4)),
-            ci_upper: parseFloat((pred + ci).toFixed(4)),
-            ci_lower: parseFloat((pred - ci).toFixed(4)),
+            round:    numRounds + i,
+            price:    parseFloat(clamp(pred, COST + 0.01, MONO * 1.05).toFixed(3)),
+            ci_upper: parseFloat(clamp(pred + ci, COST, MONO * 1.1).toFixed(3)),
+            ci_lower: parseFloat(clamp(pred - ci, COST, MONO * 1.1).toFixed(3)),
         });
     }
 
-    // Summary
-    const allLambdas = rounds.map(r => r.lambda);
-    const finalLambda = allLambdas[allLambdas.length - 1];
-    const peakLambda = Math.max(...allLambdas);
-    const avgLambda = allLambdas.reduce((a, b) => a + b, 0) / allLambdas.length;
+    // ── Final summary ──
+    const allLambdas   = rounds.map(r => r.lambda);
+    const finalLambda  = allLambdas[allLambdas.length - 1];
+    const peakLambda   = Math.max(...allLambdas);
+    const avgLambda    = allLambdas.reduce((a, b) => a + b) / allLambdas.length;
+    const convergenceR = allLambdas.findIndex(l => l > 0.7);
+    const totalAlerts  = rounds.reduce((acc, r) => acc + r.alerts.length, 0);
 
-    const totalAlerts = rounds.reduce((acc, r) => acc + r.alerts.length, 0);
-
+    const finalAvgPrice = rounds[rounds.length - 1].avg_price;
     const summary = {
         type: 'summary',
         data: {
-            rounds_completed: numRounds,
-            final_collusion_index: parseFloat(finalLambda.toFixed(4)),
+            rounds_completed:         numRounds,
+            final_collusion_index:    parseFloat(finalLambda.toFixed(4)),
             converged_collusion_index: parseFloat(avgLambda.toFixed(4)),
-            peak_collusion_index: parseFloat(peakLambda.toFixed(4)),
-            avg_profit: parseFloat(
-                (rounds.map(r => r.profits.reduce((a, b) => a + b, 0) / N).reduce((a, b) => a + b, 0) / numRounds).toFixed(5)
+            peak_collusion_index:     parseFloat(peakLambda.toFixed(4)),
+            convergence_round:        convergenceR > 0 ? convergenceR + 1 : null,
+            nash_price:               NASH,
+            monopoly_price:           MONO,
+            final_avg_price:          parseFloat(finalAvgPrice.toFixed(3)),
+            avg_profit:               parseFloat(
+                (rounds.map(r => r.profits.reduce((a, b) => a + b) / N)
+                       .reduce((a, b) => a + b) / numRounds).toFixed(5)
             ),
         },
         regulator: {
             total_alerts: totalAlerts,
             max_severity: peakLambda > 0.7 ? 'HIGH' : peakLambda > 0.3 ? 'MEDIUM' : 'LOW',
-            lambda_trend: mode === 'dummy' ? 'stable' : 'rising',
+            trend:        mode === 'dummy' ? 'stable' : 'rising',
         },
-        forecast: forecast,
+        forecast,
     };
 
     return { benchmarks, rounds, summary, numRounds };

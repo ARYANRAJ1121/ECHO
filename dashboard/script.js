@@ -16,13 +16,13 @@ let activeScratchpadFirm = 0;
 let scratchpadData = {};   // { firmId: "latest text" }
 let shockAnnotations = []; // rounds where shocks happened
 
-// Agent palette — 5 vibrant, distinguishable colors
+// Warm editorial palette — 5 distinguishable, on-theme colors
 const COLORS = [
-    '#3b82f6', // blue
-    '#8b5cf6', // purple
-    '#10b981', // emerald
-    '#f59e0b', // amber
-    '#ef4444', // red
+    '#C17A4E', // terracotta (primary accent)
+    '#6B8CAE', // slate blue
+    '#7A9E7E', // sage green
+    '#B8925A', // amber gold
+    '#A07090', // dusty mauve
 ];
 
 const COLORS_ALPHA = COLORS.map(c => c + '30');
@@ -82,21 +82,22 @@ function initCharts() {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { boxWidth: 10, usePointStyle: true, padding: 16 },
+                    labels: { boxWidth: 10, usePointStyle: true, padding: 16, color: '#8A8070' },
                 },
                 annotation: { annotations: {} },
             },
             scales: {
                 x: {
-                    grid: { color: 'rgba(255,255,255,0.04)' },
-                    title: { display: true, text: 'Round', color: '#64748b' },
-                    ticks: { maxTicksLimit: 20 },
+                    grid: { color: 'rgba(43,38,32,0.06)' },
+                    title: { display: true, text: 'Round', color: '#8A8070' },
+                    ticks: { maxTicksLimit: 20, color: '#8A8070' },
                 },
                 y: {
-                    grid: { color: 'rgba(255,255,255,0.04)' },
-                    title: { display: true, text: 'Price ($)', color: '#64748b' },
+                    grid: { color: 'rgba(43,38,32,0.06)' },
+                    title: { display: true, text: 'Price ($)', color: '#8A8070' },
                     min: 1.0,
-                    max: 5.0,
+                    max: 3.2,
+                    ticks: { color: '#8A8070' },
                 },
             },
         },
@@ -111,11 +112,11 @@ function initCharts() {
             datasets: [{
                 label: 'Λ (Collusion Index)',
                 data: [],
-                borderColor: '#3b82f6',
+                borderColor: '#C17A4E',
                 backgroundColor: (ctx) => {
                     const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
-                    g.addColorStop(0, 'rgba(59, 130, 246, 0.25)');
-                    g.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+                    g.addColorStop(0, 'rgba(193, 122, 78, 0.18)');
+                    g.addColorStop(1, 'rgba(193, 122, 78, 0.0)');
                     return g;
                 },
                 fill: true,
@@ -135,33 +136,31 @@ function initCharts() {
                     annotations: {
                         watchLine: {
                             type: 'line',
-                            yMin: 0.3,
-                            yMax: 0.3,
-                            borderColor: 'rgba(245, 158, 11, 0.4)',
+                            yMin: 0.3, yMax: 0.3,
+                            borderColor: 'rgba(184,146,90,0.5)',
                             borderWidth: 1,
                             borderDash: [4, 4],
                             label: {
-                                content: 'Watch (0.3)',
+                                content: 'Watch Λ=0.3',
                                 display: true,
                                 position: 'start',
                                 backgroundColor: 'transparent',
-                                color: 'rgba(245, 158, 11, 0.6)',
+                                color: '#B8925A',
                                 font: { size: 10 },
                             },
                         },
                         alertLine: {
                             type: 'line',
-                            yMin: 0.7,
-                            yMax: 0.7,
-                            borderColor: 'rgba(239, 68, 68, 0.4)',
+                            yMin: 0.7, yMax: 0.7,
+                            borderColor: 'rgba(184,90,90,0.5)',
                             borderWidth: 1,
                             borderDash: [4, 4],
                             label: {
-                                content: 'Alert (0.7)',
+                                content: 'Alert Λ=0.7',
                                 display: true,
                                 position: 'start',
                                 backgroundColor: 'transparent',
-                                color: 'rgba(239, 68, 68, 0.6)',
+                                color: '#B85A5A',
                                 font: { size: 10 },
                             },
                         },
@@ -170,15 +169,16 @@ function initCharts() {
             },
             scales: {
                 x: {
-                    grid: { color: 'rgba(255,255,255,0.04)' },
-                    title: { display: true, text: 'Round', color: '#64748b' },
-                    ticks: { maxTicksLimit: 20 },
+                    grid: { color: 'rgba(43,38,32,0.06)' },
+                    title: { display: true, text: 'Round', color: '#8A8070' },
+                    ticks: { maxTicksLimit: 20, color: '#8A8070' },
                 },
                 y: {
-                    grid: { color: 'rgba(255,255,255,0.04)' },
-                    title: { display: true, text: 'Λ', color: '#64748b' },
-                    min: -0.1,
-                    max: 1.1,
+                    grid: { color: 'rgba(43,38,32,0.06)' },
+                    title: { display: true, text: 'Λ (Collusion Index)', color: '#8A8070' },
+                    min: -0.05,
+                    max: 1.05,
+                    ticks: { color: '#8A8070' },
                 },
             },
         },
