@@ -99,3 +99,9 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
 
 uvicorn api_server:app --port 8000 --reload
+
+# ── HOW TO RUN THIS SCRIPT ──────────────────────────────
+# Full stack (Docker + Ollama + Server):  .\start_echo.ps1
+# Server only - no Docker/Ollama needed:  .\start_echo.ps1 quick
+# Docker + Server, skip Ollama:           .\start_echo.ps1 nollm
+# ────────────────────────────────────────────────────────
