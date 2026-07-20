@@ -768,8 +768,6 @@
         const RED_SOFT    = '#C05E5E';
 
         // ── Chart 1: Empirical λ across 6 markets (horizontal bar) ──
-        Chart.register(ChartDataLabels = window.ChartDataLabels || {});
-
         const empCtx = document.getElementById('empiricalChart').getContext('2d');
         new Chart(empCtx, {
             type: 'bar',
@@ -967,6 +965,21 @@
                     x: {
                         grid: { display: false },
                         border: { color: BORDER },
+                        ticks: { color: TEXT, font: { family: 'Inter', size: 12, weight: '500' } }
+                    }
+                }
+            }
+        });
+
+        // ── buildChartOptions helper (used by real-world market charts) ──
+        function buildChartOptions(yLabel) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 500 },
+                plugins: {
+                    legend: {
+                        display: true,
                         labels: { color: MUTED, font: { family: 'Inter', size: 11 }, boxWidth: 12, padding: 14 }
                     },
                     tooltip: {
@@ -984,7 +997,7 @@
                         grid: { color: BORDER },
                         border: { color: BORDER },
                         ticks: { color: TEXT, font: { family: 'Inter', size: 11 } },
-                        title: { display: true, text: yLabel, color: MUTED, font: { family: 'Inter', size: 11 } }
+                        title: { display: true, text: yLabel || '', color: MUTED, font: { family: 'Inter', size: 11 } }
                     }
                 }
             };
@@ -1049,9 +1062,10 @@
                     }]
                 },
                 options: {
-                    ...buildChartOptions('λ (Collusion Index)'),
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 500 },
                     plugins: {
-                        ...buildChartOptions().plugins,
                         legend: { display: false },
                         tooltip: { backgroundColor: '#2B2620', titleColor: '#F3EDE4', bodyColor: '#C5BAB0', padding: 10 },
                         annotation: {
@@ -1076,8 +1090,15 @@
                         }
                     },
                     scales: {
-                        ...buildChartOptions().scales,
-                        y: { ...buildChartOptions().scales.y, min: 0, max: 1.05,
+                        x: {
+                            grid: { color: BORDER },
+                            border: { color: BORDER },
+                            ticks: { color: MUTED, font: { family: 'Inter', size: 10 }, maxRotation: 45 }
+                        },
+                        y: {
+                            min: 0, max: 1.05,
+                            grid: { color: BORDER },
+                            border: { color: BORDER },
                             ticks: { color: TEXT, font: { family: 'Inter', size: 11 }, callback: v => v.toFixed(1) },
                             title: { display: true, text: 'Collusion Index λ', color: MUTED, font: { family: 'Inter', size: 11 } }
                         }
