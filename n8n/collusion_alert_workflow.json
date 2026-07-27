@@ -1,0 +1,119 @@
+{
+  "name": "ECHO Collusion Alert Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "echo-alert",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook: Collusion Alert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.lambda }}",
+              "operation": "largerEqual",
+              "value2": 0.7
+            }
+          ]
+        }
+      },
+      "id": "severity-filter",
+      "name": "Filter: High Severity Only",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "summary",
+              "value": "=🚨 COLLUSION ALERT — Round {{ $json.round }}\n\nλ = {{ $json.lambda }} (threshold: 0.7)\nAvg Price: {{ $json.avg_price }}\nMode: {{ $json.mode }}\nSeverity: {{ $json.alerts[0].severity }}\n\nDetail: {{ $json.alerts[0].detail }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ new Date($json.timestamp * 1000).toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-alert",
+      "name": "Format Alert Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [700, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "log",
+              "value": "=⚠️ Watch — Round {{ $json.round }} | λ={{ $json.lambda }} | {{ $json.mode }} mode"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "log-watch",
+      "name": "Log: Watch Level",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [700, 420]
+    }
+  ],
+  "connections": {
+    "Webhook: Collusion Alert": {
+      "main": [
+        [
+          {
+            "node": "Filter: High Severity Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: High Severity Only": {
+      "main": [
+        [
+          {
+            "node": "Format Alert Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Watch Level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "ECHO"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "instanceId": "echo-antitrust-sim"
+  }
+}

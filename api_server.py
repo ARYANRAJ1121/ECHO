@@ -17,6 +17,8 @@ import os
 import time
 from typing import Any
 
+import requests as http_requests
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -37,6 +39,9 @@ from analysis.forecaster import PriceForecaster
 # ──────────────────────────────────────────────
 # App Setup
 # ──────────────────────────────────────────────
+
+# n8n webhook endpoint for collusion alert automation
+N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/echo-alert")
 
 app = FastAPI(title="ECHO Antitrust Simulation API")
 
@@ -198,10 +203,46 @@ def trigger_demand_shock(firm_id: int, req: ShockRequest = ShockRequest()):
 
     return {"status": "shock_applied", "event": shock_event}
 
+# ──────────────────────────────────────────────
+# n8n Webhook Helper
+# ──────────────────────────────────────────────
+
+async def _notify_n8n(
+    round_num: int,
+    lambda_val: float,
+    avg_price: float,
+    mode: str,
+    alerts: list[dict],
+) -> None:
+    """
+    Fire-and-forget webhook to n8n when collusion is detected.
+
+    Runs in a background asyncio task so it never blocks the
+    simulation loop. Silently fails if n8n is not running.
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: http_requests.post(
+            N8N_WEBHOOK_URL,
+            json={
+                "event": "collusion_alert",
+                "round": round_num,
+                "lambda": round(lambda_val, 4),
+                "avg_price": round(avg_price, 4),
+                "mode": mode,
+                "alerts": alerts,
+                "timestamp": time.time(),
+            },
+            timeout=3,
+        ))
+    except Exception:
+        pass  # n8n not running — no problem
+
 
 # ──────────────────────────────────────────────
 # WebSocket: Live Simulation Stream
 # ──────────────────────────────────────────────
+
 
 @app.websocket("/ws/simulate")
 async def simulate_endpoint(websocket: WebSocket):
@@ -292,6 +333,16 @@ async def simulate_endpoint(websocket: WebSocket):
 
             # Lambda monitoring
             alerts = monitor.observe(record.round_number, record.collusion_index)
+
+            # n8n webhook: fire-and-forget when collusion alerts trigger
+            if alerts:
+                asyncio.create_task(_notify_n8n(
+                    round_num=round_num,
+                    lambda_val=record.collusion_index,
+                    avg_price=record.avg_price,
+                    mode=mode,
+                    alerts=[{"type": a.alert_type, "severity": a.severity, "detail": a.detail} for a in alerts],
+                ))
 
             # Collect scratchpads for LLM/RAG agents
             scratchpads = {}

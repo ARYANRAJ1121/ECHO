@@ -6,6 +6,7 @@
 # One command (`docker-compose up`) starts everything:
 #   - PostgreSQL database (stores all simulation data)
 #   - Ollama server (runs Llama 3 for LLM agents)
+#   - n8n automation (collusion alert webhooks → notifications)
 #   - The simulation itself (Python app)
 #
 # HOW TO USE:
@@ -15,7 +16,7 @@
 #
 # For now during development, we'll run the Python app OUTSIDE
 # Docker (directly in VS Code terminal) and only containerize
-# PostgreSQL and Ollama. This is faster for debugging.
+# PostgreSQL, Ollama, and n8n. This is faster for debugging.
 # =============================================================
 
 services:
@@ -63,7 +64,31 @@ services:
   #             count: 1
   #             capabilities: [gpu]
 
+  # ----- Container 3: n8n (Workflow Automation) -----
+  # Receives webhook alerts when collusion is detected (Lambda > threshold).
+  # Enables automated monitoring: Slack/email notifications, report generation.
+  #
+  # HOW TO USE:
+  #   1. docker-compose up -d n8n
+  #   2. Open http://localhost:5678
+  #   3. Import the workflow from n8n/collusion_alert_workflow.json
+  #   4. Activate the workflow — it will listen for webhooks from api_server.py
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: echo_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=echo2026
+      - WEBHOOK_URL=http://localhost:5678
+    volumes:
+      - echo_n8n_data:/home/node/.n8n
+
 # Named volumes -- data persists even after `docker-compose down`
 volumes:
   echo_pgdata:
   echo_ollama:
+  echo_n8n_data:
