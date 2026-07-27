@@ -42,6 +42,7 @@ from analysis.forecaster import PriceForecaster
 
 # n8n webhook endpoint for collusion alert automation
 N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/echo-alert")
+N8N_COMPLETE_URL = os.getenv("N8N_COMPLETE_URL", "http://localhost:5678/webhook/echo-simulation-complete")
 
 app = FastAPI(title="ECHO Antitrust Simulation API")
 
@@ -237,6 +238,33 @@ async def _notify_n8n(
         ))
     except Exception:
         pass  # n8n not running — no problem
+
+
+async def _notify_n8n_complete(
+    mode: str,
+    total_rounds: int,
+    regulator: dict,
+    sentiment_report: dict | None,
+    forecast: list | None,
+) -> None:
+    """Fire-and-forget webhook when simulation completes."""
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: http_requests.post(
+            N8N_COMPLETE_URL,
+            json={
+                "event": "simulation_complete",
+                "mode": mode,
+                "total_rounds": total_rounds,
+                "regulator": regulator,
+                "sentiment_report": sentiment_report,
+                "forecast": forecast,
+                "timestamp": time.time(),
+            },
+            timeout=3,
+        ))
+    except Exception:
+        pass
 
 
 # ──────────────────────────────────────────────
@@ -491,6 +519,21 @@ async def simulate_endpoint(websocket: WebSocket):
             "forecast": forecast_data,
             "sentiment_report": sentiment_report,
         }))
+
+        # n8n webhook: notify simulation complete
+        asyncio.create_task(_notify_n8n_complete(
+            mode=mode,
+            total_rounds=n_rounds,
+            regulator={
+                "mean_lambda": report["mean_lambda"],
+                "peak_lambda": report["peak_lambda"],
+                "total_alerts": report["total_alerts"],
+                "trend": report["trend"],
+                "convergence_round": summary.get("convergence_round"),
+            },
+            sentiment_report=sentiment_report,
+            forecast=forecast_data,
+        ))
 
         sim_state.running = False
         elapsed = round(time.time() - sim_state.start_time, 1)

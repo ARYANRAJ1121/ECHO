@@ -8,11 +8,26 @@
         "responseMode": "onReceived",
         "responseData": "allEntries"
       },
-      "id": "webhook-trigger",
-      "name": "Webhook: Collusion Alert",
+      "id": "webhook-alert",
+      "name": "🔔 Webhook: Collusion Alert",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1.1,
-      "position": [260, 300]
+      "position": [200, 400],
+      "webhookId": "echo-alert"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "echo-simulation-complete",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "id": "webhook-complete",
+      "name": "✅ Webhook: Simulation Complete",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 800],
+      "webhookId": "echo-simulation-complete"
     },
     {
       "parameters": {
@@ -27,76 +42,296 @@
         }
       },
       "id": "severity-filter",
-      "name": "Filter: High Severity Only",
+      "name": "⚖️ Severity Router",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [480, 300]
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.lambda }}",
+              "operation": "largerEqual",
+              "value2": 0.5
+            }
+          ]
+        }
+      },
+      "id": "warning-filter",
+      "name": "⚠️ Warning Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 560]
     },
     {
       "parameters": {
         "values": {
           "string": [
             {
-              "name": "summary",
-              "value": "=🚨 COLLUSION ALERT — Round {{ $json.round }}\n\nλ = {{ $json.lambda }} (threshold: 0.7)\nAvg Price: {{ $json.avg_price }}\nMode: {{ $json.mode }}\nSeverity: {{ $json.alerts[0].severity }}\n\nDetail: {{ $json.alerts[0].detail }}"
+              "name": "severity",
+              "value": "🔴 CRITICAL"
             },
             {
-              "name": "timestamp",
-              "value": "={{ new Date($json.timestamp * 1000).toISOString() }}"
+              "name": "title",
+              "value": "=🚨 COLLUSION ALERT — Round {{ $json.round }}"
+            },
+            {
+              "name": "message",
+              "value": "=Lambda Index: {{ $json.lambda }} (threshold: 0.7)\nAverage Price: ${{ $json.avg_price }}\nSimulation Mode: {{ $json.mode }}\nSeverity: {{ $json.alerts[0].severity }}\n\n📊 Detail:\n{{ $json.alerts[0].detail }}\n\n⏰ Timestamp: {{ new Date($json.timestamp * 1000).toISOString() }}"
+            },
+            {
+              "name": "action_required",
+              "value": "Investigate pricing patterns. Consider triggering demand shock test for causal verification."
             }
           ]
         },
         "options": {}
       },
-      "id": "format-alert",
-      "name": "Format Alert Message",
+      "id": "format-critical",
+      "name": "🔴 Format: Critical Alert",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.2,
-      "position": [700, 200]
+      "position": [700, 280]
     },
     {
       "parameters": {
         "values": {
           "string": [
             {
+              "name": "severity",
+              "value": "🟡 WARNING"
+            },
+            {
+              "name": "title",
+              "value": "=⚠️ Coordination Warning — Round {{ $json.round }}"
+            },
+            {
+              "name": "message",
+              "value": "=Lambda Index: {{ $json.lambda }} (moderate coordination)\nAverage Price: ${{ $json.avg_price }}\nMode: {{ $json.mode }}\n\nModerate pricing coordination detected. Monitor for escalation."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-warning",
+      "name": "🟡 Format: Warning",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [960, 480]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "severity",
+              "value": "🟢 WATCH"
+            },
+            {
               "name": "log",
-              "value": "=⚠️ Watch — Round {{ $json.round }} | λ={{ $json.lambda }} | {{ $json.mode }} mode"
+              "value": "=📝 Watch — Round {{ $json.round }} | λ={{ $json.lambda }} | {{ $json.mode }} mode | No action needed"
             }
           ]
         },
         "options": {}
       },
       "id": "log-watch",
-      "name": "Log: Watch Level",
+      "name": "🟢 Log: Watch Level",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.2,
-      "position": [700, 420]
+      "position": [960, 660]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "channel",
+              "value": "#echo-alerts"
+            },
+            {
+              "name": "notification",
+              "value": "={{ $json.title }}\n\n{{ $json.message }}\n\n🔧 Action: {{ $json.action_required }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "notify-critical",
+      "name": "📢 Send Notification",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [960, 200],
+      "notesInFlow": true,
+      "notes": "Connect Slack, Discord, or Email node here to receive real-time collusion alerts"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "report_type",
+              "value": "simulation_complete"
+            },
+            {
+              "name": "summary",
+              "value": "=📊 ECHO Simulation Report\n═══════════════════════════\n\n🏁 Simulation Complete\nMode: {{ $json.mode }}\nTotal Rounds: {{ $json.total_rounds }}\n\n📈 Regulator Report:\n• Mean Lambda: {{ $json.regulator.mean_lambda }}\n• Peak Lambda: {{ $json.regulator.peak_lambda }}\n• Total Alerts: {{ $json.regulator.total_alerts }}\n• Trend: {{ $json.regulator.trend }}\n• Convergence Round: {{ $json.regulator.convergence_round }}\n\n🤖 Sentiment Report:\n• Suspicious Rate: {{ $json.sentiment_report.suspicious_rate }}\n• Intent Drift: {{ $json.sentiment_report.intent_drift }}\n• Mean Cooperative Score: {{ $json.sentiment_report.mean_cooperative }}\n\n🔮 Price Forecast (next 10 rounds):\n{{ JSON.stringify($json.forecast, null, 2) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-summary",
+      "name": "📊 Format: Simulation Report",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [460, 800]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "channel",
+              "value": "#echo-reports"
+            },
+            {
+              "name": "notification",
+              "value": "={{ $json.summary }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "notify-summary",
+      "name": "📤 Send Report",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [720, 800],
+      "notesInFlow": true,
+      "notes": "Connect Slack, Discord, Email, or Google Sheets node here for automated reporting"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Collusion Score Card — aggregate risk assessment\nconst lambda = $input.first().json.lambda || 0;\nconst mode = $input.first().json.mode || 'unknown';\nconst round = $input.first().json.round || 0;\n\nlet risk_level = 'LOW';\nlet color = '🟢';\nlet recommendation = 'Continue monitoring';\n\nif (lambda >= 0.7) {\n  risk_level = 'CRITICAL';\n  color = '🔴';\n  recommendation = 'Trigger demand shock test for causal verification';\n} else if (lambda >= 0.5) {\n  risk_level = 'ELEVATED';\n  color = '🟡';\n  recommendation = 'Increase monitoring frequency';\n} else if (lambda >= 0.3) {\n  risk_level = 'MODERATE';\n  color = '🟠';\n  recommendation = 'Watch for upward trends';\n}\n\nreturn [{\n  json: {\n    score_card: {\n      round,\n      mode,\n      lambda,\n      risk_level,\n      color,\n      recommendation,\n      timestamp: new Date().toISOString()\n    }\n  }\n}];"
+      },
+      "id": "score-card",
+      "name": "🎯 Collusion Score Card",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 400]
     }
   ],
   "connections": {
-    "Webhook: Collusion Alert": {
+    "🔔 Webhook: Collusion Alert": {
       "main": [
         [
           {
-            "node": "Filter: High Severity Only",
+            "node": "⚖️ Severity Router",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Filter: High Severity Only": {
+    "⚖️ Severity Router": {
       "main": [
         [
           {
-            "node": "Format Alert Message",
+            "node": "🔴 Format: Critical Alert",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Log: Watch Level",
+            "node": "⚠️ Warning Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚠️ Warning Check": {
+      "main": [
+        [
+          {
+            "node": "🟡 Format: Warning",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🟢 Log: Watch Level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔴 Format: Critical Alert": {
+      "main": [
+        [
+          {
+            "node": "📢 Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📢 Send Notification": {
+      "main": [
+        [
+          {
+            "node": "🎯 Collusion Score Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🟡 Format: Warning": {
+      "main": [
+        [
+          {
+            "node": "🎯 Collusion Score Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🟢 Log: Watch Level": {
+      "main": [
+        [
+          {
+            "node": "🎯 Collusion Score Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Webhook: Simulation Complete": {
+      "main": [
+        [
+          {
+            "node": "📊 Format: Simulation Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Format: Simulation Report": {
+      "main": [
+        [
+          {
+            "node": "📤 Send Report",
             "type": "main",
             "index": 0
           }
