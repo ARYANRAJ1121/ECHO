@@ -92,6 +92,7 @@ graph LR
             D4["Strategy Classifier"]
             D5["Price Forecaster"]
             D6["Demand Shock Test"]
+            D7["n8n Automation Engine"]
         end
     end
     
@@ -101,7 +102,7 @@ graph LR
 | Half | Purpose | Analogy |
 |------|---------|---------|
 | **🏪 The Market** | Simulate a fake economy with 5 AI companies competing over thousands of rounds | A controlled experiment — like a lab rat maze |
-| **🕵️ The Detective** | 6 independent methods to detect, analyse, and prove collusion | A forensic investigation — like CSI for economics |
+| **🕵️ The Detective** | 6 detection methods + n8n automation pipeline to alert regulators in real-time | A forensic investigation + automated emergency response |
 
 ---
 
@@ -644,6 +645,24 @@ Training uses synthetically generated scenarios covering all four strategy types
 
 ---
 
+## Detective Automation: n8n Regulatory Alert Pipeline
+
+> **Analogy:** The 6 detectives generate the evidence. The **n8n Automation Pipeline** is the emergency command center that automatically drafts and dispatches the alert reports to regulators.
+
+```
+FastAPI Server → Webhooks (Async) → n8n Docker Service (Port 5678) → 11-Node Workflow:
+  1. Real-time Alert Webhook (/webhook/echo-alert)
+  2. Severity Switch (Watch vs Warning vs Alert)
+  3. Collusion Scorecard Generator
+  4. Simulation Complete Summary Webhook (/webhook/echo-simulation-complete)
+  5. Executive Audit Report Generator
+```
+
+- **Zero latency overhead:** `api_server.py` uses non-blocking `asyncio.create_task` calls so simulation loops never wait for webhook delivery.
+- **Workflow configuration:** Defined in `n8n/collusion_alert_workflow.json` — ready to import into n8n.
+
+---
+
 # Part 6: The AI Inventory
 
 ECHO uses **14 distinct AI/ML techniques** across the codebase:
@@ -784,6 +803,7 @@ graph TD
 | [analysis/strategy_classifier.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/analysis/strategy_classifier.py) | #4 Strategy Classifier | `AgentStrategyClassifier` |
 | [analysis/forecaster.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/analysis/forecaster.py) | #5 Price Forecaster | `PriceForecaster` |
 | [regulator/perturbation.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/regulator/perturbation.py) | #6 Demand Shock | Perturbation experiment runner |
+| [n8n/collusion_alert_workflow.json](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/n8n/collusion_alert_workflow.json) | Automation Pipeline | 11-node n8n regulatory alert workflow |
 
 ---
 
@@ -796,6 +816,8 @@ graph TD
 | [database/memory.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py) | Hybrid RAG vector memory (pgvector + SQL) |
 | [analysis/real_data.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/analysis/real_data.py) | Empirical validation (EIA gasoline + Amazon data) |
 | [analysis/plots.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/analysis/plots.py) | Publication-ready matplotlib figures |
+| [docker-compose.yml](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/docker-compose.yml) | Docker services — PostgreSQL + pgvector + n8n |
+| [api_server.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/api_server.py) | FastAPI server + async n8n webhook dispatcher |
 
 ---
 
@@ -892,9 +914,15 @@ Six methods: (1) **Statistical anomaly detection** on Λ with streak analysis, (
 
 ---
 
+> **Q: "How does the n8n automation pipeline work in ECHO?"**
+
+We integrated **n8n** (an open-source workflow automation engine) via Docker on port 5678. When the FastAPI server detects a collusion alert or completes a simulation, it fires non-blocking asynchronous HTTP webhooks (`/webhook/echo-alert` & `/webhook/echo-simulation-complete`). An 11-node workflow (`n8n/collusion_alert_workflow.json`) routes alerts by severity level (Watch, Warning, Alert), parses collusion metrics, generates formatted collusion scorecards and executive audit summaries, and dispatches them to external regulatory channels — decoupling alert generation from notification delivery without slowing down the simulation.
+
+---
+
 > **Q: "What's your tech stack?"**
 
-Python backend with **FastAPI** for the API server, **WebSockets** for real-time streaming, **NumPy** for numerical computation (including a pure-numpy neural network), **scikit-learn** for ML (Random Forest, Linear Regression), **SciPy** for optimization, **PostgreSQL 16 + pgvector** for persistence and vector database, **Ollama** for running Llama 3 and nomic-embed-text locally, **Docker Compose** for infrastructure, and a **vanilla HTML/CSS/JS** dashboard with **Chart.js** for visualization.
+Python backend with **FastAPI** for the API server, **WebSockets** for real-time streaming, **n8n** for workflow automation, **NumPy** for numerical computation (including a pure-numpy neural network), **scikit-learn** for ML (Random Forest, Linear Regression), **SciPy** for optimization, **PostgreSQL 16 + pgvector** for persistence and vector database, **Ollama** for running Llama 3 and nomic-embed-text locally, **Docker Compose** for infrastructure, and a **vanilla HTML/CSS/JS** dashboard with **Chart.js** for visualization.
 
 ---
 

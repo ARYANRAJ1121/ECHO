@@ -6,6 +6,12 @@ run_simulation.py -- ECHO Orchestrator
     python run_simulation.py --mode dummy --rounds 50      # heuristic (fast)
     python run_simulation.py --mode llm --rounds 10        # LLM agents
     python run_simulation.py --mode rag --rounds 10 --db   # RAG agents (needs DB)
+
+=== n8n AUTOMATION PIPELINE ===
+  When running via api_server.py (web dashboard), real-time collusion alerts
+  and simulation completion summaries are automatically dispatched to n8n webhooks:
+    - Alert Webhook:             http://localhost:5678/webhook/echo-alert
+    - Complete Summary Webhook:  http://localhost:5678/webhook/echo-simulation-complete
 """
 
 from __future__ import annotations

@@ -222,13 +222,14 @@ CREATE INDEX idx ON embeddings USING ivfflat (embedding vector_cosine_ops) WITH 
 | Service | Image | Port | Purpose |
 |---------|-------|------|---------|
 | `db` | `pgvector/pgvector:pg16` | 5433 → 5432 | PostgreSQL + pgvector |
+| `n8n` | `n8nio/n8n:latest` | 5678 → 5678 | Automated Workflow & Alert Pipeline |
 | `ollama` (commented) | `ollama/ollama:latest` | 11434 | LLM server (run on host for GPU) |
 
 **Key Docker Compose features used:**
-- `volumes` — persist data across restarts (`echo_pgdata`)
+- `volumes` — persist data across restarts (`echo_pgdata`, `echo_n8n_data`)
 - `healthcheck` — wait for PostgreSQL to be ready before connecting
 - `docker-entrypoint-initdb.d` — auto-runs `schema.sql` on first start
-- Port mapping (`5433:5432`) — avoids conflict with host PostgreSQL
+- Port mapping (`5433:5432`, `5678:5678`) — avoids conflicts with host services
 
 ---
 
@@ -322,6 +323,22 @@ Browser                          Server
 | **What** | HTTP client library for Python |
 | **Why** | Calls Ollama API (LLM inference + embeddings), fetches FRED API data |
 | **Where** | [llm_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/llm_agent.py#L230), [nlp_cluster.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/regulator/nlp_cluster.py#L112), [memory.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py#L103) |
+
+---
+
+## 1.17 n8n (Workflow Automation Platform)
+
+| | |
+|---|---|
+| **What** | Open-source node-based workflow automation tool |
+| **Why** | Processes non-blocking alert webhooks, formats collusion scorecards, dispatches audit reports |
+| **Where** | [n8n/collusion_alert_workflow.json](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/n8n/collusion_alert_workflow.json), [docker-compose.yml](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/docker-compose.yml), [api_server.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/api_server.py) |
+
+**Key features in ECHO:**
+- Dedicated Docker service running on port `5678`
+- Asynchronous POST webhooks (`/webhook/echo-alert` & `/webhook/echo-simulation-complete`)
+- 11-node workflow with severity routing, metric extraction, and Executive Summary formatting
+- Decouples notification delivery from simulation execution for zero performance impact
 
 ---
 
@@ -1388,3 +1405,4 @@ RESULT 4 — DETECTION PIPELINE WORKS:
 | 23 | **Temporal difference learning** | RL update rule |
 | 24 | **Convergent reasoning** | What NLP clustering detects |
 | 25 | **Regulatory blind spot** | Why the problem matters |
+| 26 | **n8n / Workflow automation** | Automated alert pipeline, system integration |

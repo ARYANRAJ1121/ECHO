@@ -26,18 +26,19 @@ Write-Host "[1/4] Installing Python dependencies..." -ForegroundColor Yellow
 pip install -r requirements.txt -q
 Write-Host "      Done." -ForegroundColor Green
 
-# STEP 2: Start PostgreSQL via Docker
+# STEP 2: Start PostgreSQL & n8n via Docker
 Write-Host ""
-Write-Host "[2/4] Starting PostgreSQL (Docker)..." -ForegroundColor Yellow
+Write-Host "[2/4] Starting PostgreSQL & n8n (Docker)..." -ForegroundColor Yellow
 $dockerOK = $false
 docker info 2>$null | Out-Null
 if ($LASTEXITCODE -eq 0) {
-    docker-compose up -d db
+    docker-compose up -d db n8n
     Start-Sleep -Seconds 5
     Write-Host "      PostgreSQL ready on port 5433." -ForegroundColor Green
+    Write-Host "      n8n Workflow Engine ready at http://localhost:5678." -ForegroundColor Green
     $dockerOK = $true
 } else {
-    Write-Host "      Docker not running - skipping DB. Start Docker Desktop first." -ForegroundColor DarkYellow
+    Write-Host "      Docker not running - skipping DB & n8n. Start Docker Desktop first." -ForegroundColor DarkYellow
 }
 
 # STEP 3: Start Ollama + LLaMA 3
@@ -91,11 +92,12 @@ if ($mode -eq "nollm") {
 Write-Host ""
 Write-Host "[4/4] Starting ECHO API server..." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "============================================" -ForegroundColor Green
-Write-Host "  ECHO is running at http://127.0.0.1:8000  " -ForegroundColor Green
-Write-Host "  Open Chrome and navigate to that URL.     " -ForegroundColor Green
-Write-Host "  Press Ctrl+C to stop the server.          " -ForegroundColor Green
-Write-Host "============================================" -ForegroundColor Green
+Write-Host "==================================================================" -ForegroundColor Green
+Write-Host "  ECHO Dashboard running at http://127.0.0.1:8000                 " -ForegroundColor Green
+Write-Host "  n8n Automation Pipeline at http://localhost:5678                " -ForegroundColor Green
+Write-Host "  Open Chrome and navigate to either URL.                        " -ForegroundColor Green
+Write-Host "  Press Ctrl+C to stop the server.                               " -ForegroundColor Green
+Write-Host "==================================================================" -ForegroundColor Green
 Write-Host ""
 
 uvicorn api_server:app --port 8000 --reload

@@ -14,6 +14,7 @@ A simulation framework studying how autonomous AI pricing agents independently d
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
+[![n8n](https://img.shields.io/badge/n8n-Workflow_Automation-FF6D5A?logo=n8n&logoColor=white)](https://n8n.io)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?logo=vercel&logoColor=white)](https://echo-green-pi.vercel.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -213,15 +214,16 @@ sᵢ(p) = exp((aᵢ − pᵢ) / μ) / Σⱼ exp((aⱼ − pⱼ) / μ)
 ┌────────────────────────▼────────────────────────────┐
 │             FastAPI Server (api_server.py)           │
 │  /ws/simulate │ /api/status │ /api/shock/{firm_id}  │
-└────────────────────────┬────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────┐
-│             Antitrust Regulator                      │
-│  Λ Monitor │ NLP Cluster │ Sentiment │ Forecaster   │
-└────────────────────────┬────────────────────────────┘
-                         │ observes
-┌────────────────────────▼────────────────────────────┐
-│           Bertrand Market Engine                     │
+└───────────┬─────────────────────────────┬───────────┘
+            │ async webhooks              │
+┌───────────▼─────────────┐  ┌────────────▼──────────────┐
+│  n8n Automation Engine  │  │   Antitrust Regulator    │
+│  (Port 5678)            │  │  Λ Monitor │ NLP Cluster │
+│  Alerts & Summaries     │  │  Sentiment │ Forecaster  │
+└─────────────────────────┘  └────────────┬─────────────┘
+                                          │ observes
+┌─────────────────────────────────────────▼───────────┐
+│           Bertrand Market Engine                    │
 │  MNL Demand → Shares → Profits → Λ                  │
 └────────┬───────────────────────┬────────────────────┘
          │ prices                │ state
@@ -278,10 +280,13 @@ antitrust_sim/
 │   ├── script.js              # Real-time charts, narrator, shock control
 │   └── demo-data.js           # Pre-computed simulation data for Vercel
 │
-├── api_server.py              # FastAPI backend (WebSocket + REST)
+├── n8n/
+│   └── collusion_alert_workflow.json # 11-node automated monitoring workflow
+│
+├── api_server.py              # FastAPI backend (WebSocket + REST + Webhooks)
 ├── run_simulation.py          # CLI entry point (all modes)
 ├── start_echo.ps1             # One-script full-stack startup (Windows)
-├── docker-compose.yml         # PostgreSQL + pgvector container
+├── docker-compose.yml         # PostgreSQL + pgvector + n8n containers
 ├── vercel.json                # Vercel static deployment config
 └── requirements.txt           # Python dependencies
 ```
@@ -318,11 +323,53 @@ antitrust_sim/
 | Database | PostgreSQL 16 + pgvector |
 | ML Framework | scikit-learn (RF + LR) |
 | Numerical | NumPy, SciPy |
-| API Server | FastAPI + Uvicorn (ASGI, WebSocket) |
+| API Server | FastAPI + Uvicorn (ASGI, WebSocket, Async Webhooks) |
+| Automation Pipeline | n8n (Docker container, HTTP Webhooks, Multi-node routing) |
 | Frontend | HTML/CSS/JS + Chart.js + Chart.js Annotation |
 | Deployment | Vercel (static) + local uvicorn |
-| Infrastructure | Docker Compose |
+| Infrastructure | Docker Compose (pgvector DB + n8n engine) |
 | Data & Analysis | Pandas, Matplotlib, Seaborn, FRED API |
+
+---
+
+## ⚡ n8n Workflow Automation Pipeline
+
+ECHO includes an **n8n automated monitoring pipeline** that acts as an enterprise regulatory alert bridge.
+
+```
+                  ┌─────────────────────────────────┐
+                  │    ECHO FastAPI Server           │
+                  │  (api_server.py Webhooks)       │
+                  └────────────────┬────────────────┘
+                                   │ HTTP POST (fire-and-forget)
+                  ┌────────────────▼────────────────┐
+                  │     n8n Workflow Engine         │
+                  │     (http://localhost:5678)     │
+                  └────────────────┬────────────────┘
+                                   │
+         ┌─────────────────────────┴─────────────────────────┐
+         │                                                   │
+┌────────▼──────────────────────┐         ┌──────────────────▼──────────────────────┐
+│ Alert Webhook                 │         │ Simulation Complete Webhook              │
+│ /webhook/echo-alert           │         │ /webhook/echo-simulation-complete        │
+└────────┬──────────────────────┘         └──────────────────┬──────────────────────┘
+         │                                                   │
+┌────────▼──────────────────────┐         ┌──────────────────▼──────────────────────┐
+│ Severity Switch Node          │         │ Summary Aggregator Node                  │
+│ (Watch vs Warning vs Alert)   │         │ (Final Lambda, Peak Lambda, Rounds)      │
+└────────┬──────────────────────┘         └──────────────────┬──────────────────────┘
+         │                                                   │
+┌────────▼──────────────────────┐         ┌──────────────────▼──────────────────────┐
+│ Collusion Scorecard Generator │         │ Executive Summary Generator             │
+│ (HTML / Markdown formatting)  │         │ (Full Market Audit Report)              │
+└───────────────────────────────┘         └─────────────────────────────────────────┘
+```
+
+- **Docker Integration:** n8n runs as a persistent service inside `docker-compose.yml` on port `5678` with a dedicated data volume (`echo_n8n_data`).
+- **Fire-and-Forget Webhooks:** `api_server.py` dispatches non-blocking async tasks (`asyncio.create_task`) when:
+  1. A collusion alert is triggered (`/webhook/echo-alert`)
+  2. A simulation finishes (`/webhook/echo-simulation-complete`)
+- **Workflow File:** Import `n8n/collusion_alert_workflow.json` directly into your local n8n instance (`http://localhost:5678`) to view and edit the 11-node automated monitoring graph.
 
 ---
 
@@ -358,6 +405,7 @@ antitrust_sim/
 | 12 | Morning-light editorial redesign + live narrator bar | ✅ Complete |
 | 13 | 6-market empirical validation panel | ✅ Complete |
 | 14 | One-script full-stack startup (start_echo.ps1) | ✅ Complete |
+| 15 | n8n automated regulatory alert pipeline (async webhooks + 11-node workflow) | ✅ Complete |
 
 ---
 
