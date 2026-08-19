@@ -348,8 +348,10 @@ async def simulate_endpoint(websocket: WebSocket):
         forecaster = PriceForecaster(window_size=10)
         sim_state.forecaster = forecaster
 
-        # Send benchmarks
+        # Send benchmarks, plus the real observed prices behind this dataset so
+        # the dashboard can draw actual market data next to the simulation.
         firm_names = [a.name for a in engine.agents]
+        real_average = market_ctx.observed_market_average(n=300)
         benchmarks = {
             "type": "benchmarks",
             "nash_price": engine.benchmarks.nash_price,
@@ -359,6 +361,14 @@ async def simulate_endpoint(websocket: WebSocket):
             "firm_names": firm_names,
             "dataset_name": market_ctx.dataset_name,
             "currency": market_ctx.currency,
+            "data_source": market_ctx.source,
+            "is_fallback": market_ctx.is_fallback,
+            "fallback_reason": market_ctx.fallback_reason,
+            "real_avg_series": real_average,
+            "real_mean_price": (
+                sum(real_average) / len(real_average) if real_average else None
+            ),
+            "real_lambda_proxy": market_ctx.observed_dispersion_lambda(),
         }
         sim_state.benchmarks = {
             "nash_price": engine.benchmarks.nash_price,
@@ -383,7 +393,7 @@ async def simulate_endpoint(websocket: WebSocket):
                         obs = Observation(
                             round_number=round_num,
                             firm_id=agent.firm_id,
-                            marginal_cost=float(engine.demand_model.costs[0]),
+                            marginal_cost=float(engine.demand_model.costs[agent.firm_id]),
                             price_floor=engine.price_floor,
                             price_ceiling=engine.price_ceiling,
                             price_history=engine.price_history,

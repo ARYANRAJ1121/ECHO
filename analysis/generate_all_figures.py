@@ -55,6 +55,27 @@ def save(name: str):
     print(f"  Saved -> {path}")
 
 
+def set_lambda_ylim(ax, *series, pad: float = 0.08):
+    """Scale a Lambda axis to the data instead of pinning it to [-0.05, 1.1].
+
+    A fixed upper bound of 1.1 silently clipped runs that overshoot the
+    monopoly benchmark, and a fixed lower bound of -0.05 drew below-Nash
+    pricing off the canvas entirely, which made those figures look empty.
+    The competitive (0) and alert (0.7) reference levels are always kept in
+    view so the thresholds stay readable.
+    """
+    values = np.concatenate([np.asarray(s, dtype=float).ravel() for s in series if len(s)])
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        ax.set_ylim(-0.05, 1.1)
+        return
+
+    low = min(float(values.min()), 0.0)
+    high = max(float(values.max()), 1.0)
+    margin = max((high - low) * pad, 0.05)
+    ax.set_ylim(low - margin, high + margin)
+
+
 # ==========================================================
 # FIGURE 1: Price Evolution Over Time (LLM mode — shows collusion)
 # ==========================================================
@@ -126,7 +147,7 @@ def figure2_lambda_trajectory():
     ax.set_title("Figure 2 — Collusion Index (Λ) Trajectory by Agent Mode")
     ax.set_xlabel("Round")
     ax.set_ylabel("Λ — Collusion Index")
-    ax.set_ylim(-0.05, 1.1)
+    set_lambda_ylim(ax, *[np.convolve(l, np.ones(12) / 12, mode='same') for l in lambdas.values()])
     ax.legend(fontsize=9, ncol=2)
     save("fig2_lambda_trajectory.png")
 
@@ -189,7 +210,7 @@ def figure4_llm_vs_rl():
     ax1.axhline(0.7, color="red", linestyle=":", alpha=0.7)
     ax1.set_title("LLM Agents (Llama 3 8B)")
     ax1.set_xlabel("Round"); ax1.set_ylabel("Λ")
-    ax1.set_ylim(-0.05, 1.1); ax1.legend()
+    set_lambda_ylim(ax1, llm_lam, sm_llm); ax1.legend()
 
     ax2.plot(range(r_rl), rl_lam, color="#6B8CAE", linewidth=2, alpha=0.4, label="RL Raw")
     sm_rl = np.convolve(rl_lam, np.ones(15) / 15, mode='same')
@@ -197,7 +218,7 @@ def figure4_llm_vs_rl():
     ax2.axhline(0.7, color="red", linestyle=":", alpha=0.7)
     ax2.set_title("Q-Learning RL Agents")
     ax2.set_xlabel("Round"); ax2.set_ylabel("Λ")
-    ax2.set_ylim(-0.05, 1.1); ax2.legend()
+    set_lambda_ylim(ax2, rl_lam, sm_rl); ax2.legend()
 
     fig.suptitle("Figure 4 — LLM vs Q-Learning: Mechanism vs Speed of Collusion", y=1.01)
     plt.tight_layout()

@@ -149,7 +149,7 @@ class MarketEngine:
                         obs = Observation(
                             round_number=round_num,
                             firm_id=agent.firm_id,
-                            marginal_cost=float(self.demand_model.costs[0]),
+                            marginal_cost=float(self.demand_model.costs[agent.firm_id]),
                             price_floor=self.price_floor,
                             price_ceiling=self.price_ceiling,
                             price_history=self.price_history,
@@ -189,7 +189,10 @@ class MarketEngine:
             obs = Observation(
                 round_number=round_number,
                 firm_id=agent.firm_id,
-                marginal_cost=float(self.demand_model.costs[0]),
+                # Each firm sees its OWN cost. Real datasets give firms
+                # different costs, so handing everyone firm 0's cost made
+                # cost-based rules price off the wrong number.
+                marginal_cost=float(self.demand_model.costs[agent.firm_id]),
                 price_floor=self.price_floor,
                 price_ceiling=self.price_ceiling,
                 price_history=self.price_history,

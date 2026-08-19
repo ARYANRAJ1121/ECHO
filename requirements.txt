@@ -8,3 +8,5 @@ requests
 fastapi
 uvicorn[standard]
 scikit-learn
+groq
+python-dotenv

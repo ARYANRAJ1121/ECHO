@@ -25,11 +25,9 @@ from market.demand import LogitDemandModel
 from market.engine import MarketEngine
 
 
-def build_llm_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
-    """Wire up 5 LLM agents talking to Groq API."""
-    from agents.llm_agent import LLMPricingAgent
-
-    demand_model = LogitDemandModel(
+def build_demand_model(market_ctx) -> LogitDemandModel:
+    """Build the demand model for a dataset. Shared by every mode."""
+    return LogitDemandModel(
         n_firms=5,
         mu=market_ctx.mu,
         marginal_costs=market_ctx.marginal_costs,
@@ -37,6 +35,48 @@ def build_llm_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
         outside_quality=0.0,
         market_size=1.0,
     )
+
+
+# How far outside the Nash-monopoly range agents are allowed to price, as a
+# fraction of that range. This bounds Lambda to roughly [-0.3, 1.3].
+BAND_MARGIN = 0.30
+
+
+def resolve_price_band(market_ctx, demand_model: LogitDemandModel) -> tuple[float, float]:
+    """Return the trading band, derived from this market's own benchmarks.
+
+    The band has to bracket the Nash and monopoly prices for Lambda to mean
+    anything, and it has to stay close to them for the discretized RL and DQN
+    action grids to have any resolution where it matters.
+
+    Using the loader's "realistic price range" directly fails both ways. On
+    rideshare the monopoly price sat at $26/mile against an $8 ceiling, so a
+    perfect cartel capped out at Lambda = 0.21. On gasoline the ceiling was
+    $7.50 against a Nash-monopoly range of only $0.41, so almost every point
+    on the 15-level price grid was above monopoly and Lambda ran past 5.
+    """
+    benchmarks = demand_model.get_benchmarks()
+    span = max(benchmarks.monopoly_price - benchmarks.nash_price, 1e-9)
+
+    floor = max(
+        min(market_ctx.marginal_costs) * 0.9,
+        benchmarks.nash_price - BAND_MARGIN * span,
+    )
+    ceiling = benchmarks.monopoly_price + BAND_MARGIN * span
+
+    print(
+        f"  [Calibration] Trading band [{floor:.4f}, {ceiling:.4f}] "
+        f"around Nash {benchmarks.nash_price:.4f} / monopoly {benchmarks.monopoly_price:.4f}"
+    )
+    return floor, ceiling
+
+
+def build_llm_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
+    """Wire up 5 LLM agents talking to Groq API."""
+    from agents.llm_agent import LLMPricingAgent
+
+    demand_model = build_demand_model(market_ctx)
+    price_floor, price_ceiling = resolve_price_band(market_ctx, demand_model)
     agents = [
         LLMPricingAgent(
             firm_id=i,
@@ -53,8 +93,8 @@ def build_llm_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
     engine = MarketEngine(
         demand_model=demand_model,
         agents=agents,
-        price_floor=market_ctx.price_floor,
-        price_ceiling=market_ctx.price_ceiling,
+        price_floor=price_floor,
+        price_ceiling=price_ceiling,
     )
     return engine, n_rounds
 
@@ -69,14 +109,8 @@ def build_rag_simulation(n_rounds: int, sim_id: int, market_ctx) -> tuple[Market
     from agents.rag_agent import RAGPricingAgent
     from database.memory import VectorMemory
 
-    demand_model = LogitDemandModel(
-        n_firms=5,
-        mu=market_ctx.mu,
-        marginal_costs=market_ctx.marginal_costs,
-        quality=[market_ctx.base_quality] * 5,
-        outside_quality=0.0,
-        market_size=1.0,
-    )
+    demand_model = build_demand_model(market_ctx)
+    price_floor, price_ceiling = resolve_price_band(market_ctx, demand_model)
 
     # Shared memory store (all agents write/read from same pgvector)
     memory = VectorMemory()
@@ -100,8 +134,8 @@ def build_rag_simulation(n_rounds: int, sim_id: int, market_ctx) -> tuple[Market
     engine = MarketEngine(
         demand_model=demand_model,
         agents=agents,
-        price_floor=market_ctx.price_floor,
-        price_ceiling=market_ctx.price_ceiling,
+        price_floor=price_floor,
+        price_ceiling=price_ceiling,
     )
     return engine, n_rounds
 
@@ -110,28 +144,47 @@ def build_dummy_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int
     """Wire up 5 heuristic agents (fast, no LLM needed)."""
     from agents.heuristic_agent import SteadyAgent, FollowerAgent, UndercutAgent
 
-    demand_model = LogitDemandModel(
-        n_firms=5,
-        mu=market_ctx.mu,
-        marginal_costs=market_ctx.marginal_costs,
-        quality=[market_ctx.base_quality] * 5,
-        outside_quality=0.0,
-        market_size=1.0,
-    )
+    demand_model = build_demand_model(market_ctx)
+    price_floor, price_ceiling = resolve_price_band(market_ctx, demand_model)
+
+    # Anchor each rule to this market's own benchmarks. A fraction f means
+    # "price f of the way from Nash to monopoly", so the control group sits
+    # just above the competitive benchmark on every dataset regardless of
+    # whether a unit costs $3 or $64,000.
+    benchmarks = demand_model.get_benchmarks()
+    span = benchmarks.monopoly_price - benchmarks.nash_price
+
+    def anchored(fraction: float) -> float:
+        return benchmarks.nash_price + fraction * span
 
     agents = [
-        SteadyAgent(firm_id=0, markup=0.5, identity_name=market_ctx.firm_names[0]),
-        FollowerAgent(firm_id=1, target_markup=0.6, adjustment_speed=0.5, identity_name=market_ctx.firm_names[1]),
-        UndercutAgent(firm_id=2, undercut_amount=0.05, safe_markup=0.3, identity_name=market_ctx.firm_names[2]),
-        FollowerAgent(firm_id=3, target_markup=0.4, adjustment_speed=0.3, identity_name=market_ctx.firm_names[3]),
-        SteadyAgent(firm_id=4, markup=0.7, identity_name=market_ctx.firm_names[4]),
+        SteadyAgent(
+            firm_id=0, target_price=anchored(0.10),
+            identity_name=market_ctx.firm_names[0],
+        ),
+        FollowerAgent(
+            firm_id=1, target_price=anchored(0.25), adjustment_speed=0.5,
+            identity_name=market_ctx.firm_names[1],
+        ),
+        UndercutAgent(
+            firm_id=2, undercut_frac=0.005, floor_price=anchored(-0.05),
+            identity_name=market_ctx.firm_names[2],
+        ),
+        FollowerAgent(
+            firm_id=3, target_price=anchored(0.05), adjustment_speed=0.3,
+            identity_name=market_ctx.firm_names[3],
+        ),
+        SteadyAgent(
+            firm_id=4, target_price=anchored(0.30),
+            identity_name=market_ctx.firm_names[4],
+        ),
     ]
 
     engine = MarketEngine(
         demand_model=demand_model,
         agents=agents,
-        price_floor=market_ctx.price_floor,
-        price_ceiling=market_ctx.price_ceiling,
+        price_floor=price_floor,
+        price_ceiling=price_ceiling,
     )
     return engine, n_rounds
 
@@ -142,14 +195,8 @@ def build_rl_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
     """
     from agents.rl_agent import QLearningAgent
 
-    demand_model = LogitDemandModel(
-        n_firms=5,
-        mu=market_ctx.mu,
-        marginal_costs=market_ctx.marginal_costs,
-        quality=[market_ctx.base_quality] * 5,
-        outside_quality=0.0,
-        market_size=1.0,
-    )
+    demand_model = build_demand_model(market_ctx)
+    price_floor, price_ceiling = resolve_price_band(market_ctx, demand_model)
 
     agents = [
         QLearningAgent(
@@ -161,8 +208,8 @@ def build_rl_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
             epsilon_start=1.0,
             epsilon_min=0.01,
             epsilon_decay=0.99995,
-            price_floor=market_ctx.price_floor,
-            price_ceiling=market_ctx.price_ceiling,
+            price_floor=price_floor,
+            price_ceiling=price_ceiling,
         )
         for i in range(5)
     ]
@@ -170,8 +217,8 @@ def build_rl_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
     engine = MarketEngine(
         demand_model=demand_model,
         agents=agents,
-        price_floor=market_ctx.price_floor,
-        price_ceiling=market_ctx.price_ceiling,
+        price_floor=price_floor,
+        price_ceiling=price_ceiling,
     )
     return engine, n_rounds
 
@@ -182,14 +229,8 @@ def build_dqn_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
     """
     from agents.dqn_agent import DQNPricingAgent
 
-    demand_model = LogitDemandModel(
-        n_firms=5,
-        mu=market_ctx.mu,
-        marginal_costs=market_ctx.marginal_costs,
-        quality=[market_ctx.base_quality] * 5,
-        outside_quality=0.0,
-        market_size=1.0,
-    )
+    demand_model = build_demand_model(market_ctx)
+    price_floor, price_ceiling = resolve_price_band(market_ctx, demand_model)
 
     agents = [
         DQNPricingAgent(
@@ -200,8 +241,8 @@ def build_dqn_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
             epsilon_start=1.0,
             epsilon_min=0.01,
             epsilon_decay=0.995,
-            price_floor=market_ctx.price_floor,
-            price_ceiling=market_ctx.price_ceiling,
+            price_floor=price_floor,
+            price_ceiling=price_ceiling,
         )
         for i in range(5)
     ]
@@ -209,8 +250,8 @@ def build_dqn_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
     engine = MarketEngine(
         demand_model=demand_model,
         agents=agents,
-        price_floor=market_ctx.price_floor,
-        price_ceiling=market_ctx.price_ceiling,
+        price_floor=price_floor,
+        price_ceiling=price_ceiling,
     )
     return engine, n_rounds
 
@@ -317,7 +358,15 @@ if __name__ == "__main__":
     # Dataset Loading — always load a real-world dataset
     from data_loaders import get_data_loader
     market_ctx = get_data_loader(args.dataset).load()
-    print(f"Dataset: {market_ctx.dataset_name}")
+    print(f"Dataset: {market_ctx.describe()}")
+    if market_ctx.is_fallback:
+        print("!" * 80)
+        print("WARNING: live data unavailable. Running on synthetic parameters.")
+        print("Do not report these results as empirical validation.")
+        print("!" * 80)
+    real_lambda = market_ctx.observed_dispersion_lambda()
+    if real_lambda is not None:
+        print(f"Observed real-world price convergence proxy: {real_lambda:.4f}")
     print("=" * 80)
 
     # Database logging (optional, required for RAG)

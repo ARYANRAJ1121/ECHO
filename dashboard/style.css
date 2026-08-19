@@ -694,6 +694,18 @@ input[type="number"] { width: 100px; }
     border-color: #E5DED2;
 }
 
+.data-source-note {
+    margin: 0.6rem 0 0;
+    font-size: 0.66rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+}
+
+.data-source-note.warning {
+    color: #B85A5A;
+    font-weight: 500;
+}
+
 .metric-label {
     font-size: 0.63rem;
     color: var(--text-muted);

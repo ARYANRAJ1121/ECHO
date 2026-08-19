@@ -70,6 +70,22 @@ function initCharts() {
         pointRadius: 0,
         order: 2,
     });
+    // Observed real-world market average for the selected dataset. It sits on
+    // its own right-hand axis because real history spans a far wider range
+    // than one simulation run — 30 years of gasoline runs $1.43 to $4.26
+    // against a trading band of $3.55 to $4.21. Sharing an axis would squash
+    // the five firm lines back into a single stroke.
+    priceSets.push({
+        label: 'Observed real market avg (right axis)',
+        data: [],
+        borderColor: '#2B2620',
+        borderDash: [2, 3],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        order: 3,
+        yAxisID: 'yReal',
+        hidden: true,
+    });
 
     priceChart = new Chart(priceCtx, {
         type: 'line',
@@ -94,10 +110,21 @@ function initCharts() {
                 },
                 y: {
                     grid: { color: 'rgba(43,38,32,0.06)' },
-                    title: { display: true, text: 'Price ($)', color: '#8A8070' },
-                    min: 1.0,
-                    max: 3.2,
+                    title: { display: true, text: 'Price', color: '#8A8070' },
+                    // Autoscale. Pinning this to the dataset's floor/ceiling
+                    // collapsed all five firm lines into one stroke whenever
+                    // the legal band was much wider than the price spread —
+                    // on crypto, a $6,400 axis holding a $0.80 spread.
+                    grace: '8%',
                     ticks: { color: '#8A8070' },
+                },
+                yReal: {
+                    position: 'right',
+                    display: false,
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Observed real price', color: '#2B2620' },
+                    grace: '8%',
+                    ticks: { color: '#2B2620' },
                 },
             },
         },
@@ -176,8 +203,11 @@ function initCharts() {
                 y: {
                     grid: { color: 'rgba(43,38,32,0.06)' },
                     title: { display: true, text: 'Λ (Collusion Index)', color: '#8A8070' },
-                    min: -0.05,
-                    max: 1.05,
+                    // suggested, not fixed: a hard min of -0.05 drew every
+                    // negative Λ off-canvas, which looked like a chart that
+                    // was never updating.
+                    suggestedMin: -0.05,
+                    suggestedMax: 1.05,
                     ticks: { color: '#8A8070' },
                 },
             },
@@ -797,6 +827,68 @@ function pushChartData(chart, label, dataArrays) {
     });
 }
 
+// Index of the "Observed real market avg" dataset on the price chart.
+const REAL_SERIES_DATASET = 7;
+
+function applyRealDataOverlay(msg) {
+    // Show the dataset's actual downloaded prices alongside the simulation,
+    // and mark the run clearly when it is running on synthetic fallbacks.
+    const hasReal = Array.isArray(msg.real_avg_series) && msg.real_avg_series.length > 1;
+    priceChart.data.datasets[REAL_SERIES_DATASET].hidden = !hasReal;
+    priceChart.options.scales.yReal.display = hasReal;
+    if (hasReal) {
+        const cur = msg.currency || '$';
+        priceChart.options.scales.yReal.title.text = `Observed real price (${cur})`;
+    }
+
+    const banner = document.getElementById('data-source-note');
+    if (banner) {
+        if (msg.is_fallback) {
+            banner.textContent =
+                `Synthetic fallback — live data unavailable${msg.fallback_reason ? ': ' + msg.fallback_reason : ''}. Not empirical evidence.`;
+            banner.className = 'data-source-note warning';
+        } else {
+            banner.textContent = msg.data_source || '';
+            banner.className = 'data-source-note';
+        }
+    }
+
+    // Reference line for the real market's own price-convergence proxy, so
+    // the simulated Λ can be read against something measured.
+    const annotations = lambdaChart.options.plugins.annotation.annotations;
+    delete annotations.real_lambda;
+    if (typeof msg.real_lambda_proxy === 'number') {
+        annotations.real_lambda = {
+            type: 'line',
+            yMin: msg.real_lambda_proxy,
+            yMax: msg.real_lambda_proxy,
+            borderColor: '#2B2620',
+            borderWidth: 1.5,
+            borderDash: [2, 3],
+            label: {
+                content: `Real market convergence ${msg.real_lambda_proxy.toFixed(2)}`,
+                display: true,
+                position: 'end',
+                backgroundColor: 'transparent',
+                color: '#2B2620',
+                font: { size: 10 },
+            },
+        };
+    }
+    lambdaChart.update('none');
+}
+
+function realSeriesValueForRound(round) {
+    // Stretch the observed history across the full run so the whole real
+    // price path is visible next to the simulated one.
+    const series = window._realSeries;
+    if (!series || series.length === 0) return null;
+    if (series.length === 1) return series[0];
+    const span = Math.max(totalRounds - 1, 1);
+    const position = Math.min(Math.max(round - 1, 0), span) / span;
+    return series[Math.round(position * (series.length - 1))];
+}
+
 function resetUI() {
     currentRound = 0;
     alertCount = 0;
@@ -805,7 +897,7 @@ function resetUI() {
     shockAnnotations = [];
 
     document.getElementById('current-round').textContent = '0';
-    document.getElementById('current-avg-price').textContent = '$0.00';
+    document.getElementById('current-avg-price').textContent = '—';
     updateGauge(0);
     updateProgress(0, 1);
 
@@ -826,10 +918,10 @@ function resetUI() {
 
     lambdaChart.data.labels = [];
     lambdaChart.data.datasets[0].data = [];
-    // Preserve threshold annotations but remove shock annotations
+    // Preserve threshold annotations but remove per-run ones
     const lamAnnotations = lambdaChart.options.plugins.annotation.annotations;
     Object.keys(lamAnnotations).forEach(k => {
-        if (k.startsWith('shock_')) delete lamAnnotations[k];
+        if (k.startsWith('shock_') || k === 'real_lambda') delete lamAnnotations[k];
     });
     lambdaChart.update();
 
@@ -869,8 +961,9 @@ function handleMessage(msg) {
         document.getElementById('nash-price').textContent = `${cur}${msg.nash_price.toFixed(2)}`;
         document.getElementById('monopoly-price').textContent = `${cur}${msg.monopoly_price.toFixed(2)}`;
 
-        priceChart.options.scales.y.min = msg.price_floor;
-        priceChart.options.scales.y.max = msg.price_ceiling;
+        priceChart.options.scales.y.title.text = `Price (${cur})`;
+        window._realSeries = msg.real_avg_series || null;
+        applyRealDataOverlay(msg);
 
         // Update chart legend with real firm names
         if (msg.firm_names && msg.firm_names.length === 5) {
@@ -933,7 +1026,12 @@ function handleMessage(msg) {
         updateNarrator(msg.round, totalRounds, msg.lambda, msg.avg_price, mode);
 
         // Price chart
-        const priceData = [...msg.prices, window._nash, window._mono];
+        const priceData = [
+            ...msg.prices,
+            window._nash,
+            window._mono,
+            realSeriesValueForRound(msg.round),
+        ];
         pushChartData(priceChart, msg.round, priceData);
         priceChart.update('none');
 
@@ -1122,6 +1220,15 @@ function runDemoMode(mode, dataset) {
     if (!window.generateDemoData) {
         alert('Demo data not loaded. Please refresh the page.');
         return;
+    }
+
+    // The connect timeout and ws.onerror can both fire for one failed
+    // connection. Without this guard each would start its own interval and
+    // two runs would interleave rounds into the same chart.
+    if (demoTimer !== null) {
+        clearInterval(demoTimer);
+        demoTimer = null;
+        resetUI();
     }
 
     const demo = window.generateDemoData(mode, dataset || 'gasoline');
