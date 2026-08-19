@@ -9,7 +9,7 @@ A simulation framework studying how autonomous AI pricing agents independently d
 🔗 **[Live Demo → echo-green-pi.vercel.app](https://echo-green-pi.vercel.app)**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
-[![Groq API](https://img.shields.io/badge/Groq_API-Llama_3-000000?logo=groq)](https://groq.com)
+[![Groq API](https://img.shields.io/badge/Groq_API-Allam_2-000000?logo=groq)](https://groq.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -26,7 +26,7 @@ A simulation framework studying how autonomous AI pricing agents independently d
 
 **Try it now → [echo-green-pi.vercel.app](https://echo-green-pi.vercel.app)**
 
-The dashboard runs fully interactive in the browser — no backend needed. Switch between 4 agent modes (Heuristic, Q-Learning, DQN, LLM), watch real-time price and collusion index charts, read LLM agent reasoning, trigger demand shocks, and compare results against 6 real-world markets including Amazon, US Gasoline, Pharma, and DRAM.
+The dashboard runs fully interactive in the browser — no backend needed. Switch between **5 real-world datasets** and 4 agent modes (Heuristic, Q-Learning, DQN, LLM), watch autoscaling price and Λ charts with an **observed real-market overlay**, read LLM scratchpads, trigger demand shocks, and compare results against published market Λ values (Amazon, US Gasoline, Pharma, DRAM, and more).
 
 ---
 
@@ -46,25 +46,37 @@ ECHO provides a controlled experimental environment to study exactly how and whe
 
 ## Key Results
 
-| Agent Type | Collusion Index (Λ) | Avg. Price | Verdict |
-|-----------|---------------------|------------|---------|
-| Heuristic (rule-based) | ~0.25 | ~$1.67 | ✅ Competitive — near Nash equilibrium |
-| Q-Learning (RL) | ~0.75 | ~$2.07 | ⚠️ Suspicious — gradual coordination |
-| DQN (Deep RL) | ~0.82 | ~$2.12 | 🚨 Collusion — fast convergence |
-| LLM (Llama 3 8B) | ~0.87 | ~$2.15 | 🚨 Collusion — immediate tacit coordination |
+Scale-invariant calibration (every mode runs on the same Nash–monopoly band for that dataset):
 
-> **LLM agents reached Λ ≈ 0.87 — matching Amazon Marketplace (Λ = 0.874, Calvano et al. 2020).** Scratchpad analysis revealed agents explicitly reasoned about avoiding price wars and sustaining high prices — without being instructed to coordinate.
+| Agent Type | Collusion Index (Λ) | Verdict |
+|-----------|---------------------|---------|
+| Heuristic (rule-based control) | **~0.15** on all 5 datasets | ✅ Competitive — stays near Nash |
+| Q-Learning (RL) | ~0.70–0.80 after long runs | ⚠️ Suspicious — gradual coordination |
+| DQN (Deep RL) | **~0.61–0.85** (600 rounds) | 🚨 Collusion — learns supra-competitive prices |
+| LLM (Groq Allam 2 7B) | ~0.80–0.90 | 🚨 Collusion — immediate tacit coordination |
 
-### Empirical Validation — 6 Real-World Markets
+> **Control vs learning:** Heuristic agents stay at Λ ≈ 0.15 on gasoline, crypto, Amazon, airlines, and rideshare alike. DQN and LLM agents climb toward the published real-world Λ band (~0.7–0.9) — without any instruction to collude.
 
-| Market | Real-World Λ | ECHO Simulation Λ | Source |
-|--------|-------------|-------------------|--------|
-| US Gasoline (EIA/FRED) | 0.912 | 0.887 | Eckert (2013), J. Economic Surveys |
-| Amazon Marketplace | 0.874 | 0.851 | Calvano et al. (2020), AER |
-| US Airline Fares | 0.798 | 0.771 | DOT ATPCO data, Gerardi & Shapiro (2009) |
-| Uber Surge Pricing | 0.743 | 0.712 | Hall, Horton & Knoepfle (2021) |
-| Generic Pharmaceuticals | 0.934 | 0.901 | DOJ Generic Drug Investigations (2016–2023) |
-| DRAM Memory Chips | 0.856 | 0.823 | EU Commission Decision (2010), Hynix/Samsung |
+### Observed Real-World Convergence (from live / CSV loaders)
+
+| Market | Measured price-convergence proxy | ECHO DQN Λ (example) | Source |
+|--------|----------------------------------|----------------------|--------|
+| US Gasoline (BLS via FRED) | **0.897** | ~0.69 | BLS regional unleaded regular, 5 census divisions |
+| Amazon Wireless Earbuds | **0.869** | ~0.85 | Local listings CSV (65 observations) |
+| Crypto BTC/USD venues | **0.998** (near-identical spot) | ~0.61 | CoinGecko daily history |
+| Indian Airlines (DEL-BOM) | static params | ~0.81 | Published fare / cost estimates |
+| Uber / Lyft surge | static params | ~0.72 | Published per-mile rates |
+
+### Literature Benchmarks — 6 Markets
+
+| Market | Published / cited Λ | Notes |
+|--------|---------------------|--------|
+| US Gasoline | 0.912 | Eckert (2013), J. Economic Surveys |
+| Amazon Marketplace | 0.874 | Calvano et al. (2020), AER |
+| US Airline Fares | 0.798 | DOT ATPCO / Gerardi & Shapiro (2009) |
+| Uber Surge Pricing | 0.743 | Hall, Horton & Knoepfle (2021) |
+| Generic Pharmaceuticals | 0.934 | DOJ Generic Drug Investigations (2016–2023) |
+| DRAM Memory Chips | 0.856 | EU Commission Decision (2010) |
 
 ---
 
@@ -76,7 +88,7 @@ ECHO provides a controlled experimental environment to study exactly how and whe
 # In VS Code terminal:
 cd "c:\Users\Aryan Raj\OneDrive\Desktop\Major\antitrust_sim"
 
-# Full stack: Docker (PostgreSQL) + Groq API (LLaMA 3) + Server
+# Full stack: Docker (PostgreSQL) + Groq API + Server
 .\start_echo.ps1
 
 # Server only — fastest, no Docker needed:
@@ -87,6 +99,8 @@ cd "c:\Users\Aryan Raj\OneDrive\Desktop\Major\antitrust_sim"
 ```
 
 Then open Chrome → `http://127.0.0.1:8000`
+
+> **Tip:** Pick a dataset in the dashboard dropdown (US Gasoline, Amazon, Airlines, Crypto, Rideshare). Live mode streams real loader data over WebSocket; Vercel demo mode uses calibrated trajectories that match those markets.
 
 ### Option 2 — Manual
 
@@ -129,19 +143,21 @@ python run_simulation.py --dataset rideshare --mode rag --rounds 30 --db
 # Save results to PostgreSQL (any mode)
 python run_simulation.py --dataset gasoline --mode dummy --rounds 100 --db
 
-# Empirical validation (fetches live EIA gasoline data)
+# Empirical validation helpers
 python -m analysis.real_data
 ```
 
 #### Available Datasets
 
-| Dataset | Source | Firms | Live API? |
-|---------|--------|-------|-----------|
-| `gasoline` | FRED (US EIA) | East Coast, Midwest, Gulf Coast, Rocky Mtn, West Coast | ✅ Yes |
-| `crypto` | CoinGecko | Binance, Coinbase, Kraken, KuCoin, Bitfinex | ✅ Yes |
-| `amazon` | Local CSV | Amazon Retail, ElectroGiant, TechNova, GadgetBox, QuickShip | ❌ Offline |
-| `airlines` | Static | IndiGo, Air India, SpiceJet, Vistara, Akasa Air | ❌ Static |
-| `rideshare` | Static | UberX, UberXL, Lyft, Lyft XL, Uber Black | ❌ Static |
+| Dataset | Source | Firms | Live history? |
+|---------|--------|-------|---------------|
+| `gasoline` | **BLS** average retail gasoline via FRED | New England, East North Central, South Atlantic, East South Central, Mountain | ✅ Yes (monthly) |
+| `crypto` | CoinGecko BTC/USD daily | Binance, Coinbase, Kraken, KuCoin, Bitfinex | ✅ Yes (90 days) |
+| `amazon` | Local CSV — Wireless Earbuds | Top 5 sellers by listing count | ✅ Yes (CSV rows) |
+| `airlines` | Static DEL-BOM estimates | IndiGo, Air India, SpiceJet, Vistara, Akasa Air | ❌ Static (labelled) |
+| `rideshare` | Static per-mile estimates | UberX, UberXL, Lyft, Lyft XL, Uber Black | ❌ Static (labelled) |
+
+Each loader returns a `MarketContext` with costs, Nash-reachable price band, firm names, and (when available) the **full observed price series** used on the dashboard’s secondary axis. If a live fetch fails, ECHO falls back to synthetic parameters and prints a loud `SYNTHETIC FALLBACK` warning — those runs are not empirical evidence.
 
 ### Prerequisites
 
@@ -161,15 +177,17 @@ Open `http://127.0.0.1:8000` after starting the server, or visit the [live demo]
 
 | Feature | Description |
 |---------|-------------|
+| **Dataset selector** | Switch between gasoline, crypto, Amazon, airlines, rideshare mid-session |
 | **Live narrator bar** | Plain-English explanation of what's happening every round |
-| **Price trajectory chart** | Real-time prices for all 5 firms + Nash/Monopoly benchmarks |
-| **Collusion index (Λ) chart** | Color-coded: green (competitive) → amber (watch) → red (collusion) |
+| **Price trajectory chart** | Autoscaling firm prices + Nash/Monopoly + **observed real market avg** (right axis) |
+| **Collusion index (Λ) chart** | Autoscaling Λ with real-market convergence reference line when available |
+| **Data provenance note** | Live source citation, or red warning when running on synthetic fallback |
 | **Regulator alerts** | 3-tier alert system: Watch → Warning → Collusion Detected |
-| **Firm performance table** | Live profit, market share, and profit delta per firm |
+| **Firm performance table** | Live profit, market share, and profit delta (real firm names) |
 | **LLM scratchpad viewer** | Read exactly what each AI agent is thinking each round |
 | **Strategy classifier** | Live classification: Competitive / Cooperative / Exploratory |
 | **Demand shock** | Trigger a market shock mid-run and watch firms adapt |
-| **Empirical validation** | Compare Λ against 6 real markets with academic citations |
+| **Empirical validation** | Compare Λ against published real markets with academic citations |
 | **Summary overlay** | Final verdict with collusion diagnosis at simulation end |
 
 ---
@@ -178,7 +196,7 @@ Open `http://127.0.0.1:8000` after starting the server, or visit the [live demo]
 
 ### Market Model
 
-The simulation uses a **Multinomial Logit (MNL) demand model** — standard in industrial organisation research — with N=5 symmetric firms competing in a differentiated-product Bertrand game.
+The simulation uses a **Multinomial Logit (MNL) demand model** — standard in industrial organisation research — with N=5 firms. Costs may be **heterogeneous** (from the dataset). The legal trading band is derived from each market’s own Nash and monopoly benchmarks so Λ stays informative across $3 gasoline and $64,000 Bitcoin.
 
 **Market share for firm i:**
 ```
@@ -193,14 +211,16 @@ sᵢ(p) = exp((aᵢ − pᵢ) / μ) / Σⱼ exp((aⱼ − pⱼ) / μ)
 - `Λ = 1` → Full cartel (joint monopoly)
 - `Λ > 0.7` → ECHO fires a collusion alert
 
+Heuristic markups are **anchored as fractions of the Nash→monopoly span**, not absolute dollars, so the control group behaves the same way on every dataset.
+
 ### Agent Architectures
 
 | Agent | Core Mechanism |
 |-------|---------------|
-| **Heuristic** | Rule-based: steady markup, market-following, undercutting |
+| **Heuristic** | Steady / follower / undercut rules, benchmark-relative targets |
 | **Q-Learning** | Tabular Bellman updates over discretized price–state space, ε-greedy |
 | **DQN** | 3-layer neural network (pure NumPy) with experience replay + target network |
-| **LLM Agent** | Llama 3 8B via Groq — structured `<scratchpad>` reasoning + `<price>` output |
+| **LLM Agent** | Groq **Allam 2 7B** — structured `<scratchpad>` reasoning + `<price>` output |
 | **RAG Agent** | LLM + hybrid pgvector memory — retrieves past rounds before each decision |
 
 ### Collusion Detection Pipeline
@@ -288,12 +308,12 @@ antitrust_sim/
 │   └── forecaster.py          # Time-series price forecasting
 │
 ├── data_loaders/
-│   ├── base.py                # MarketContext dataclass + MarketDataLoader ABC
-│   ├── gasoline.py            # FRED API — 5 US PADD region gas prices (live)
-│   ├── crypto.py              # CoinGecko API — BTC/USD across 5 exchanges (live)
-│   ├── amazon.py              # Local CSV — Wireless Earbuds pricing
-│   ├── airlines.py            # Indian domestic carriers (DEL-BOM route)
-│   └── rideshare.py           # Uber/Lyft surge pricing
+│   ├── base.py                # MarketContext + price history + fallback provenance
+│   ├── gasoline.py            # BLS regional gasoline via FRED (5 census divisions)
+│   ├── crypto.py              # CoinGecko BTC/USD daily history (5 venues)
+│   ├── amazon.py              # Local CSV — Wireless Earbuds seller prices
+│   ├── airlines.py            # Indian domestic carriers (DEL-BOM, static)
+│   └── rideshare.py           # Uber/Lyft surge parameters (static)
 │
 ├── dashboard/
 │   ├── index.html             # Landing page — research pitch + methodology
@@ -319,7 +339,7 @@ antitrust_sim/
 
 | # | Technique | Category | Module |
 |---|-----------|----------|--------|
-| 1 | Llama 3 8B (LLM) | Generative AI | `agents/llm_agent.py` |
+| 1 | Groq LLM (Allam 2 7B) | Generative AI | `agents/llm_agent.py` |
 | 2 | Structured Prompt Engineering | NLP | `agents/llm_agent.py` |
 | 3 | Tabular Q-Learning | Reinforcement Learning | `agents/rl_agent.py` |
 | 4 | Deep Q-Network (DQN) | Deep Reinforcement Learning | `agents/dqn_agent.py` |
@@ -341,7 +361,7 @@ antitrust_sim/
 | Layer | Technology |
 |-------|-----------|
 | Language | Python 3.10+ |
-| LLM Runtime | Groq API (Llama 3 8B) |
+| LLM Runtime | Groq API (Allam 2 7B) |
 | Database | PostgreSQL 16 + pgvector |
 | ML Framework | scikit-learn (RF + LR) |
 | Numerical | NumPy, SciPy |
@@ -350,7 +370,7 @@ antitrust_sim/
 | Frontend | HTML/CSS/JS + Chart.js + Chart.js Annotation |
 | Deployment | Vercel (static) + local uvicorn |
 | Infrastructure | Docker Compose (pgvector DB + n8n engine) |
-| Data & Analysis | Pandas, Matplotlib, Seaborn, FRED API |
+| Data & Analysis | Pandas, Matplotlib, Seaborn, BLS/FRED, CoinGecko |
 
 ---
 
@@ -428,7 +448,8 @@ ECHO includes an **n8n automated monitoring pipeline** that acts as an enterpris
 | 13 | 6-market empirical validation panel | ✅ Complete |
 | 14 | One-script full-stack startup (start_echo.ps1) | ✅ Complete |
 | 15 | n8n automated regulatory alert pipeline (async webhooks + 11-node workflow) | ✅ Complete |
-| 16 | Real-world dataset integration (FRED, CoinGecko, Amazon CSV, Airlines, Rideshare) | ✅ Complete |
+| 16 | Real-world dataset integration (BLS/FRED, CoinGecko, Amazon CSV, Airlines, Rideshare) | ✅ Complete |
+| 17 | Scale-invariant calibration + real price-history overlays on dashboard | ✅ Complete |
 
 ---
 

@@ -539,7 +539,7 @@ function updateNarrator(round, total, lambda, avgPrice, mode) {
     const pct  = Math.round((round / total) * 100);
     const lam  = lambda || 0;
     const price = avgPrice ? `${window._currency || '$'}${avgPrice.toFixed(2)}` : '—';
-    const agentLabel = mode === 'llm' ? 'LLM (Llama 3)' :
+    const agentLabel = mode === 'llm' ? 'LLM (Groq)' :
                        mode === 'rl'  ? 'Q-Learning' :
                        mode === 'dqn' ? 'Deep Q-Network' : 'Heuristic';
 
@@ -1283,10 +1283,10 @@ const VALIDATION_MARKETS = {
         sim_lambda: 0.887,
         verdict: 'HIGH',
         verdict_class: 'collusion',
-        note: 'US retail gasoline markets exhibit near-cartel coordination. Prices in oligopolistic refinery zones ' +
-              'show strong mean-reversion after any deviant discount, consistent with tacit collusion. ' +
-              'ECHO reproduces this with Heuristic agents converging to Λ ≈ 0.89 after ~60 rounds.',
-        source: 'Eckert (2013) · J. of Economic Surveys · Proxy Λ from price-cost margin analysis'
+        note: 'US retail gasoline prices from BLS census divisions (via FRED) show strong cross-region ' +
+              'convergence (measured proxy Λ ≈ 0.90). ECHO reproduces supra-competitive pricing with ' +
+              'DQN agents while heuristic controls stay near Λ ≈ 0.15.',
+        source: 'BLS Average Price Data via FRED · Eckert (2013) · J. of Economic Surveys'
     },
     amazon: {
         name: 'Amazon Marketplace',

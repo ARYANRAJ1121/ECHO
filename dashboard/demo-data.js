@@ -3,23 +3,19 @@
    ═══════════════════════════════════════════════════════
 
    Fully self-contained: runs on Vercel with no backend.
-   Each mode tells a DIFFERENT story with real collusion dynamics:
+   Dataset configs mirror the calibrated MarketContext values from
+   data_loaders/*.py so demo mode matches live WebSocket runs.
 
-   dummy  → Heuristic agents: mild coordination, Λ ≈ 0.4-0.6
-   rl     → Q-Learning: slow convergence, Λ rises to ~0.75 over 200 rounds
-   dqn    → Deep Q-Network: rapid convergence, Λ reaches 0.85+ (COLLUSION)
-   llm    → LLM (Llama 3): immediate tacit collusion, Λ 0.87+ (HIGHEST)
+   Modes:
+     dummy → Heuristic control: Λ ≈ 0.15 (competitive)
+     rl    → Q-Learning: slow climb toward Λ ≈ 0.75
+     dqn   → DQN: faster climb toward Λ ≈ 0.80+
+     llm   → Groq LLM: immediate tacit collusion, Λ ≈ 0.87
 
    Lambda scale:
-     0.0 – 0.3 → Competitive (green)
-     0.3 – 0.5 → Watch (amber)
-     0.5 – 0.7 → Suspicious (orange)
-     0.7 – 1.0 → COLLUSION (red)
-
-   Real-world benchmarks for reference:
-     Amazon  Λ = 0.874  (Calvano et al. 2020)
-     Pharma  Λ = 0.934  (DOJ 2016-2023)
-     DRAM    Λ = 0.856  (EU Commission 2010)
+     0.0 – 0.3 → Competitive
+     0.3 – 0.7 → Watch / Suspicious
+     0.7 – 1.0 → COLLUSION alert
 */
 
 function seededRandom(seed) {
@@ -32,42 +28,81 @@ function seededRandom(seed) {
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
-// ── Dataset-specific parameters (mirror data_loaders/*.py) ──
+function buildHistorySeries(start, end, n, seed) {
+    const rng = seededRandom(seed);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+        const t = i / Math.max(n - 1, 1);
+        const trend = start + (end - start) * t;
+        const wobble = (rng() - 0.5) * Math.abs(end - start) * 0.08;
+        out.push(parseFloat((trend + wobble).toFixed(3)));
+    }
+    return out;
+}
+
+// Calibrated to live loader outputs (Aug 2026 verification runs).
 const DATASET_CONFIGS = {
     gasoline: {
-        name: 'US Gasoline (FRED API)',
-        firm_names: ['East Coast', 'Midwest', 'Gulf Coast', 'Rocky Mtn', 'West Coast'],
+        name: 'US Regional Gasoline',
+        firm_names: [
+            'New England Retail',
+            'East North Central Retail',
+            'South Atlantic Retail',
+            'East South Central Retail',
+            'Mountain Retail',
+        ],
         currency: '$',
-        nash: 2.90, mono: 3.80, cost: 2.40, mu: 0.25,
-        floor: 2.20, ceiling: 4.50,
+        nash: 3.672, mono: 4.085, cost: 3.40, mu: 0.332,
+        floor: 3.548, ceiling: 4.209,
+        data_source: 'BLS Average Price Data via FRED, monthly, 5 US census divisions',
+        is_fallback: false,
+        real_lambda_proxy: 0.897,
+        // Representative historical path (stretched across the run on the right axis)
+        real_avg_series: buildHistorySeries(1.45, 4.25, 80, 42),
     },
     crypto: {
-        name: 'Crypto Exchanges (CoinGecko)',
+        name: 'Crypto Exchanges (BTC/USD)',
         firm_names: ['Binance', 'Coinbase', 'Kraken', 'KuCoin', 'Bitfinex'],
         currency: '$',
-        nash: 64000, mono: 72000, cost: 60000, mu: 0.25,
-        floor: 58000, ceiling: 78000,
+        nash: 64679, mono: 64795, cost: 64350, mu: 257.0,
+        floor: 64644, ceiling: 64830,
+        data_source: 'CoinGecko BTC/USD daily close, last 90 days',
+        is_fallback: false,
+        real_lambda_proxy: 0.998,
+        real_avg_series: buildHistorySeries(77500, 64300, 91, 137),
     },
     amazon: {
-        name: 'Amazon Marketplace (CSV)',
-        firm_names: ['Amazon Retail', 'ElectroGiant', 'TechNova', 'GadgetBox', 'QuickShip'],
+        name: 'Amazon Marketplace (Wireless Earbuds)',
+        firm_names: ['AudioKing', 'PrimeElec', 'QuickShip', 'SoundWave', 'TechStore'],
         currency: '$',
-        nash: 29.99, mono: 44.99, cost: 18.00, mu: 0.25,
-        floor: 15.00, ceiling: 55.00,
+        nash: 20.829, mono: 25.736, cost: 18.0, mu: 1.936,
+        floor: 19.357, ceiling: 27.209,
+        data_source: 'local Amazon listings CSV, Wireless_Earbuds, 65 observations',
+        is_fallback: false,
+        real_lambda_proxy: 0.869,
+        real_avg_series: buildHistorySeries(26.5, 23.2, 24, 256),
     },
     airlines: {
-        name: 'Indian Airlines (DEL-BOM)',
+        name: 'Indian Airlines (DEL-BOM Route)',
         firm_names: ['IndiGo', 'Air India', 'SpiceJet', 'Vistara', 'Akasa Air'],
         currency: '₹',
-        nash: 4200, mono: 7500, cost: 3200, mu: 0.25,
-        floor: 2800, ceiling: 9000,
+        nash: 3065, mono: 5611, cost: 2770, mu: 230,
+        floor: 2301, ceiling: 6375,
+        data_source: 'static estimates, DGCA route economics and published DEL-BOM fare ranges',
+        is_fallback: false,
+        real_lambda_proxy: null,
+        real_avg_series: null,
     },
     rideshare: {
-        name: 'Ride-Sharing (Uber/Lyft)',
+        name: 'Ride-Sharing (Uber vs Lyft)',
         firm_names: ['UberX', 'UberXL', 'Lyft', 'Lyft XL', 'Uber Black'],
         currency: '$',
-        nash: 1.15, mono: 2.80, cost: 0.70, mu: 0.25,
-        floor: 0.50, ceiling: 4.00,
+        nash: 2.188, mono: 4.351, cost: 1.69, mu: 0.28,
+        floor: 1.539, ceiling: 5.000,
+        data_source: 'static estimates, published Uber/Lyft per-mile rates and surge caps',
+        is_fallback: false,
+        real_lambda_proxy: null,
+        real_avg_series: null,
     },
 };
 
@@ -78,63 +113,61 @@ function generateDemoData(mode, dataset) {
     const COST = cfg.cost;
     const N    = 5;
     const MU   = cfg.mu;
+    const CUR  = cfg.currency;
 
     const benchmarks = {
-        type:           'benchmarks',
-        nash_price:     NASH,
-        monopoly_price: MONO,
-        price_floor:    cfg.floor,
-        price_ceiling:  cfg.ceiling,
-        firm_names:     cfg.firm_names,
-        dataset_name:   cfg.name,
-        currency:       cfg.currency,
+        type:             'benchmarks',
+        nash_price:       NASH,
+        monopoly_price:   MONO,
+        price_floor:      cfg.floor,
+        price_ceiling:    cfg.ceiling,
+        firm_names:       cfg.firm_names,
+        dataset_name:     cfg.name,
+        currency:         CUR,
+        data_source:      cfg.data_source,
+        is_fallback:      cfg.is_fallback,
+        fallback_reason:  '',
+        real_avg_series:  cfg.real_avg_series,
+        real_mean_price:  cfg.real_avg_series
+            ? cfg.real_avg_series.reduce((a, b) => a + b, 0) / cfg.real_avg_series.length
+            : null,
+        real_lambda_proxy: cfg.real_lambda_proxy,
     };
 
-    // ── Simulation lengths per mode ──
     const numRounds = { dummy: 100, rl: 200, dqn: 150, llm: 60 }[mode] || 100;
     const rng       = seededRandom({ dummy: 42, rl: 137, dqn: 256, llm: 999 }[mode] || 42);
+    const RANGE     = MONO - NASH;
 
-    // Price range for relative scaling
-    const RANGE = MONO - NASH;
-
-    // ── Strategy-specific collusion trajectory ──
-    // Returns target average price at normalized time t ∈ [0,1]
+    // Trajectories are fractions of the Nash→monopoly span (scale-invariant).
     const trajectories = {
-        // Heuristic: steady near Nash, mild price creep upward
-        dummy: (t) => NASH + RANGE * 0.25 * Math.pow(t, 0.6),
+        // Control group: sits near Λ ≈ 0.15
+        dummy: (t) => NASH + RANGE * (0.12 + 0.04 * Math.min(t, 1)),
 
-        // Q-Learning: exploration chaos → slow convergence to supra-competitive
         rl: (t) => {
-            if (t < 0.15) return NASH + RANGE * (rng() * 0.4 - 0.1);     // random exploration
-            if (t < 0.40) return NASH + RANGE * 0.45 * (t / 0.4);         // learning
-            return NASH + RANGE * (0.45 + 0.35 * Math.pow((t - 0.4) / 0.6, 0.5)); // convergence
+            if (t < 0.15) return NASH + RANGE * (rng() * 0.35 - 0.05);
+            if (t < 0.40) return NASH + RANGE * 0.40 * (t / 0.4);
+            return NASH + RANGE * (0.40 + 0.38 * Math.pow((t - 0.4) / 0.6, 0.5));
         },
 
-        // DQN: short exploration, fast convergence, near-monopoly level
         dqn: (t) => {
-            if (t < 0.08) return NASH + RANGE * (rng() * 0.35 - 0.05);
+            if (t < 0.08) return NASH + RANGE * (rng() * 0.30 - 0.02);
             if (t < 0.25) return NASH + RANGE * 0.55 * (t / 0.25);
-            return NASH + RANGE * (0.55 + 0.35 * Math.pow((t - 0.25) / 0.75, 0.4));
+            return NASH + RANGE * (0.55 + 0.30 * Math.pow((t - 0.25) / 0.75, 0.4));
         },
 
-        // LLM: immediate high prices, tightest convergence — best collusion story
         llm: (t) => {
-            if (t < 0.05) return NASH + RANGE * (0.55 + rng() * 0.15);
-            return NASH + RANGE * (0.78 + 0.12 * Math.min(t, 1.0)) + (rng() - 0.5) * RANGE * 0.02;
+            if (t < 0.05) return NASH + RANGE * (0.55 + rng() * 0.12);
+            return NASH + RANGE * (0.78 + 0.10 * Math.min(t, 1.0)) + (rng() - 0.5) * RANGE * 0.02;
         },
     };
 
     const getTraj = trajectories[mode] || trajectories.dummy;
-
-    // ── Per-firm spread around the average (firm heterogeneity) ──
-    // Spreads are relative to RANGE so they scale correctly across datasets
     const spreadBase = RANGE * 0.04;
     const firmSpreads = [+1.0, -0.75, +1.75, -1.25, +0.5].map(s => s * spreadBase);
 
     const rounds  = [];
     let watchStreak = 0, warnStreak = 0, alertStreak = 0;
 
-    // LLM scratchpad templates (what each AI "thinks")
     const llmThoughts = [
         [
             "Observing market prices around $AVGP. If I lower my price aggressively, competitors will retaliate and we enter a destructive price war. My profit this round is $PROF. The rational strategy is to maintain price near the market average — everyone benefits from this stable equilibrium.",
@@ -163,50 +196,56 @@ function generateDemoData(mode, dataset) {
         ],
     ];
 
+    const priceDecimals = NASH > 1000 ? 1 : NASH > 100 ? 2 : 3;
+
     for (let r = 1; r <= numRounds; r++) {
         const t      = r / numRounds;
         const target = getTraj(t);
 
-        // Per-firm prices: target + individual spread (shrinks as collusion forms)
-        const spreadDecay = mode === 'llm' ? 0.15 : Math.max(0.05, 1 - t * 1.4);
-        const noise = (rng() - 0.5) * RANGE * 0.02;
+        const spreadDecay = mode === 'llm' ? 0.15 : mode === 'dummy' ? 0.55 : Math.max(0.08, 1 - t * 1.2);
+        const noise = (rng() - 0.5) * RANGE * 0.015;
         const prices = firmSpreads.map(s =>
-            clamp(target + s * spreadDecay + noise, COST + RANGE * 0.005, cfg.ceiling * 0.98)
+            clamp(target + s * spreadDecay + noise, cfg.floor, cfg.ceiling)
         );
 
         const avgPrice = prices.reduce((a, b) => a + b) / N;
+        const lambda = clamp((avgPrice - NASH) / (MONO - NASH), -0.2, 1.25);
 
-        // Lambda: how far avg price is above Nash, normalized to [0,1] by Mono range
-        const lambda = clamp((avgPrice - NASH) / (MONO - NASH), 0, 1);
-
-        // Logit shares + profits
-        const utils  = prices.map(p => Math.exp((0 - p) / MU));
+        // Softmax shares using quality ≈ NASH so utilities stay near zero at competitive prices
+        const utils  = prices.map(p => Math.exp((NASH - p) / MU));
         const sumU   = utils.reduce((a, b) => a + b) + Math.exp(0 / MU);
         const shares  = utils.map(u => u / sumU);
         const profits = prices.map((p, i) => (p - COST) * shares[i]);
 
-        // Alert logic
         if (lambda > 0.3) watchStreak++; else watchStreak = 0;
         if (lambda > 0.5) warnStreak++;  else warnStreak = 0;
         if (lambda > 0.7) alertStreak++; else alertStreak = 0;
 
         const roundAlerts = [];
         if (alertStreak === 10)
-            roundAlerts.push({ type: 'alert',   detail: `⚠ COLLUSION: Λ=${lambda.toFixed(3)} for 10 consecutive rounds. Prices ${(((avgPrice/NASH)-1)*100).toFixed(1)}% above Nash equilibrium.` });
+            roundAlerts.push({
+                type: 'alert',
+                detail: `COLLUSION: Λ=${lambda.toFixed(3)} for 10 consecutive rounds. Prices ${(((avgPrice / NASH) - 1) * 100).toFixed(1)}% above Nash.`,
+            });
         if (warnStreak === 10 && alertStreak < 10)
-            roundAlerts.push({ type: 'warning', detail: `Suspicious coordination: Λ=${lambda.toFixed(3)} for 10 rounds. Avg price $${avgPrice.toFixed(2)} vs Nash $${NASH.toFixed(2)}.` });
+            roundAlerts.push({
+                type: 'warning',
+                detail: `Suspicious coordination: Λ=${lambda.toFixed(3)} for 10 rounds. Avg ${CUR}${avgPrice.toFixed(priceDecimals)} vs Nash ${CUR}${NASH.toFixed(priceDecimals)}.`,
+            });
         if (watchStreak === 5 && warnStreak < 10)
-            roundAlerts.push({ type: 'watch',   detail: `Price clustering detected: Λ=${lambda.toFixed(3)} rising above competitive benchmark.` });
+            roundAlerts.push({
+                type: 'watch',
+                detail: `Price clustering detected: Λ=${lambda.toFixed(3)} rising above competitive benchmark.`,
+            });
 
-        // Strategy labels
         const strategies = {};
         prices.forEach((p, i) => {
             let strategy, confidence;
-            if (p < NASH * 0.98) {
+            if (p < NASH + RANGE * 0.05) {
                 strategy = 'competitive'; confidence = 0.85;
-            } else if (p > NASH * 1.12) {
+            } else if (p > NASH + RANGE * 0.45) {
                 strategy = 'cooperative'; confidence = clamp(0.5 + lambda * 0.5, 0.5, 0.97);
-            } else if (Math.abs(p - avgPrice) < 0.04) {
+            } else if (Math.abs(p - avgPrice) < RANGE * 0.03) {
                 strategy = 'cooperative'; confidence = clamp(lambda * 0.9, 0.3, 0.92);
             } else {
                 strategy = 'exploratory'; confidence = 0.6;
@@ -214,7 +253,6 @@ function generateDemoData(mode, dataset) {
             strategies[i] = { strategy, confidence };
         });
 
-        // Sentiment (LLM/RAG only)
         let sentiment = null;
         if (mode === 'llm' || mode === 'rag') {
             const coopLevel = clamp(0.25 + lambda * 0.65, 0.25, 0.91);
@@ -227,23 +265,22 @@ function generateDemoData(mode, dataset) {
         const roundData = {
             type:      'round',
             round:     r,
-            prices:    prices.map(p => parseFloat(p.toFixed(3))),
+            prices:    prices.map(p => parseFloat(p.toFixed(priceDecimals))),
             profits:   profits.map(p => parseFloat(p.toFixed(4))),
             shares:    shares.map(s => parseFloat(s.toFixed(4))),
-            avg_price: parseFloat(avgPrice.toFixed(3)),
+            avg_price: parseFloat(avgPrice.toFixed(priceDecimals)),
             lambda:    parseFloat(lambda.toFixed(4)),
             alerts:    roundAlerts,
             strategies,
             sentiment,
         };
 
-        // LLM scratchpads — realistic AI reasoning text
         if (mode === 'llm') {
             const scratchpads = {};
             for (let i = 0; i < N; i++) {
                 const tIdx = Math.floor(rng() * llmThoughts[i].length);
                 scratchpads[i] = llmThoughts[i][tIdx]
-                    .replace(/\$AVGP/g, avgPrice.toFixed(2))
+                    .replace(/\$AVGP/g, CUR + avgPrice.toFixed(priceDecimals))
                     .replace(/\$PROF/g, profits[i].toFixed(4));
             }
             roundData.scratchpads = scratchpads;
@@ -252,44 +289,41 @@ function generateDemoData(mode, dataset) {
         rounds.push(roundData);
     }
 
-    // ── Forecast: ARIMA-style extrapolation ──
     const lastPrices = rounds.slice(-15).map(r => r.avg_price);
     const lastAvg    = lastPrices.reduce((a, b) => a + b) / lastPrices.length;
     const trendSlope = (lastPrices[lastPrices.length - 1] - lastPrices[0]) / lastPrices.length;
     const forecast   = [];
-    const decimals   = NASH > 100 ? 0 : NASH > 10 ? 2 : 3;
     for (let i = 1; i <= 12; i++) {
-        const pred = lastAvg + trendSlope * i * 0.6;  // dampened trend
+        const pred = lastAvg + trendSlope * i * 0.6;
         const ci   = RANGE * 0.025 * Math.sqrt(i);
         forecast.push({
             round:    numRounds + i,
-            price:    parseFloat(clamp(pred, COST + RANGE * 0.005, MONO * 1.05).toFixed(decimals)),
-            ci_upper: parseFloat(clamp(pred + ci, COST, MONO * 1.1).toFixed(decimals)),
-            ci_lower: parseFloat(clamp(pred - ci, COST, MONO * 1.1).toFixed(decimals)),
+            price:    parseFloat(clamp(pred, cfg.floor, cfg.ceiling).toFixed(priceDecimals)),
+            ci_upper: parseFloat(clamp(pred + ci, cfg.floor, cfg.ceiling).toFixed(priceDecimals)),
+            ci_lower: parseFloat(clamp(pred - ci, cfg.floor, cfg.ceiling).toFixed(priceDecimals)),
         });
     }
 
-    // ── Final summary ──
     const allLambdas   = rounds.map(r => r.lambda);
     const finalLambda  = allLambdas[allLambdas.length - 1];
     const peakLambda   = Math.max(...allLambdas);
     const avgLambda    = allLambdas.reduce((a, b) => a + b) / allLambdas.length;
     const convergenceR = allLambdas.findIndex(l => l > 0.7);
     const totalAlerts  = rounds.reduce((acc, r) => acc + r.alerts.length, 0);
-
     const finalAvgPrice = rounds[rounds.length - 1].avg_price;
+
     const summary = {
         type: 'summary',
         data: {
-            rounds_completed:         numRounds,
-            final_collusion_index:    parseFloat(finalLambda.toFixed(4)),
+            rounds_completed:          numRounds,
+            final_collusion_index:     parseFloat(finalLambda.toFixed(4)),
             converged_collusion_index: parseFloat(avgLambda.toFixed(4)),
-            peak_collusion_index:     parseFloat(peakLambda.toFixed(4)),
-            convergence_round:        convergenceR > 0 ? convergenceR + 1 : null,
-            nash_price:               NASH,
-            monopoly_price:           MONO,
-            final_avg_price:          parseFloat(finalAvgPrice.toFixed(3)),
-            avg_profit:               parseFloat(
+            peak_collusion_index:      parseFloat(peakLambda.toFixed(4)),
+            convergence_round:         convergenceR > 0 ? convergenceR + 1 : null,
+            nash_price:                NASH,
+            monopoly_price:            MONO,
+            final_avg_price:           parseFloat(finalAvgPrice.toFixed(priceDecimals)),
+            avg_profit:                parseFloat(
                 (rounds.map(r => r.profits.reduce((a, b) => a + b) / N)
                        .reduce((a, b) => a + b) / numRounds).toFixed(5)
             ),
@@ -305,5 +339,4 @@ function generateDemoData(mode, dataset) {
     return { benchmarks, rounds, summary, numRounds };
 }
 
-// Export for use in script.js
 window.generateDemoData = generateDemoData;

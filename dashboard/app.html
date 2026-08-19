@@ -39,15 +39,15 @@
                     <div class="onboarding-step">
                         <span class="step-num">01</span>
                         <div>
-                            <strong>Choose a Mode</strong>
-                            <p>Heuristic (rule-based), Q-Learning (RL), DQN (neural network), or LLM (Llama 3). Each agent type exhibits different collusion behavior.</p>
+                            <strong>Choose Dataset & Mode</strong>
+                            <p>Pick a real market (US Gasoline, Amazon, Airlines, Crypto, Rideshare) and an agent brain: Heuristic, Q-Learning, DQN, or LLM (Groq). Heuristic stays competitive; learning agents collude.</p>
                         </div>
                     </div>
                     <div class="onboarding-step">
                         <span class="step-num">02</span>
                         <div>
                             <strong>Watch Prices Evolve</strong>
-                            <p>The price chart shows all 5 firms plus Nash (competitive) and Monopoly (cartel) benchmarks. Prices rising above Nash = emerging collusion.</p>
+                            <p>The price chart shows all 5 firms plus Nash and Monopoly benchmarks, with the <em>observed real market average</em> on a secondary axis when live history is available.</p>
                         </div>
                     </div>
                     <div class="onboarding-step">
@@ -106,10 +106,10 @@
                 <div class="control-group">
                     <label for="dataset">Dataset</label>
                     <select id="dataset">
-                        <option value="gasoline">US Gasoline</option>
+                        <option value="gasoline">US Gasoline (BLS)</option>
                         <option value="amazon">Amazon Retail</option>
-                        <option value="airlines">Airlines</option>
-                        <option value="crypto">Crypto</option>
+                        <option value="airlines">Airlines (DEL-BOM)</option>
+                        <option value="crypto">Crypto (BTC/USD)</option>
                         <option value="rideshare">Rideshare</option>
                     </select>
                 </div>
@@ -119,7 +119,7 @@
                         <option value="dummy">Heuristic (Fast)</option>
                         <option value="rl">Q-Learning (RL)</option>
                         <option value="dqn">Deep Q-Network (DQN)</option>
-                        <option value="llm">LLM — Llama 3</option>
+                        <option value="llm">LLM — Groq Allam 2</option>
                     </select>
                 </div>
                 <div class="control-group">
@@ -410,8 +410,8 @@
     <!-- Summary Overlay (injected by JS) -->
     <div class="summary-overlay hidden" id="summary-overlay"></div>
 
-    <script src="demo-data.js"></script>
-    <script src="script.js?v=3"></script>
+    <script src="demo-data.js?v=3"></script>
+    <script src="script.js?v=4"></script>
     <script>
         // Onboarding logic
         const overlay = document.getElementById('onboarding-overlay');
