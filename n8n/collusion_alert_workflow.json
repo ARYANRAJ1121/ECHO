@@ -9,11 +9,21 @@
         "responseData": "allEntries"
       },
       "id": "webhook-alert",
-      "name": "🔔 Webhook: Collusion Alert",
+      "name": "Webhook: Collusion Alert",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1.1,
       "position": [200, 400],
       "webhookId": "echo-alert"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Newer n8n webhook nodes nest the POST JSON under .body.\n// Flatten so the rest of the pipeline can use $json.lambda, etc.\nconst raw = $input.first().json;\nconst data = (raw && raw.body && typeof raw.body === 'object') ? raw.body : raw;\nreturn [{ json: {\n  event: data.event || 'collusion_alert',\n  round: Number(data.round ?? 0),\n  lambda: Number(data.lambda ?? 0),\n  avg_price: Number(data.avg_price ?? 0),\n  mode: data.mode || 'unknown',\n  dataset: data.dataset || 'unknown',\n  alerts: Array.isArray(data.alerts) ? data.alerts : [],\n  timestamp: data.timestamp || Date.now() / 1000\n}}];"
+      },
+      "id": "normalize-alert",
+      "name": "Normalize Alert Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [360, 400]
     },
     {
       "parameters": {
@@ -23,11 +33,21 @@
         "responseData": "allEntries"
       },
       "id": "webhook-complete",
-      "name": "✅ Webhook: Simulation Complete",
+      "name": "Webhook: Simulation Complete",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1.1,
       "position": [200, 800],
       "webhookId": "echo-simulation-complete"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst data = (raw && raw.body && typeof raw.body === 'object') ? raw.body : raw;\nconst regulator = data.regulator || {};\nconst sentiment = data.sentiment_report || {};\nreturn [{ json: {\n  event: data.event || 'simulation_complete',\n  mode: data.mode || 'unknown',\n  dataset: data.dataset || 'unknown',\n  total_rounds: Number(data.total_rounds ?? 0),\n  regulator: {\n    mean_lambda: regulator.mean_lambda ?? null,\n    peak_lambda: regulator.peak_lambda ?? null,\n    total_alerts: regulator.total_alerts ?? 0,\n    trend: regulator.trend || 'n/a',\n    convergence_round: regulator.convergence_round ?? null\n  },\n  sentiment_report: {\n    suspicious_rate: sentiment.suspicious_rate ?? null,\n    intent_drift: sentiment.intent_drift ?? null,\n    mean_cooperative: sentiment.mean_cooperative ?? null\n  },\n  forecast: data.forecast || [],\n  timestamp: data.timestamp || Date.now() / 1000\n}}];"
+      },
+      "id": "normalize-complete",
+      "name": "Normalize Complete Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [360, 800]
     },
     {
       "parameters": {
@@ -42,10 +62,10 @@
         }
       },
       "id": "severity-filter",
-      "name": "⚖️ Severity Router",
+      "name": "Severity Router",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [460, 400]
+      "position": [560, 400]
     },
     {
       "parameters": {
@@ -60,278 +80,414 @@
         }
       },
       "id": "warning-filter",
-      "name": "⚠️ Warning Check",
+      "name": "Warning Check",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [700, 560]
+      "position": [780, 560]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
+        "assignments": {
+          "assignments": [
             {
+              "id": "sev",
               "name": "severity",
-              "value": "🔴 CRITICAL"
+              "value": "CRITICAL",
+              "type": "string"
             },
             {
+              "id": "title",
               "name": "title",
-              "value": "=🚨 COLLUSION ALERT — Round {{ $json.round }}"
+              "value": "=COLLUSION ALERT — Round {{ $json.round }} ({{ $json.mode }})",
+              "type": "string"
             },
             {
-              "name": "message",
-              "value": "=Lambda Index: {{ $json.lambda }} (threshold: 0.7)\nAverage Price: ${{ $json.avg_price }}\nSimulation Mode: {{ $json.mode }}\nDataset: {{ $json.dataset }}\nSeverity: {{ $json.alerts[0].severity }}\n\n📊 Detail:\n{{ $json.alerts[0].detail }}\n\n⏰ Timestamp: {{ new Date($json.timestamp * 1000).toISOString() }}"
+              "id": "message",
+              "name": "title_message",
+              "value": "=Lambda: {{ $json.lambda }} | Avg price: {{ $json.avg_price }} | Dataset: {{ $json.dataset }} | Mode: {{ $json.mode }}",
+              "type": "string"
             },
             {
+              "id": "lambda",
+              "name": "lambda",
+              "value": "={{ $json.lambda }}",
+              "type": "number"
+            },
+            {
+              "id": "round",
+              "name": "round",
+              "value": "={{ $json.round }}",
+              "type": "number"
+            },
+            {
+              "id": "mode",
+              "name": "mode",
+              "value": "={{ $json.mode }}",
+              "type": "string"
+            },
+            {
+              "id": "dataset",
+              "name": "dataset",
+              "value": "={{ $json.dataset }}",
+              "type": "string"
+            },
+            {
+              "id": "action",
               "name": "action_required",
-              "value": "Investigate pricing patterns. Consider triggering demand shock test for causal verification."
+              "value": "Investigate pricing patterns. Consider a demand-shock test.",
+              "type": "string"
             }
           ]
         },
         "options": {}
       },
       "id": "format-critical",
-      "name": "🔴 Format: Critical Alert",
+      "name": "Format: Critical Alert",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.2,
-      "position": [700, 280]
+      "typeVersion": 3.4,
+      "position": [780, 280]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
+        "assignments": {
+          "assignments": [
             {
+              "id": "sev",
               "name": "severity",
-              "value": "🟡 WARNING"
+              "value": "WARNING",
+              "type": "string"
             },
             {
+              "id": "title",
               "name": "title",
-              "value": "=⚠️ Coordination Warning — Round {{ $json.round }}"
+              "value": "=Coordination Warning — Round {{ $json.round }} ({{ $json.mode }})",
+              "type": "string"
             },
             {
-              "name": "message",
-              "value": "=Lambda Index: {{ $json.lambda }} (moderate coordination)\nAverage Price: ${{ $json.avg_price }}\nMode: {{ $json.mode }}\nDataset: {{ $json.dataset }}\n\nModerate pricing coordination detected. Monitor for escalation."
+              "id": "message",
+              "name": "title_message",
+              "value": "=Lambda: {{ $json.lambda }} | Avg price: {{ $json.avg_price }} | Mode: {{ $json.mode }}",
+              "type": "string"
+            },
+            {
+              "id": "lambda",
+              "name": "lambda",
+              "value": "={{ $json.lambda }}",
+              "type": "number"
+            },
+            {
+              "id": "round",
+              "name": "round",
+              "value": "={{ $json.round }}",
+              "type": "number"
+            },
+            {
+              "id": "mode",
+              "name": "mode",
+              "value": "={{ $json.mode }}",
+              "type": "string"
             }
           ]
         },
         "options": {}
       },
       "id": "format-warning",
-      "name": "🟡 Format: Warning",
+      "name": "Format: Warning",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.2,
-      "position": [960, 480]
+      "typeVersion": 3.4,
+      "position": [1020, 480]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
+        "assignments": {
+          "assignments": [
             {
+              "id": "sev",
               "name": "severity",
-              "value": "🟢 WATCH"
+              "value": "WATCH",
+              "type": "string"
             },
             {
+              "id": "log",
               "name": "log",
-              "value": "=📝 Watch — Round {{ $json.round }} | λ={{ $json.lambda }} | {{ $json.mode }} mode | No action needed"
+              "value": "=Watch — Round {{ $json.round }} | lambda={{ $json.lambda }} | {{ $json.mode }} | no action",
+              "type": "string"
+            },
+            {
+              "id": "lambda",
+              "name": "lambda",
+              "value": "={{ $json.lambda }}",
+              "type": "number"
+            },
+            {
+              "id": "round",
+              "name": "round",
+              "value": "={{ $json.round }}",
+              "type": "number"
+            },
+            {
+              "id": "mode",
+              "name": "mode",
+              "value": "={{ $json.mode }}",
+              "type": "string"
             }
           ]
         },
         "options": {}
       },
       "id": "log-watch",
-      "name": "🟢 Log: Watch Level",
+      "name": "Log: Watch Level",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.2,
-      "position": [960, 660]
+      "typeVersion": 3.4,
+      "position": [1020, 660]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
+        "assignments": {
+          "assignments": [
             {
+              "id": "channel",
               "name": "channel",
-              "value": "#echo-alerts"
+              "value": "#echo-alerts",
+              "type": "string"
             },
             {
+              "id": "notification",
               "name": "notification",
-              "value": "={{ $json.title }}\n\n{{ $json.message }}\n\n🔧 Action: {{ $json.action_required }}"
+              "value": "={{ $json.title }}\n\n{{ $json.title_message }}\n\nAction: {{ $json.action_required }}",
+              "type": "string"
+            },
+            {
+              "id": "lambda",
+              "name": "lambda",
+              "value": "={{ $json.lambda }}",
+              "type": "number"
+            },
+            {
+              "id": "round",
+              "name": "round",
+              "value": "={{ $json.round }}",
+              "type": "number"
+            },
+            {
+              "id": "mode",
+              "name": "mode",
+              "value": "={{ $json.mode }}",
+              "type": "string"
             }
           ]
         },
         "options": {}
       },
       "id": "notify-critical",
-      "name": "📢 Send Notification",
+      "name": "Send Notification",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.2,
-      "position": [960, 200],
+      "typeVersion": 3.4,
+      "position": [1020, 200],
       "notesInFlow": true,
-      "notes": "Connect Slack, Discord, or Email node here to receive real-time collusion alerts"
+      "notes": "Connect Slack, Discord, or Email here for live alerts"
     },
     {
       "parameters": {
-        "values": {
-          "string": [
+        "assignments": {
+          "assignments": [
             {
+              "id": "report_type",
               "name": "report_type",
-              "value": "simulation_complete"
+              "value": "simulation_complete",
+              "type": "string"
             },
             {
+              "id": "summary",
               "name": "summary",
-              "value": "=📊 ECHO Simulation Report\n═══════════════════════════\n\n🏁 Simulation Complete\nMode: {{ $json.mode }}\nDataset: {{ $json.dataset }}\nTotal Rounds: {{ $json.total_rounds }}\n\n📈 Regulator Report:\n• Mean Lambda: {{ $json.regulator.mean_lambda }}\n• Peak Lambda: {{ $json.regulator.peak_lambda }}\n• Total Alerts: {{ $json.regulator.total_alerts }}\n• Trend: {{ $json.regulator.trend }}\n• Convergence Round: {{ $json.regulator.convergence_round }}\n\n🤖 Sentiment Report:\n• Suspicious Rate: {{ $json.sentiment_report.suspicious_rate }}\n• Intent Drift: {{ $json.sentiment_report.intent_drift }}\n• Mean Cooperative Score: {{ $json.sentiment_report.mean_cooperative }}\n\n🔮 Price Forecast (next 10 rounds):\n{{ JSON.stringify($json.forecast, null, 2) }}"
+              "value": "=ECHO Simulation Report\nMode: {{ $json.mode }}\nDataset: {{ $json.dataset }}\nRounds: {{ $json.total_rounds }}\nMean Lambda: {{ $json.regulator.mean_lambda }}\nPeak Lambda: {{ $json.regulator.peak_lambda }}\nTotal Alerts: {{ $json.regulator.total_alerts }}\nTrend: {{ $json.regulator.trend }}",
+              "type": "string"
+            },
+            {
+              "id": "mode",
+              "name": "mode",
+              "value": "={{ $json.mode }}",
+              "type": "string"
             }
           ]
         },
         "options": {}
       },
       "id": "format-summary",
-      "name": "📊 Format: Simulation Report",
+      "name": "Format: Simulation Report",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.2,
-      "position": [460, 800]
+      "typeVersion": 3.4,
+      "position": [560, 800]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
+        "assignments": {
+          "assignments": [
             {
+              "id": "channel",
               "name": "channel",
-              "value": "#echo-reports"
+              "value": "#echo-reports",
+              "type": "string"
             },
             {
+              "id": "notification",
               "name": "notification",
-              "value": "={{ $json.summary }}"
+              "value": "={{ $json.summary }}",
+              "type": "string"
             }
           ]
         },
         "options": {}
       },
       "id": "notify-summary",
-      "name": "📤 Send Report",
+      "name": "Send Report",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.2,
-      "position": [720, 800],
+      "typeVersion": 3.4,
+      "position": [820, 800],
       "notesInFlow": true,
-      "notes": "Connect Slack, Discord, Email, or Google Sheets node here for automated reporting"
+      "notes": "Connect Slack/Discord/Email/Sheets here for automated reporting"
     },
     {
       "parameters": {
-        "functionCode": "// Collusion Score Card — aggregate risk assessment\nconst lambda = $input.first().json.lambda || 0;\nconst mode = $input.first().json.mode || 'unknown';\nconst round = $input.first().json.round || 0;\n\nlet risk_level = 'LOW';\nlet color = '🟢';\nlet recommendation = 'Continue monitoring';\n\nif (lambda >= 0.7) {\n  risk_level = 'CRITICAL';\n  color = '🔴';\n  recommendation = 'Trigger demand shock test for causal verification';\n} else if (lambda >= 0.5) {\n  risk_level = 'ELEVATED';\n  color = '🟡';\n  recommendation = 'Increase monitoring frequency';\n} else if (lambda >= 0.3) {\n  risk_level = 'MODERATE';\n  color = '🟠';\n  recommendation = 'Watch for upward trends';\n}\n\nreturn [{\n  json: {\n    score_card: {\n      round,\n      mode,\n      lambda,\n      risk_level,\n      color,\n      recommendation,\n      timestamp: new Date().toISOString()\n    }\n  }\n}];"
+        "jsCode": "const j = $input.first().json;\nconst lambda = Number(j.lambda || 0);\nconst mode = j.mode || 'unknown';\nconst round = Number(j.round || 0);\n\nlet risk_level = 'LOW';\nlet recommendation = 'Continue monitoring';\nif (lambda >= 0.7) {\n  risk_level = 'CRITICAL';\n  recommendation = 'Trigger demand shock test for causal verification';\n} else if (lambda >= 0.5) {\n  risk_level = 'ELEVATED';\n  recommendation = 'Increase monitoring frequency';\n} else if (lambda >= 0.3) {\n  risk_level = 'MODERATE';\n  recommendation = 'Watch for upward trends';\n}\n\nreturn [{ json: {\n  score_card: {\n    round,\n    mode,\n    lambda,\n    risk_level,\n    recommendation,\n    timestamp: new Date().toISOString()\n  }\n}}];"
       },
       "id": "score-card",
-      "name": "🎯 Collusion Score Card",
+      "name": "Collusion Score Card",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, 400]
+      "position": [1280, 400]
     }
   ],
   "connections": {
-    "🔔 Webhook: Collusion Alert": {
+    "Webhook: Collusion Alert": {
       "main": [
         [
           {
-            "node": "⚖️ Severity Router",
+            "node": "Normalize Alert Payload",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "⚖️ Severity Router": {
+    "Normalize Alert Payload": {
       "main": [
         [
           {
-            "node": "🔴 Format: Critical Alert",
+            "node": "Severity Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Severity Router": {
+      "main": [
+        [
+          {
+            "node": "Format: Critical Alert",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "⚠️ Warning Check",
+            "node": "Warning Check",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "⚠️ Warning Check": {
+    "Warning Check": {
       "main": [
         [
           {
-            "node": "🟡 Format: Warning",
+            "node": "Format: Warning",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "🟢 Log: Watch Level",
+            "node": "Log: Watch Level",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "🔴 Format: Critical Alert": {
+    "Format: Critical Alert": {
       "main": [
         [
           {
-            "node": "📢 Send Notification",
+            "node": "Send Notification",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "📢 Send Notification": {
+    "Send Notification": {
       "main": [
         [
           {
-            "node": "🎯 Collusion Score Card",
+            "node": "Collusion Score Card",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "🟡 Format: Warning": {
+    "Format: Warning": {
       "main": [
         [
           {
-            "node": "🎯 Collusion Score Card",
+            "node": "Collusion Score Card",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "🟢 Log: Watch Level": {
+    "Log: Watch Level": {
       "main": [
         [
           {
-            "node": "🎯 Collusion Score Card",
+            "node": "Collusion Score Card",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "✅ Webhook: Simulation Complete": {
+    "Webhook: Simulation Complete": {
       "main": [
         [
           {
-            "node": "📊 Format: Simulation Report",
+            "node": "Normalize Complete Payload",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "📊 Format: Simulation Report": {
+    "Normalize Complete Payload": {
       "main": [
         [
           {
-            "node": "📤 Send Report",
+            "node": "Format: Simulation Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format: Simulation Report": {
+      "main": [
+        [
+          {
+            "node": "Send Report",
             "type": "main",
             "index": 0
           }
