@@ -490,6 +490,35 @@ This captures a more realistic collusion surface.
 
 ---
 
+---
+
+## Phase 16: Real-World Dataset Integration ✅
+
+**Goal:** Replace all synthetic/hardcoded simulation parameters with live, real-world market data.
+
+- [x] `MarketContext` dataclass and `MarketDataLoader` ABC (`data_loaders/base.py`)
+- [x] US Gasoline loader — FRED API, 5 PADD regions, live weekly prices (`data_loaders/gasoline.py`)
+- [x] Crypto Exchanges loader — CoinGecko API, BTC/USD across 5 exchanges (`data_loaders/crypto.py`)
+- [x] Amazon Marketplace loader — Local CSV, Wireless Earbuds pricing (`data_loaders/amazon.py`)
+- [x] Indian Airlines loader — Static DEL-BOM route params (`data_loaders/airlines.py`)
+- [x] Ride-sharing loader — Static Uber/Lyft surge pricing (`data_loaders/rideshare.py`)
+- [x] `get_data_loader()` factory in `data_loaders/__init__.py`
+- [x] `--dataset` CLI flag in `run_simulation.py` (default: `gasoline`)
+- [x] All `build_*` simulation functions require `market_ctx` (no more synthetic fallback)
+- [x] Dashboard dataset dropdown selector (`dashboard/app.html`)
+- [x] WebSocket passes `dataset` to backend (`dashboard/script.js`)
+- [x] `api_server.py` loads dataset via `get_data_loader()` and injects into simulation
+- [x] Database schema: `dataset_name` column in `simulations` table
+- [x] n8n alert templates include dataset context
+- [x] `start_echo.ps1` passes `--dataset gasoline` in fullrun mode
+- [x] `analysis/plots.py` includes dataset name in figure titles
+- [x] Removed all dead `if True: ... else:` branches from `run_simulation.py`
+- [x] Added `scipy` to `requirements.txt`
+
+**Deliverable:** `python run_simulation.py --dataset crypto --mode dummy --rounds 50` runs on live BTC data.
+
+---
+
 ### F12: Benchmark Suite & Reproducibility Package 📦
 
 **Goal:** Make ECHO a standard benchmark for algorithmic collusion research.
@@ -523,4 +552,4 @@ This captures a more realistic collusion surface.
 
 ---
 
-*Last updated: July 2026*
+*Last updated: August 2026*

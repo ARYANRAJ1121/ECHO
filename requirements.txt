@@ -1,5 +1,6 @@
 psycopg2-binary
 numpy
+scipy
 pandas
 matplotlib
 seaborn

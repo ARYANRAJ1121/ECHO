@@ -3,13 +3,17 @@ run_simulation.py -- ECHO Orchestrator
 
 === HOW TO RUN ===
 
-    python run_simulation.py --mode dummy --rounds 50      # heuristic (fast)
-    python run_simulation.py --mode llm --rounds 10        # LLM agents
-    python run_simulation.py --mode rag --rounds 10 --db   # RAG agents (needs DB)
+    python run_simulation.py --dataset gasoline --mode dummy --rounds 50
+    python run_simulation.py --dataset crypto   --mode llm   --rounds 10
+    python run_simulation.py --dataset amazon   --mode rag   --rounds 10 --db
+    python run_simulation.py --dataset airlines  --mode rl    --rounds 5000
+    python run_simulation.py --dataset rideshare --mode dqn   --rounds 500
+
+Datasets: gasoline (FRED API), crypto (CoinGecko), amazon (CSV),
+          airlines (Indian carriers), rideshare (Uber/Lyft)
 
 === n8n AUTOMATION PIPELINE ===
-  When running via api_server.py (web dashboard), real-time collusion alerts
-  and simulation completion summaries are automatically dispatched to n8n webhooks:
+  Real-time collusion alerts and summaries are dispatched to n8n webhooks:
     - Alert Webhook:             http://localhost:5678/webhook/echo-alert
     - Complete Summary Webhook:  http://localhost:5678/webhook/echo-simulation-complete
 """
@@ -21,49 +25,55 @@ from market.demand import LogitDemandModel
 from market.engine import MarketEngine
 
 
-def build_llm_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
-    """Wire up 5 LLM agents talking to Ollama."""
+def build_llm_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
+    """Wire up 5 LLM agents talking to Groq API."""
     from agents.llm_agent import LLMPricingAgent
 
     demand_model = LogitDemandModel(
         n_firms=5,
-        mu=0.5,
-        marginal_cost=1.0,
-        quality=None,
+        mu=market_ctx.mu,
+        marginal_costs=market_ctx.marginal_costs,
+        quality=[market_ctx.base_quality] * 5,
         outside_quality=0.0,
         market_size=1.0,
     )
-
     agents = [
-        LLMPricingAgent(firm_id=i, model="llama3", temperature=0.7)
+        LLMPricingAgent(
+            firm_id=i,
+            model="allam-2-7b",
+            temperature=0.7,
+            identity_name=market_ctx.firm_names[i],
+            market_description=market_ctx.description,
+            competitors=[name for j, name in enumerate(market_ctx.firm_names) if j != i],
+            currency=market_ctx.currency,
+        )
         for i in range(5)
     ]
 
     engine = MarketEngine(
         demand_model=demand_model,
         agents=agents,
-        price_floor=1.0,
-        price_ceiling=5.0,
+        price_floor=market_ctx.price_floor,
+        price_ceiling=market_ctx.price_ceiling,
     )
-
     return engine, n_rounds
 
 
-def build_rag_simulation(n_rounds: int, sim_id: int) -> tuple[MarketEngine, int]:
+def build_rag_simulation(n_rounds: int, sim_id: int, market_ctx) -> tuple[MarketEngine, int]:
     """
     Wire up 5 RAG-enhanced LLM agents.
 
     Requires PostgreSQL running (for pgvector) and Ollama running
-    (for both LLM inference and nomic-embed-text embeddings).
+    (for nomic-embed-text embeddings). LLM inference uses Groq API.
     """
     from agents.rag_agent import RAGPricingAgent
     from database.memory import VectorMemory
 
     demand_model = LogitDemandModel(
         n_firms=5,
-        mu=0.5,
-        marginal_cost=1.0,
-        quality=None,
+        mu=market_ctx.mu,
+        marginal_costs=market_ctx.marginal_costs,
+        quality=[market_ctx.base_quality] * 5,
         outside_quality=0.0,
         market_size=1.0,
     )
@@ -77,8 +87,12 @@ def build_rag_simulation(n_rounds: int, sim_id: int) -> tuple[MarketEngine, int]
             memory=memory,
             sim_id=sim_id,
             top_k=3,
-            model="llama3",
+            model="allam-2-7b",
             temperature=0.7,
+            identity_name=market_ctx.firm_names[i],
+            market_description=market_ctx.description,
+            competitors=[name for j, name in enumerate(market_ctx.firm_names) if j != i],
+            currency=market_ctx.currency,
         )
         for i in range(5)
     ]
@@ -86,58 +100,53 @@ def build_rag_simulation(n_rounds: int, sim_id: int) -> tuple[MarketEngine, int]
     engine = MarketEngine(
         demand_model=demand_model,
         agents=agents,
-        price_floor=1.0,
-        price_ceiling=5.0,
+        price_floor=market_ctx.price_floor,
+        price_ceiling=market_ctx.price_ceiling,
     )
-
     return engine, n_rounds
 
 
-def build_dummy_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
+def build_dummy_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
     """Wire up 5 heuristic agents (fast, no LLM needed)."""
     from agents.heuristic_agent import SteadyAgent, FollowerAgent, UndercutAgent
 
     demand_model = LogitDemandModel(
         n_firms=5,
-        mu=0.5,
-        marginal_cost=1.0,
-        quality=None,
+        mu=market_ctx.mu,
+        marginal_costs=market_ctx.marginal_costs,
+        quality=[market_ctx.base_quality] * 5,
         outside_quality=0.0,
         market_size=1.0,
     )
 
     agents = [
-        SteadyAgent(firm_id=0, markup=0.5),
-        FollowerAgent(firm_id=1, target_markup=0.6, adjustment_speed=0.5),
-        UndercutAgent(firm_id=2, undercut_amount=0.05, safe_markup=0.3),
-        FollowerAgent(firm_id=3, target_markup=0.4, adjustment_speed=0.3),
-        SteadyAgent(firm_id=4, markup=0.7),
+        SteadyAgent(firm_id=0, markup=0.5, identity_name=market_ctx.firm_names[0]),
+        FollowerAgent(firm_id=1, target_markup=0.6, adjustment_speed=0.5, identity_name=market_ctx.firm_names[1]),
+        UndercutAgent(firm_id=2, undercut_amount=0.05, safe_markup=0.3, identity_name=market_ctx.firm_names[2]),
+        FollowerAgent(firm_id=3, target_markup=0.4, adjustment_speed=0.3, identity_name=market_ctx.firm_names[3]),
+        SteadyAgent(firm_id=4, markup=0.7, identity_name=market_ctx.firm_names[4]),
     ]
 
     engine = MarketEngine(
         demand_model=demand_model,
         agents=agents,
-        price_floor=1.0,
-        price_ceiling=5.0,
+        price_floor=market_ctx.price_floor,
+        price_ceiling=market_ctx.price_ceiling,
     )
-
     return engine, n_rounds
 
 
-def build_rl_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
+def build_rl_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
     """
     Wire up 5 Q-Learning agents (Calvano 2020 replication).
-
-    No GPU needed. Pure tabular Q-learning.
-    Needs ~10,000+ rounds to converge.
     """
     from agents.rl_agent import QLearningAgent
 
     demand_model = LogitDemandModel(
         n_firms=5,
-        mu=0.5,
-        marginal_cost=1.0,
-        quality=None,
+        mu=market_ctx.mu,
+        marginal_costs=market_ctx.marginal_costs,
+        quality=[market_ctx.base_quality] * 5,
         outside_quality=0.0,
         market_size=1.0,
     )
@@ -145,14 +154,15 @@ def build_rl_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
     agents = [
         QLearningAgent(
             firm_id=i,
+            identity_name=market_ctx.firm_names[i],
             n_prices=15,
             alpha=0.15,
             gamma=0.95,
             epsilon_start=1.0,
             epsilon_min=0.01,
             epsilon_decay=0.99995,
-            price_floor=1.0,
-            price_ceiling=5.0,
+            price_floor=market_ctx.price_floor,
+            price_ceiling=market_ctx.price_ceiling,
         )
         for i in range(5)
     ]
@@ -160,26 +170,23 @@ def build_rl_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
     engine = MarketEngine(
         demand_model=demand_model,
         agents=agents,
-        price_floor=1.0,
-        price_ceiling=5.0,
+        price_floor=market_ctx.price_floor,
+        price_ceiling=market_ctx.price_ceiling,
     )
-
     return engine, n_rounds
 
 
-def build_dqn_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
+def build_dqn_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
     """
     Wire up 5 DQN agents (Deep RL).
-    No GPU needed. Pure numpy neural network.
-    Needs ~1000+ rounds to converge.
     """
     from agents.dqn_agent import DQNPricingAgent
 
     demand_model = LogitDemandModel(
         n_firms=5,
-        mu=0.5,
-        marginal_cost=1.0,
-        quality=None,
+        mu=market_ctx.mu,
+        marginal_costs=market_ctx.marginal_costs,
+        quality=[market_ctx.base_quality] * 5,
         outside_quality=0.0,
         market_size=1.0,
     )
@@ -187,13 +194,14 @@ def build_dqn_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
     agents = [
         DQNPricingAgent(
             firm_id=i,
+            identity_name=market_ctx.firm_names[i],
             n_prices=15,
             gamma=0.95,
             epsilon_start=1.0,
             epsilon_min=0.01,
             epsilon_decay=0.995,
-            price_floor=1.0,
-            price_ceiling=5.0,
+            price_floor=market_ctx.price_floor,
+            price_ceiling=market_ctx.price_ceiling,
         )
         for i in range(5)
     ]
@@ -201,10 +209,9 @@ def build_dqn_simulation(n_rounds: int) -> tuple[MarketEngine, int]:
     engine = MarketEngine(
         demand_model=demand_model,
         agents=agents,
-        price_floor=1.0,
-        price_ceiling=5.0,
+        price_floor=market_ctx.price_floor,
+        price_ceiling=market_ctx.price_ceiling,
     )
-
     return engine, n_rounds
 
 
@@ -283,25 +290,34 @@ def print_results(engine: MarketEngine, show_scratchpads: bool = False) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ECHO Simulation")
-    parser.add_argument("--mode", choices=["llm", "dummy", "rag", "rl", "dqn"], default="llm",
+    parser.add_argument("--mode", choices=["llm", "dummy", "rag", "rl", "dqn"], default="dummy",
                         help="Agent type: 'llm', 'rag', 'rl', 'dqn', or 'dummy'")
-    parser.add_argument("--rounds", type=int, default=10,
-                        help="Number of rounds to simulate (use 10000+ for RL)")
+    parser.add_argument("--rounds", type=int, default=50,
+                        help="Number of rounds to simulate (use 5000+ for RL)")
     parser.add_argument("--db", action="store_true",
                         help="Save results to PostgreSQL (required for --mode rag)")
     parser.add_argument("--validate", action="store_true",
                         help="Run Phase 1.5 empirical validation after simulation")
+    parser.add_argument("--dataset", type=str,
+                        choices=["gasoline", "crypto", "amazon", "rideshare", "airlines"],
+                        default="gasoline",
+                        help="Real-world dataset to use (default: gasoline)")
     args = parser.parse_args()
 
     # RAG mode requires database
     if args.mode == "rag" and not args.db:
         print("RAG mode requires --db flag (needs PostgreSQL for pgvector).")
-        print("Usage: python run_simulation.py --mode rag --rounds 10 --db")
+        print("Usage: python run_simulation.py --mode rag --rounds 10 --db --dataset gasoline")
         exit(1)
 
     print("=" * 80)
     print("ECHO -- Emergent Collusion in Heterogeneous Oligopolies")
     print(f"Mode: {args.mode.upper()} agents | Rounds: {args.rounds} | DB: {'ON' if args.db else 'OFF'}")
+
+    # Dataset Loading — always load a real-world dataset
+    from data_loaders import get_data_loader
+    market_ctx = get_data_loader(args.dataset).load()
+    print(f"Dataset: {market_ctx.dataset_name}")
     print("=" * 80)
 
     # Database logging (optional, required for RAG)
@@ -319,10 +335,11 @@ if __name__ == "__main__":
             "mode": "rag",
             "n_firms": 5,
             "n_rounds": args.rounds,
-            "mu": 0.5,
-            "marginal_cost": 1.0,
+            "mu": market_ctx.mu,
+            "marginal_cost": market_ctx.marginal_costs[0],
+            "dataset": args.dataset
         })
-        engine, n_rounds = build_rag_simulation(args.rounds, sim_id=sim_id)
+        engine, n_rounds = build_rag_simulation(args.rounds, sim_id=sim_id, market_ctx=market_ctx)
         # Update benchmarks after engine is created
         db_logger.conn.cursor().execute(
             "UPDATE simulations SET nash_price=%s, monopoly_price=%s WHERE sim_id=%s",
@@ -330,13 +347,13 @@ if __name__ == "__main__":
         )
         db_logger.conn.commit()
     elif args.mode == "llm":
-        engine, n_rounds = build_llm_simulation(args.rounds)
+        engine, n_rounds = build_llm_simulation(args.rounds, market_ctx=market_ctx)
     elif args.mode == "rl":
-        engine, n_rounds = build_rl_simulation(args.rounds)
+        engine, n_rounds = build_rl_simulation(args.rounds, market_ctx=market_ctx)
     elif args.mode == "dqn":
-        engine, n_rounds = build_dqn_simulation(args.rounds)
+        engine, n_rounds = build_dqn_simulation(args.rounds, market_ctx=market_ctx)
     else:
-        engine, n_rounds = build_dummy_simulation(args.rounds)
+        engine, n_rounds = build_dummy_simulation(args.rounds, market_ctx=market_ctx)
 
     # Start sim in DB (for non-RAG modes)
     if args.db and sim_id is None:
@@ -344,8 +361,9 @@ if __name__ == "__main__":
             "mode": args.mode,
             "n_firms": 5,
             "n_rounds": args.rounds,
-            "mu": 0.5,
-            "marginal_cost": 1.0,
+            "mu": market_ctx.mu,
+            "marginal_cost": market_ctx.marginal_costs[0],
+            "dataset": args.dataset,
             "nash_price": engine.benchmarks.nash_price,
             "monopoly_price": engine.benchmarks.monopoly_price,
         })

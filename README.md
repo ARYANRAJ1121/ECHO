@@ -9,7 +9,7 @@ A simulation framework studying how autonomous AI pricing agents independently d
 🔗 **[Live Demo → echo-green-pi.vercel.app](https://echo-green-pi.vercel.app)**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
-[![Ollama](https://img.shields.io/badge/Ollama-Llama_3_8B-000000?logo=ollama)](https://ollama.com)
+[![Groq API](https://img.shields.io/badge/Groq_API-Llama_3-000000?logo=groq)](https://groq.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -76,13 +76,13 @@ ECHO provides a controlled experimental environment to study exactly how and whe
 # In VS Code terminal:
 cd "c:\Users\Aryan Raj\OneDrive\Desktop\Major\antitrust_sim"
 
-# Full stack: Docker (PostgreSQL) + Ollama (LLaMA 3) + Server
+# Full stack: Docker (PostgreSQL) + Groq API (LLaMA 3) + Server
 .\start_echo.ps1
 
-# Server only — fastest, no Docker/Ollama needed:
+# Server only — fastest, no Docker needed:
 .\start_echo.ps1 quick
 
-# Docker + Server, skip Ollama:
+# Docker + Server:
 .\start_echo.ps1 nollm
 ```
 
@@ -99,9 +99,10 @@ pip install -r requirements.txt
 # Start PostgreSQL (Docker)
 docker-compose up -d db
 
-# Start Ollama + LLaMA 3
-ollama serve          # Terminal 1
-ollama pull llama3    # First time only — ~4.7 GB
+# Set up Groq API Key (required for LLM agents)
+# Windows PowerShell:
+$env:GROQ_API_KEY="your_api_key_here"
+# Or put it in a .env file in your home directory
 
 # Start the API server
 uvicorn api_server:app --port 8000 --reload
@@ -110,24 +111,37 @@ uvicorn api_server:app --port 8000 --reload
 ### Option 3 — Run simulation modes from CLI
 
 ```bash
-# Heuristic agents (no GPU, no Docker)
-python run_simulation.py --mode dummy --rounds 100
+# Heuristic agents on US Gasoline data (no GPU, no Docker)
+python run_simulation.py --dataset gasoline --mode dummy --rounds 100
 
-# Q-Learning agents
-python run_simulation.py --mode rl --rounds 200
+# Q-Learning agents on Crypto exchange data
+python run_simulation.py --dataset crypto --mode rl --rounds 5000
 
-# Deep Q-Network agents
-python run_simulation.py --mode dqn --rounds 150
+# Deep Q-Network agents on Amazon Marketplace
+python run_simulation.py --dataset amazon --mode dqn --rounds 500
 
-# LLM agents (requires Ollama running)
-python run_simulation.py --mode llm --rounds 60
+# LLM agents on Indian Airlines (requires GROQ_API_KEY)
+python run_simulation.py --dataset airlines --mode llm --rounds 60
 
-# RAG agents (requires Ollama + Docker PostgreSQL)
-python run_simulation.py --mode rag --rounds 30 --db
+# RAG agents on Ride-sharing (requires GROQ_API_KEY + Docker PostgreSQL)
+python run_simulation.py --dataset rideshare --mode rag --rounds 30 --db
+
+# Save results to PostgreSQL (any mode)
+python run_simulation.py --dataset gasoline --mode dummy --rounds 100 --db
 
 # Empirical validation (fetches live EIA gasoline data)
 python -m analysis.real_data
 ```
+
+#### Available Datasets
+
+| Dataset | Source | Firms | Live API? |
+|---------|--------|-------|-----------|
+| `gasoline` | FRED (US EIA) | East Coast, Midwest, Gulf Coast, Rocky Mtn, West Coast | ✅ Yes |
+| `crypto` | CoinGecko | Binance, Coinbase, Kraken, KuCoin, Bitfinex | ✅ Yes |
+| `amazon` | Local CSV | Amazon Retail, ElectroGiant, TechNova, GadgetBox, QuickShip | ❌ Offline |
+| `airlines` | Static | IndiGo, Air India, SpiceJet, Vistara, Akasa Air | ❌ Static |
+| `rideshare` | Static | UberX, UberXL, Lyft, Lyft XL, Uber Black | ❌ Static |
 
 ### Prerequisites
 
@@ -135,9 +149,9 @@ python -m analysis.real_data
 |------|-------------|---------|
 | Python 3.10+ | Everything | [python.org](https://python.org) |
 | Docker Desktop | PostgreSQL DB, RAG mode | [docker.com](https://docker.com) |
-| Ollama | LLM / RAG modes | [ollama.com](https://ollama.com) |
+| Groq API | LLM / RAG modes | [groq.com](https://groq.com) |
 
-> Docker and Ollama are optional. Without them, Heuristic, RL, and DQN modes still work fully. The `start_echo.ps1` script detects what's installed and adjusts automatically.
+> Docker is optional. Without it, Heuristic, RL, and DQN modes still work fully. The `start_echo.ps1` script detects what's installed and adjusts automatically.
 
 ---
 
@@ -186,7 +200,7 @@ sᵢ(p) = exp((aᵢ − pᵢ) / μ) / Σⱼ exp((aⱼ − pⱼ) / μ)
 | **Heuristic** | Rule-based: steady markup, market-following, undercutting |
 | **Q-Learning** | Tabular Bellman updates over discretized price–state space, ε-greedy |
 | **DQN** | 3-layer neural network (pure NumPy) with experience replay + target network |
-| **LLM Agent** | Llama 3 8B via Ollama — structured `<scratchpad>` reasoning + `<price>` output |
+| **LLM Agent** | Llama 3 8B via Groq — structured `<scratchpad>` reasoning + `<price>` output |
 | **RAG Agent** | LLM + hybrid pgvector memory — retrieves past rounds before each decision |
 
 ### Collusion Detection Pipeline
@@ -251,7 +265,7 @@ antitrust_sim/
 ├── agents/
 │   ├── base_agent.py          # Abstract agent interface (PricingAgent ABC)
 │   ├── heuristic_agent.py     # Steady, Follower, Undercut strategies
-│   ├── llm_agent.py           # LLM agent (Ollama API, scratchpad parsing)
+│   ├── llm_agent.py           # LLM agent (Groq API, scratchpad parsing)
 │   ├── rl_agent.py            # Q-Learning agent (tabular, ε-greedy)
 │   ├── dqn_agent.py           # Deep Q-Network (neural net RL, pure NumPy)
 │   └── rag_agent.py           # RAG-enhanced LLM (hybrid pgvector memory)
@@ -273,6 +287,14 @@ antitrust_sim/
 │   ├── strategy_classifier.py # Random Forest behavioral classifier
 │   └── forecaster.py          # Time-series price forecasting
 │
+├── data_loaders/
+│   ├── base.py                # MarketContext dataclass + MarketDataLoader ABC
+│   ├── gasoline.py            # FRED API — 5 US PADD region gas prices (live)
+│   ├── crypto.py              # CoinGecko API — BTC/USD across 5 exchanges (live)
+│   ├── amazon.py              # Local CSV — Wireless Earbuds pricing
+│   ├── airlines.py            # Indian domestic carriers (DEL-BOM route)
+│   └── rideshare.py           # Uber/Lyft surge pricing
+│
 ├── dashboard/
 │   ├── index.html             # Landing page — research pitch + methodology
 │   ├── app.html               # Live simulation dashboard
@@ -284,7 +306,7 @@ antitrust_sim/
 │   └── collusion_alert_workflow.json # 11-node automated monitoring workflow
 │
 ├── api_server.py              # FastAPI backend (WebSocket + REST + Webhooks)
-├── run_simulation.py          # CLI entry point (all modes)
+├── run_simulation.py          # CLI entry point (all modes + datasets)
 ├── start_echo.ps1             # One-script full-stack startup (Windows)
 ├── docker-compose.yml         # PostgreSQL + pgvector + n8n containers
 ├── vercel.json                # Vercel static deployment config
@@ -319,7 +341,7 @@ antitrust_sim/
 | Layer | Technology |
 |-------|-----------|
 | Language | Python 3.10+ |
-| LLM Runtime | Ollama (Llama 3 8B) |
+| LLM Runtime | Groq API (Llama 3 8B) |
 | Database | PostgreSQL 16 + pgvector |
 | ML Framework | scikit-learn (RF + LR) |
 | Numerical | NumPy, SciPy |
@@ -392,7 +414,7 @@ ECHO includes an **n8n automated monitoring pipeline** that acts as an enterpris
 |-------|------------|--------|
 | 1 | Market simulation engine (MNL demand, Nash/Monopoly solvers) | ✅ Complete |
 | 2 | Docker + PostgreSQL infrastructure | ✅ Complete |
-| 3 | LLM pricing agents (Ollama + scratchpad parsing) | ✅ Complete |
+| 3 | LLM pricing agents (Groq API + scratchpad parsing) | ✅ Complete |
 | 4 | RAG episodic memory (hybrid pgvector + SQL) | ✅ Complete |
 | 5 | Collusion detection pipeline (6 methods) | ✅ Complete |
 | 5.5 | Empirical validation (EIA, Amazon, Airlines, Uber, Pharma, DRAM) | ✅ Complete |
@@ -406,6 +428,7 @@ ECHO includes an **n8n automated monitoring pipeline** that acts as an enterpris
 | 13 | 6-market empirical validation panel | ✅ Complete |
 | 14 | One-script full-stack startup (start_echo.ps1) | ✅ Complete |
 | 15 | n8n automated regulatory alert pipeline (async webhooks + 11-node workflow) | ✅ Complete |
+| 16 | Real-world dataset integration (FRED, CoinGecko, Amazon CSV, Airlines, Rideshare) | ✅ Complete |
 
 ---
 

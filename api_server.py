@@ -31,6 +31,7 @@ from run_simulation import (
     build_llm_simulation,
     build_dqn_simulation,
 )
+from data_loaders import get_data_loader
 from regulator.detector import LambdaMonitor
 from regulator.sentiment import ScratchpadSentimentAnalyzer
 from analysis.strategy_classifier import AgentStrategyClassifier
@@ -213,6 +214,7 @@ async def _notify_n8n(
     lambda_val: float,
     avg_price: float,
     mode: str,
+    dataset: str,
     alerts: list[dict],
 ) -> None:
     """
@@ -231,6 +233,7 @@ async def _notify_n8n(
                 "lambda": round(lambda_val, 4),
                 "avg_price": round(avg_price, 4),
                 "mode": mode,
+                "dataset": dataset,
                 "alerts": alerts,
                 "timestamp": time.time(),
             },
@@ -242,6 +245,7 @@ async def _notify_n8n(
 
 async def _notify_n8n_complete(
     mode: str,
+    dataset: str,
     total_rounds: int,
     regulator: dict,
     sentiment_report: dict | None,
@@ -255,6 +259,7 @@ async def _notify_n8n_complete(
             json={
                 "event": "simulation_complete",
                 "mode": mode,
+                "dataset": dataset,
                 "total_rounds": total_rounds,
                 "regulator": regulator,
                 "sentiment_report": sentiment_report,
@@ -280,9 +285,10 @@ async def simulate_endpoint(websocket: WebSocket):
         config = json.loads(config_text)
         mode = config.get("mode", "dummy")
         n_rounds = config.get("rounds", 50)
+        dataset = config.get("dataset", "gasoline")
 
         print(f"\n{'='*60}")
-        print(f"Starting {mode.upper()} simulation for {n_rounds} rounds")
+        print(f"Starting {mode.upper()} simulation on {dataset.upper()} for {n_rounds} rounds")
         print(f"{'='*60}")
 
         # Reset state
@@ -292,19 +298,41 @@ async def simulate_endpoint(websocket: WebSocket):
         sim_state.running = True
         sim_state.start_time = time.time()
 
+        # Load dataset
+        loader = get_data_loader(dataset)
+        market_ctx = loader.load()
+
         # Build the right simulation
         if mode == "rl":
-            engine, _ = build_rl_simulation(n_rounds)
+            engine, _ = build_rl_simulation(n_rounds, market_ctx)
         elif mode == "dqn":
-            engine, _ = build_dqn_simulation(n_rounds)
+            engine, _ = build_dqn_simulation(n_rounds, market_ctx)
         elif mode == "llm":
-            engine, _ = build_llm_simulation(n_rounds)
+            engine, _ = build_llm_simulation(n_rounds, market_ctx)
         else:
-            engine, _ = build_dummy_simulation(n_rounds)
+            engine, _ = build_dummy_simulation(n_rounds, market_ctx)
 
         sim_state.engine = engine
         monitor = LambdaMonitor()
         sim_state.monitor = monitor
+
+        db_logger = None
+        sim_id = None
+        try:
+            from database.db import DatabaseLogger
+            db_logger = DatabaseLogger()
+            sim_id = db_logger.start_simulation({
+                "mode": mode,
+                "n_firms": engine.demand_model.n_firms,
+                "n_rounds": n_rounds,
+                "mu": float(market_ctx.mu),
+                "marginal_cost": float(market_ctx.marginal_costs[0]),
+                "dataset": dataset,
+                "nash_price": float(engine.benchmarks.nash_price),
+                "monopoly_price": float(engine.benchmarks.monopoly_price),
+            })
+        except Exception as e:
+            print(f"Skipping DB logging (not available): {e}")
 
         # Initialize AI analysis modules
         sentiment_analyzer = ScratchpadSentimentAnalyzer()
@@ -321,12 +349,16 @@ async def simulate_endpoint(websocket: WebSocket):
         sim_state.forecaster = forecaster
 
         # Send benchmarks
+        firm_names = [a.name for a in engine.agents]
         benchmarks = {
             "type": "benchmarks",
             "nash_price": engine.benchmarks.nash_price,
             "monopoly_price": engine.benchmarks.monopoly_price,
             "price_floor": engine.price_floor,
             "price_ceiling": engine.price_ceiling,
+            "firm_names": firm_names,
+            "dataset_name": market_ctx.dataset_name,
+            "currency": market_ctx.currency,
         }
         sim_state.benchmarks = {
             "nash_price": engine.benchmarks.nash_price,
@@ -369,6 +401,7 @@ async def simulate_endpoint(websocket: WebSocket):
                     lambda_val=record.collusion_index,
                     avg_price=record.avg_price,
                     mode=mode,
+                    dataset=dataset,
                     alerts=[{"type": a.alert_type, "severity": a.severity, "detail": a.detail} for a in alerts],
                 ))
 
@@ -383,6 +416,12 @@ async def simulate_endpoint(websocket: WebSocket):
                         if agent.firm_id not in sim_state.scratchpads:
                             sim_state.scratchpads[agent.firm_id] = []
                         sim_state.scratchpads[agent.firm_id].append(text)
+
+            if db_logger and sim_id:
+                try:
+                    db_logger.log_round(sim_id, record, scratchpads=scratchpads if scratchpads else None)
+                except Exception as e:
+                    print(f"Failed to log round to DB: {e}")
 
             # Build payload
             payload = {
@@ -478,6 +517,13 @@ async def simulate_endpoint(websocket: WebSocket):
         summary = engine.summary()
         report = monitor.report()
 
+        if db_logger and sim_id:
+            try:
+                db_logger.end_simulation(sim_id)
+                db_logger.close()
+            except Exception:
+                pass
+
         # --- AI Analysis: Price Forecast ---
         forecast_data = None
         if len(engine.price_history) > 15:
@@ -523,6 +569,7 @@ async def simulate_endpoint(websocket: WebSocket):
         # n8n webhook: notify simulation complete
         asyncio.create_task(_notify_n8n_complete(
             mode=mode,
+            dataset=dataset,
             total_rounds=n_rounds,
             regulator={
                 "mean_lambda": report["mean_lambda"],

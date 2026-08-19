@@ -92,6 +92,7 @@ class QLearningAgent(PricingAgent):
     def __init__(
         self,
         firm_id: int,
+        identity_name: str | None = None,
         n_prices: int = 15,
         alpha: float = 0.15,
         gamma: float = 0.95,
@@ -101,7 +102,8 @@ class QLearningAgent(PricingAgent):
         price_floor: float = 1.0,
         price_ceiling: float = 5.0,
     ) -> None:
-        super().__init__(firm_id=firm_id, name=f"RL_Firm_{firm_id}")
+        name = identity_name if identity_name else f"QLearningAgent_{firm_id}"
+        super().__init__(firm_id=firm_id, name=name)
         self.n_prices = n_prices
         self.alpha = alpha
         self.gamma = gamma

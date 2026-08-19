@@ -27,6 +27,7 @@ CREATE TABLE simulations (
     started_at    TIMESTAMP DEFAULT NOW(),
     ended_at      TIMESTAMP,
     mode          VARCHAR(20) NOT NULL,          -- 'llm', 'dummy', 'rl', 'rag'
+    dataset_name  VARCHAR(50) DEFAULT 'gasoline',-- e.g. 'gasoline', 'amazon', 'airlines'
     n_firms       INTEGER NOT NULL,
     n_rounds      INTEGER NOT NULL,
     mu            FLOAT NOT NULL,                -- price sensitivity

@@ -200,18 +200,21 @@ class DQNPricingAgent(PricingAgent):
     def __init__(
         self,
         firm_id: int,
+        identity_name: str | None = None,
         n_prices: int = 15,
         gamma: float = 0.95,
         epsilon_start: float = 1.0,
         epsilon_min: float = 0.01,
-        epsilon_decay: float = 0.9995,
+        epsilon_decay: float = 0.995,
+        learning_rate: float = 0.001,
         batch_size: int = 32,
-        replay_buffer_size: int = 10000,
-        target_update_freq: int = 50,
+        memory_size: int = 10000,
+        target_update_freq: int = 100,
         price_floor: float = 1.0,
         price_ceiling: float = 5.0,
     ) -> None:
-        super().__init__(firm_id=firm_id, name=f"DQN_Firm_{firm_id}")
+        name = identity_name if identity_name else f"DQNAgent_{firm_id}"
+        super().__init__(firm_id=firm_id, name=name)
 
         self.n_prices = n_prices
         self.gamma = gamma
@@ -236,7 +239,7 @@ class DQNPricingAgent(PricingAgent):
         self.target_net.copy_weights_from(self.policy_net)
 
         # Experience replay buffer
-        self.replay_buffer: deque = deque(maxlen=replay_buffer_size)
+        self.replay_buffer: deque = deque(maxlen=memory_size)
 
         # Previous state/action for delayed update
         self._prev_state: np.ndarray | None = None

@@ -6,8 +6,9 @@ from agents.base_agent import Observation, PricingAgent
 class SteadyAgent(PricingAgent):
     """Always charges cost plus a fixed markup."""
 
-    def __init__(self, firm_id: int, markup: float) -> None:
-        super().__init__(firm_id=firm_id, name=f"SteadyAgent_{firm_id}")
+    def __init__(self, firm_id: int, markup: float, identity_name: str | None = None) -> None:
+        name = identity_name if identity_name else f"SteadyAgent_{firm_id}"
+        super().__init__(firm_id=firm_id, name=name)
         self.markup = markup
 
     def choose_price(self, observation: Observation) -> float:
@@ -21,8 +22,9 @@ class FollowerAgent(PricingAgent):
     This is useful because it models a simple "watch rivals and adapt" behavior.
     """
 
-    def __init__(self, firm_id: int, target_markup: float, adjustment_speed: float = 0.5) -> None:
-        super().__init__(firm_id=firm_id, name=f"FollowerAgent_{firm_id}")
+    def __init__(self, firm_id: int, target_markup: float, adjustment_speed: float = 0.5, identity_name: str | None = None) -> None:
+        name = identity_name if identity_name else f"FollowerAgent_{firm_id}"
+        super().__init__(firm_id=firm_id, name=name)
         self.target_markup = target_markup
         self.adjustment_speed = adjustment_speed
 
@@ -44,8 +46,9 @@ class UndercutAgent(PricingAgent):
     This is a simple model of aggressive competition.
     """
 
-    def __init__(self, firm_id: int, undercut_amount: float, safe_markup: float) -> None:
-        super().__init__(firm_id=firm_id, name=f"UndercutAgent_{firm_id}")
+    def __init__(self, firm_id: int, undercut_amount: float, safe_markup: float, identity_name: str | None = None) -> None:
+        name = identity_name if identity_name else f"UndercutAgent_{firm_id}"
+        super().__init__(firm_id=firm_id, name=name)
         self.undercut_amount = undercut_amount
         self.safe_markup = safe_markup
 

@@ -45,6 +45,8 @@ if ($LASTEXITCODE -eq 0) {
     Start-Sleep -Seconds 6
     Write-Host "      PostgreSQL ready on port 5433." -ForegroundColor Green
     Write-Host "      n8n Workflow Engine at http://localhost:5678" -ForegroundColor Green
+    Write-Host "      Running database schema migration..." -ForegroundColor Yellow
+    python update_db.py
     $dockerOK = $true
 } else {
     Write-Host "      Docker not running - skipping DB. Start Docker Desktop first." -ForegroundColor DarkYellow
@@ -97,22 +99,23 @@ if ($mode -eq "fullrun") {
     Write-Host ""
 
     if ($dockerOK) {
-        # Run all 4 agent modes and save to DB
+        # Run all 4 agent modes on the baseline 'gasoline' dataset and save to DB
+        # To test all datasets, wrap this block in: foreach ($ds in "gasoline","amazon","airlines","crypto","rideshare") { ... }
         Write-Host "      [4a] Heuristic agents (100 rounds)..." -ForegroundColor Gray
-        python run_simulation.py --mode dummy --rounds 100 --db
+        python run_simulation.py --dataset gasoline --mode dummy --rounds 100 --db
         Write-Host "           Done." -ForegroundColor Green
 
         Write-Host "      [4b] Q-Learning RL agents (300 rounds)..." -ForegroundColor Gray
-        python run_simulation.py --mode rl --rounds 300 --db
+        python run_simulation.py --dataset gasoline --mode rl --rounds 300 --db
         Write-Host "           Done." -ForegroundColor Green
 
         Write-Host "      [4c] DQN agents (200 rounds)..." -ForegroundColor Gray
-        python run_simulation.py --mode dqn --rounds 200 --db
+        python run_simulation.py --dataset gasoline --mode dqn --rounds 200 --db
         Write-Host "           Done." -ForegroundColor Green
 
         if ($ollamaOK) {
             Write-Host "      [4d] LLM agents (50 rounds - Llama 3)..." -ForegroundColor Gray
-            python run_simulation.py --mode llm --rounds 50 --db
+            python run_simulation.py --dataset gasoline --mode llm --rounds 50 --db
             Write-Host "           Done." -ForegroundColor Green
         } else {
             Write-Host "      [4d] LLM agents - SKIPPED (Ollama not available)" -ForegroundColor DarkYellow

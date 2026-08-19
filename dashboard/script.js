@@ -244,11 +244,12 @@ function initCharts() {
 function initFirmTable() {
     const tbody = document.getElementById('firm-table-body');
     tbody.innerHTML = '';
+    const names = window._firmNames || ['Firm 1', 'Firm 2', 'Firm 3', 'Firm 4', 'Firm 5'];
     for (let i = 0; i < 5; i++) {
         const tr = document.createElement('tr');
         tr.id = `firm-row-${i}`;
         tr.innerHTML = `
-            <td><span class="firm-color-dot" style="background:${COLORS[i]}"></span>Firm ${i + 1}</td>
+            <td><span class="firm-color-dot" style="background:${COLORS[i]}"></span><span class="firm-name">${names[i]}</span></td>
             <td class="firm-price">—</td>
             <td class="firm-profit">—</td>
             <td class="firm-share">—</td>
@@ -263,7 +264,7 @@ function updateFirmTable(prices, profits, shares) {
         const row = document.getElementById(`firm-row-${i}`);
         if (!row) continue;
         const cells = row.querySelectorAll('td');
-        cells[1].textContent = `$${prices[i].toFixed(3)}`;
+        cells[1].textContent = `${window._currency || '$'}${prices[i].toFixed(3)}`;
         cells[2].textContent = profits[i].toFixed(4);
         cells[3].textContent = `${(shares[i] * 100).toFixed(1)}%`;
 
@@ -507,7 +508,7 @@ function updateNarrator(round, total, lambda, avgPrice, mode) {
 
     const pct  = Math.round((round / total) * 100);
     const lam  = lambda || 0;
-    const price = avgPrice ? `$${avgPrice.toFixed(2)}` : '—';
+    const price = avgPrice ? `${window._currency || '$'}${avgPrice.toFixed(2)}` : '—';
     const agentLabel = mode === 'llm' ? 'LLM (Llama 3)' :
                        mode === 'rl'  ? 'Q-Learning' :
                        mode === 'dqn' ? 'Deep Q-Network' : 'Heuristic';
@@ -623,7 +624,8 @@ async function triggerShock() {
         const status = document.getElementById('shock-status');
         const badge = document.createElement('span');
         badge.className = 'shock-badge';
-        badge.innerHTML = `<span class="shock-icon">⚡</span> Firm ${parseInt(firmId) + 1} shocked at Round ${shockRound}`;
+        const shockedName = (window._firmNames || [])[parseInt(firmId)] || `Firm ${parseInt(firmId) + 1}`;
+        badge.innerHTML = `<span class="shock-icon">⚡</span> ${shockedName} shocked at Round ${shockRound}`;
         status.appendChild(badge);
 
         document.querySelector('.app-container').classList.add('shock-active');
@@ -632,7 +634,7 @@ async function triggerShock() {
         }, 1000);
 
         addShockAnnotation(shockRound, parseInt(firmId));
-        addAlert(shockRound, 'alert', `⚡ Demand shock applied to Firm ${parseInt(firmId) + 1} (quality −30%)`);
+        addAlert(shockRound, 'alert', `⚡ Demand shock applied to ${shockedName} (quality −30%)`);
 
         btn.disabled = false;
         btn.textContent = '⚡ Trigger Shock (−30%)';
@@ -654,7 +656,8 @@ async function triggerShock() {
             const status = document.getElementById('shock-status');
             const badge = document.createElement('span');
             badge.className = 'shock-badge';
-            badge.innerHTML = `<span class="shock-icon">⚡</span> Firm ${parseInt(firmId) + 1} shocked at Round ${data.event.round}`;
+            const shockedName = (window._firmNames || [])[parseInt(firmId)] || `Firm ${parseInt(firmId) + 1}`;
+            badge.innerHTML = `<span class="shock-icon">⚡</span> ${shockedName} shocked at Round ${data.event.round}`;
             status.appendChild(badge);
 
             // Flash effect
@@ -667,7 +670,7 @@ async function triggerShock() {
             addShockAnnotation(data.event.round, parseInt(firmId));
 
             // Add alert
-            addAlert(data.event.round, 'alert', `⚡ Demand shock applied to Firm ${parseInt(firmId) + 1} (quality −30%)`);
+            addAlert(data.event.round, 'alert', `⚡ Demand shock applied to ${shockedName} (quality −30%)`);
         }
     } catch (err) {
         alert('Failed to send shock: ' + err.message);
@@ -745,11 +748,11 @@ function showSummary(data, regulator) {
                 </div>
                 <div class="summary-stat">
                     <span class="s-label">Nash Price</span>
-                    <span class="s-value">$${(data.nash_price || 0).toFixed(2)}</span>
+                    <span class="s-value">${window._currency || '$'}${(data.nash_price || 0).toFixed(2)}</span>
                 </div>
                 <div class="summary-stat">
                     <span class="s-label">Final Avg Price</span>
-                    <span class="s-value">$${(data.final_avg_price || 0).toFixed(2)}</span>
+                    <span class="s-value">${window._currency || '$'}${(data.final_avg_price || 0).toFixed(2)}</span>
                 </div>
             </div>
             ${regulator ? `
@@ -861,11 +864,56 @@ function resetUI() {
 
 function handleMessage(msg) {
     if (msg.type === 'benchmarks') {
-        document.getElementById('nash-price').textContent = `$${msg.nash_price.toFixed(2)}`;
-        document.getElementById('monopoly-price').textContent = `$${msg.monopoly_price.toFixed(2)}`;
+        const cur = msg.currency || '$';
+        window._currency = cur;
+        document.getElementById('nash-price').textContent = `${cur}${msg.nash_price.toFixed(2)}`;
+        document.getElementById('monopoly-price').textContent = `${cur}${msg.monopoly_price.toFixed(2)}`;
 
         priceChart.options.scales.y.min = msg.price_floor;
         priceChart.options.scales.y.max = msg.price_ceiling;
+
+        // Update chart legend with real firm names
+        if (msg.firm_names && msg.firm_names.length === 5) {
+            for (let i = 0; i < 5; i++) {
+                priceChart.data.datasets[i].label = msg.firm_names[i];
+            }
+            window._firmNames = msg.firm_names;
+
+            // Update firm table headers
+            const firmCells = document.querySelectorAll('.firm-name');
+            firmCells.forEach((cell, idx) => {
+                if (idx < 5 && msg.firm_names[idx]) {
+                    cell.textContent = msg.firm_names[idx];
+                }
+            });
+
+            // Update scratchpad tabs
+            const spTabs = document.querySelectorAll('.sp-tab');
+            spTabs.forEach((tab, idx) => {
+                if (idx < 5 && msg.firm_names[idx]) {
+                    tab.textContent = msg.firm_names[idx];
+                }
+            });
+
+            // Update shock firm dropdown
+            const shockSelect = document.getElementById('shock-firm');
+            if (shockSelect) {
+                shockSelect.innerHTML = '';
+                msg.firm_names.forEach((name, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = name;
+                    shockSelect.appendChild(opt);
+                });
+            }
+        }
+
+        // Update dataset badge if present
+        if (msg.dataset_name) {
+            const dsLabel = document.getElementById('dataset-label');
+            if (dsLabel) dsLabel.textContent = msg.dataset_name;
+        }
+
         priceChart.update();
 
         window._nash = msg.nash_price;
@@ -876,7 +924,7 @@ function handleMessage(msg) {
     if (msg.type === 'round') {
         currentRound = msg.round;
         document.getElementById('current-round').textContent = msg.round;
-        document.getElementById('current-avg-price').textContent = `$${msg.avg_price.toFixed(2)}`;
+        document.getElementById('current-avg-price').textContent = `${window._currency || '$'}${msg.avg_price.toFixed(2)}`;
         updateGauge(msg.lambda);
         updateProgress(msg.round, totalRounds);
 
@@ -1020,14 +1068,15 @@ function startSimulation() {
             if (!wsConnected) {
                 ws.close();
                 console.log('[ECHO] Backend not available, switching to demo mode');
-                runDemoMode(mode);
+                runDemoMode(mode, document.getElementById('dataset').value);
             }
         }, 1500);
         
         ws.onopen = () => {
             wsConnected = true;
             clearTimeout(wsTimeout);
-            ws.send(JSON.stringify({ mode, rounds }));
+            const dataset = document.getElementById('dataset').value;
+            ws.send(JSON.stringify({ mode, rounds, dataset }));
         };
 
         ws.onmessage = (event) => {
@@ -1039,7 +1088,7 @@ function startSimulation() {
             if (!wsConnected) {
                 clearTimeout(wsTimeout);
                 console.log('[ECHO] WebSocket error, switching to demo mode');
-                runDemoMode(mode);
+                runDemoMode(mode, document.getElementById('dataset').value);
             }
         };
 
@@ -1059,7 +1108,7 @@ function startSimulation() {
     } catch (e) {
         // WebSocket constructor itself failed (e.g., bad URL)
         console.log('[ECHO] WebSocket unavailable, using demo mode');
-        runDemoMode(mode);
+        runDemoMode(mode, document.getElementById('dataset').value);
     }
 }
 
@@ -1069,13 +1118,13 @@ function startSimulation() {
 
 let demoTimer = null;
 
-function runDemoMode(mode) {
+function runDemoMode(mode, dataset) {
     if (!window.generateDemoData) {
         alert('Demo data not loaded. Please refresh the page.');
         return;
     }
 
-    const demo = window.generateDemoData(mode);
+    const demo = window.generateDemoData(mode, dataset || 'gasoline');
     totalRounds = demo.numRounds;
 
     // Update rounds input to match demo data

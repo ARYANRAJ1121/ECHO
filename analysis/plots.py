@@ -76,12 +76,13 @@ class Plotter:
         plt.axhline(meta["nash_price"], color="green", linestyle="--", label="Nash Eq.")
         plt.axhline(meta["monopoly_price"], color="red", linestyle="--", label="Monopoly")
         
-        plt.title(f"Price Evolution (Sim {sim_id}, Mode: {meta['mode']})")
+        dataset_name = meta.get("dataset_name", "gasoline")
+        plt.title(f"Price Evolution ({dataset_name.capitalize()}, Mode: {meta['mode']})")
         plt.xlabel("Round")
         plt.ylabel("Price")
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         
-        filepath = os.path.join(self.output_dir, f"fig1_prices_sim{sim_id}.png")
+        filepath = os.path.join(self.output_dir, "fig1_prices_latest.png")
         plt.savefig(filepath)
         plt.close()
         print(f"Saved {filepath}")
@@ -112,12 +113,13 @@ class Plotter:
         plt.axhline(1, color="red", linestyle="--", label="Monopoly (1)")
         plt.axhline(0.7, color="orange", linestyle=":", label="Alert Threshold (0.7)")
         
-        plt.title(f"Collusion Index Trajectory (Sim {sim_id}, Mode: {meta['mode']})")
+        dataset_name = meta.get("dataset_name", "gasoline")
+        plt.title(f"Collusion Index Trajectory ({dataset_name.capitalize()}, Mode: {meta['mode']})")
         plt.xlabel("Round")
         plt.ylabel("Lambda (Δ)")
         plt.legend()
         
-        filepath = os.path.join(self.output_dir, f"fig2_lambda_sim{sim_id}.png")
+        filepath = os.path.join(self.output_dir, "fig2_lambda_latest.png")
         plt.savefig(filepath)
         plt.close()
         print(f"Saved {filepath}")
@@ -185,11 +187,12 @@ class Plotter:
         plt.figure()
         sns.boxplot(data=df, x="firm_id", y="profit", palette="pastel")
         
-        plt.title(f"Profit Distribution Across Firms (Sim {sim_id}, Mode: {meta['mode']})")
+        dataset_name = meta.get("dataset_name", "gasoline")
+        plt.title(f"Profit Distribution Across Firms ({dataset_name.capitalize()}, Mode: {meta['mode']})")
         plt.xlabel("Firm ID")
         plt.ylabel("Profit per Round")
         
-        filepath = os.path.join(self.output_dir, f"fig7_profits_sim{sim_id}.png")
+        filepath = os.path.join(self.output_dir, "fig7_profits_latest.png")
         plt.savefig(filepath)
         plt.close()
         print(f"Saved {filepath}")
@@ -218,7 +221,8 @@ class Plotter:
         df['cumulative'] = range(1, len(df) + 1)
         sns.lineplot(data=df, x="round_number", y="cumulative", color="purple", linewidth=2)
         
-        plt.title(f"NLP Convergence (Suspicious Similarity Alerts) (Sim {sim_id})")
+        dataset_name = meta.get("dataset_name", "gasoline")
+        plt.title(f"NLP Convergence (Suspicious Similarity Alerts) ({dataset_name.capitalize()}, Mode: {meta['mode']})")
         plt.xlabel("Round")
         plt.ylabel("Cumulative NLP Alerts")
         

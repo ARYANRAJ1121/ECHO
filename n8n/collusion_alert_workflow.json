@@ -79,7 +79,7 @@
             },
             {
               "name": "message",
-              "value": "=Lambda Index: {{ $json.lambda }} (threshold: 0.7)\nAverage Price: ${{ $json.avg_price }}\nSimulation Mode: {{ $json.mode }}\nSeverity: {{ $json.alerts[0].severity }}\n\n📊 Detail:\n{{ $json.alerts[0].detail }}\n\n⏰ Timestamp: {{ new Date($json.timestamp * 1000).toISOString() }}"
+              "value": "=Lambda Index: {{ $json.lambda }} (threshold: 0.7)\nAverage Price: ${{ $json.avg_price }}\nSimulation Mode: {{ $json.mode }}\nDataset: {{ $json.dataset }}\nSeverity: {{ $json.alerts[0].severity }}\n\n📊 Detail:\n{{ $json.alerts[0].detail }}\n\n⏰ Timestamp: {{ new Date($json.timestamp * 1000).toISOString() }}"
             },
             {
               "name": "action_required",
@@ -109,7 +109,7 @@
             },
             {
               "name": "message",
-              "value": "=Lambda Index: {{ $json.lambda }} (moderate coordination)\nAverage Price: ${{ $json.avg_price }}\nMode: {{ $json.mode }}\n\nModerate pricing coordination detected. Monitor for escalation."
+              "value": "=Lambda Index: {{ $json.lambda }} (moderate coordination)\nAverage Price: ${{ $json.avg_price }}\nMode: {{ $json.mode }}\nDataset: {{ $json.dataset }}\n\nModerate pricing coordination detected. Monitor for escalation."
             }
           ]
         },
@@ -177,7 +177,7 @@
             },
             {
               "name": "summary",
-              "value": "=📊 ECHO Simulation Report\n═══════════════════════════\n\n🏁 Simulation Complete\nMode: {{ $json.mode }}\nTotal Rounds: {{ $json.total_rounds }}\n\n📈 Regulator Report:\n• Mean Lambda: {{ $json.regulator.mean_lambda }}\n• Peak Lambda: {{ $json.regulator.peak_lambda }}\n• Total Alerts: {{ $json.regulator.total_alerts }}\n• Trend: {{ $json.regulator.trend }}\n• Convergence Round: {{ $json.regulator.convergence_round }}\n\n🤖 Sentiment Report:\n• Suspicious Rate: {{ $json.sentiment_report.suspicious_rate }}\n• Intent Drift: {{ $json.sentiment_report.intent_drift }}\n• Mean Cooperative Score: {{ $json.sentiment_report.mean_cooperative }}\n\n🔮 Price Forecast (next 10 rounds):\n{{ JSON.stringify($json.forecast, null, 2) }}"
+              "value": "=📊 ECHO Simulation Report\n═══════════════════════════\n\n🏁 Simulation Complete\nMode: {{ $json.mode }}\nDataset: {{ $json.dataset }}\nTotal Rounds: {{ $json.total_rounds }}\n\n📈 Regulator Report:\n• Mean Lambda: {{ $json.regulator.mean_lambda }}\n• Peak Lambda: {{ $json.regulator.peak_lambda }}\n• Total Alerts: {{ $json.regulator.total_alerts }}\n• Trend: {{ $json.regulator.trend }}\n• Convergence Round: {{ $json.regulator.convergence_round }}\n\n🤖 Sentiment Report:\n• Suspicious Rate: {{ $json.sentiment_report.suspicious_rate }}\n• Intent Drift: {{ $json.sentiment_report.intent_drift }}\n• Mean Cooperative Score: {{ $json.sentiment_report.mean_cooperative }}\n\n🔮 Price Forecast (next 10 rounds):\n{{ JSON.stringify($json.forecast, null, 2) }}"
             }
           ]
         },

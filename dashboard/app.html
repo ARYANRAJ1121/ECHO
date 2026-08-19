@@ -104,6 +104,16 @@
             </div>
             <div class="header-controls">
                 <div class="control-group">
+                    <label for="dataset">Dataset</label>
+                    <select id="dataset">
+                        <option value="gasoline">US Gasoline</option>
+                        <option value="amazon">Amazon Retail</option>
+                        <option value="airlines">Airlines</option>
+                        <option value="crypto">Crypto</option>
+                        <option value="rideshare">Rideshare</option>
+                    </select>
+                </div>
+                <div class="control-group">
                     <label for="agent-mode">Mode</label>
                     <select id="agent-mode">
                         <option value="dummy">Heuristic (Fast)</option>
@@ -218,7 +228,7 @@
                         </div>
                         <div class="metric-box">
                             <span class="metric-label">Avg Price</span>
-                            <span class="metric-value" id="current-avg-price">$0.00</span>
+                            <span class="metric-value" id="current-avg-price">—</span>
                         </div>
                         <div class="metric-box">
                             <span class="metric-label">Nash Price</span>
@@ -399,7 +409,7 @@
     <div class="summary-overlay hidden" id="summary-overlay"></div>
 
     <script src="demo-data.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=2"></script>
     <script>
         // Onboarding logic
         const overlay = document.getElementById('onboarding-overlay');

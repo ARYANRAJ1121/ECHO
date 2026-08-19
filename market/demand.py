@@ -85,6 +85,7 @@ class LogitDemandModel:
         n_firms: int = 5,
         mu: float = 0.25,
         marginal_cost: float = 1.0,
+        marginal_costs: list[float] | None = None,
         quality: list | None = None,
         outside_quality: float = 0.0,
         market_size: float = 1.0,
@@ -94,8 +95,12 @@ class LogitDemandModel:
         self.market_size = market_size
         self.outside_quality = outside_quality
 
-        # All firms have the same cost (symmetric Bertrand benchmark)
-        self.costs = np.full(n_firms, marginal_cost)
+        # Support heterogeneous costs
+        if marginal_costs is not None:
+            assert len(marginal_costs) == n_firms
+            self.costs = np.array(marginal_costs, dtype=float)
+        else:
+            self.costs = np.full(n_firms, marginal_cost)
 
         # All firms have the same quality unless specified
         if quality is None:

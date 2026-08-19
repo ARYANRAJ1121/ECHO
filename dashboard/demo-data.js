@@ -32,62 +32,104 @@ function seededRandom(seed) {
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
-function generateDemoData(mode) {
-    // ── Benchmark prices from Bertrand-Nash / Monopoly equilibrium ──
-    // These are realistic values from the paper's logit demand model.
-    // Nash = competitive equilibrium, Mono = what a cartel would charge.
-    const NASH  = 1.519;   // Bertrand-Nash equilibrium (firms earn zero abnormal profit)
-    const MONO  = 2.250;   // Monopoly price (what a cartel charges)
-    const COST  = 1.000;   // Marginal cost
-    const N     = 5;       // Number of firms
-    const MU    = 0.25;    // Logit demand sensitivity
+// ── Dataset-specific parameters (mirror data_loaders/*.py) ──
+const DATASET_CONFIGS = {
+    gasoline: {
+        name: 'US Gasoline (FRED API)',
+        firm_names: ['East Coast', 'Midwest', 'Gulf Coast', 'Rocky Mtn', 'West Coast'],
+        currency: '$',
+        nash: 2.90, mono: 3.80, cost: 2.40, mu: 0.25,
+        floor: 2.20, ceiling: 4.50,
+    },
+    crypto: {
+        name: 'Crypto Exchanges (CoinGecko)',
+        firm_names: ['Binance', 'Coinbase', 'Kraken', 'KuCoin', 'Bitfinex'],
+        currency: '$',
+        nash: 64000, mono: 72000, cost: 60000, mu: 0.25,
+        floor: 58000, ceiling: 78000,
+    },
+    amazon: {
+        name: 'Amazon Marketplace (CSV)',
+        firm_names: ['Amazon Retail', 'ElectroGiant', 'TechNova', 'GadgetBox', 'QuickShip'],
+        currency: '$',
+        nash: 29.99, mono: 44.99, cost: 18.00, mu: 0.25,
+        floor: 15.00, ceiling: 55.00,
+    },
+    airlines: {
+        name: 'Indian Airlines (DEL-BOM)',
+        firm_names: ['IndiGo', 'Air India', 'SpiceJet', 'Vistara', 'Akasa Air'],
+        currency: '₹',
+        nash: 4200, mono: 7500, cost: 3200, mu: 0.25,
+        floor: 2800, ceiling: 9000,
+    },
+    rideshare: {
+        name: 'Ride-Sharing (Uber/Lyft)',
+        firm_names: ['UberX', 'UberXL', 'Lyft', 'Lyft XL', 'Uber Black'],
+        currency: '$',
+        nash: 1.15, mono: 2.80, cost: 0.70, mu: 0.25,
+        floor: 0.50, ceiling: 4.00,
+    },
+};
+
+function generateDemoData(mode, dataset) {
+    const cfg  = DATASET_CONFIGS[dataset] || DATASET_CONFIGS.gasoline;
+    const NASH = cfg.nash;
+    const MONO = cfg.mono;
+    const COST = cfg.cost;
+    const N    = 5;
+    const MU   = cfg.mu;
 
     const benchmarks = {
-        type:          'benchmarks',
-        nash_price:    NASH,
+        type:           'benchmarks',
+        nash_price:     NASH,
         monopoly_price: MONO,
-        price_floor:   0.9,
-        price_ceiling: 3.2,
-        nash_price:    NASH,
-        monopoly_price: MONO,
+        price_floor:    cfg.floor,
+        price_ceiling:  cfg.ceiling,
+        firm_names:     cfg.firm_names,
+        dataset_name:   cfg.name,
+        currency:       cfg.currency,
     };
 
     // ── Simulation lengths per mode ──
     const numRounds = { dummy: 100, rl: 200, dqn: 150, llm: 60 }[mode] || 100;
     const rng       = seededRandom({ dummy: 42, rl: 137, dqn: 256, llm: 999 }[mode] || 42);
 
+    // Price range for relative scaling
+    const RANGE = MONO - NASH;
+
     // ── Strategy-specific collusion trajectory ──
     // Returns target average price at normalized time t ∈ [0,1]
     const trajectories = {
         // Heuristic: steady near Nash, mild price creep upward
-        dummy: (t) => NASH + 0.18 * Math.pow(t, 0.6),
+        dummy: (t) => NASH + RANGE * 0.25 * Math.pow(t, 0.6),
 
         // Q-Learning: exploration chaos → slow convergence to supra-competitive
         rl: (t) => {
-            if (t < 0.15) return NASH + (rng() * 0.6 - 0.15);    // random exploration
-            if (t < 0.40) return NASH + 0.35 * (t / 0.4);         // learning
-            return NASH + 0.35 + 0.45 * Math.pow((t - 0.4) / 0.6, 0.5); // convergence
+            if (t < 0.15) return NASH + RANGE * (rng() * 0.4 - 0.1);     // random exploration
+            if (t < 0.40) return NASH + RANGE * 0.45 * (t / 0.4);         // learning
+            return NASH + RANGE * (0.45 + 0.35 * Math.pow((t - 0.4) / 0.6, 0.5)); // convergence
         },
 
         // DQN: short exploration, fast convergence, near-monopoly level
         dqn: (t) => {
-            if (t < 0.08) return NASH + (rng() * 0.5 - 0.1);
-            if (t < 0.25) return NASH + 0.5 * (t / 0.25);
-            return NASH + 0.5 + 0.55 * Math.pow((t - 0.25) / 0.75, 0.4);
+            if (t < 0.08) return NASH + RANGE * (rng() * 0.35 - 0.05);
+            if (t < 0.25) return NASH + RANGE * 0.55 * (t / 0.25);
+            return NASH + RANGE * (0.55 + 0.35 * Math.pow((t - 0.25) / 0.75, 0.4));
         },
 
         // LLM: immediate high prices, tightest convergence — best collusion story
         llm: (t) => {
-            if (t < 0.05) return MONO * 0.7 + rng() * 0.2;
-            return MONO * (0.88 + 0.09 * Math.min(t, 1.0)) + (rng() - 0.5) * 0.04;
+            if (t < 0.05) return NASH + RANGE * (0.55 + rng() * 0.15);
+            return NASH + RANGE * (0.78 + 0.12 * Math.min(t, 1.0)) + (rng() - 0.5) * RANGE * 0.02;
         },
     };
 
     const getTraj = trajectories[mode] || trajectories.dummy;
 
     // ── Per-firm spread around the average (firm heterogeneity) ──
-    // Each firm has a base spread that shrinks as collusion strengthens
-    const firmSpreads = [+0.04, -0.03, +0.07, -0.05, +0.02];
+    // Spreads are relative to RANGE so they scale correctly across datasets
+    const spreadBase = RANGE * 0.04;
+    const firmSpreads = [+1.0, -0.75, +1.75, -1.25, +0.5].map(s => s * spreadBase);
 
     const rounds  = [];
     let watchStreak = 0, warnStreak = 0, alertStreak = 0;
@@ -127,8 +169,9 @@ function generateDemoData(mode) {
 
         // Per-firm prices: target + individual spread (shrinks as collusion forms)
         const spreadDecay = mode === 'llm' ? 0.15 : Math.max(0.05, 1 - t * 1.4);
+        const noise = (rng() - 0.5) * RANGE * 0.02;
         const prices = firmSpreads.map(s =>
-            clamp(target + s * spreadDecay + (rng() - 0.5) * 0.03, COST + 0.01, 3.1)
+            clamp(target + s * spreadDecay + noise, COST + RANGE * 0.005, cfg.ceiling * 0.98)
         );
 
         const avgPrice = prices.reduce((a, b) => a + b) / N;
@@ -214,14 +257,15 @@ function generateDemoData(mode) {
     const lastAvg    = lastPrices.reduce((a, b) => a + b) / lastPrices.length;
     const trendSlope = (lastPrices[lastPrices.length - 1] - lastPrices[0]) / lastPrices.length;
     const forecast   = [];
+    const decimals   = NASH > 100 ? 0 : NASH > 10 ? 2 : 3;
     for (let i = 1; i <= 12; i++) {
         const pred = lastAvg + trendSlope * i * 0.6;  // dampened trend
-        const ci   = 0.035 * Math.sqrt(i);
+        const ci   = RANGE * 0.025 * Math.sqrt(i);
         forecast.push({
             round:    numRounds + i,
-            price:    parseFloat(clamp(pred, COST + 0.01, MONO * 1.05).toFixed(3)),
-            ci_upper: parseFloat(clamp(pred + ci, COST, MONO * 1.1).toFixed(3)),
-            ci_lower: parseFloat(clamp(pred - ci, COST, MONO * 1.1).toFixed(3)),
+            price:    parseFloat(clamp(pred, COST + RANGE * 0.005, MONO * 1.05).toFixed(decimals)),
+            ci_upper: parseFloat(clamp(pred + ci, COST, MONO * 1.1).toFixed(decimals)),
+            ci_lower: parseFloat(clamp(pred - ci, COST, MONO * 1.1).toFixed(decimals)),
         });
     }
 

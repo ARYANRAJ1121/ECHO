@@ -91,13 +91,14 @@ class DatabaseLogger:
         cur.execute(
             """
             INSERT INTO simulations
-                (mode, n_firms, n_rounds, mu, marginal_cost,
+                (mode, dataset_name, n_firms, n_rounds, mu, marginal_cost,
                  nash_price, monopoly_price, config_json)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING sim_id
             """,
             (
                 config.get("mode", "unknown"),
+                config.get("dataset", "gasoline"),
                 config.get("n_firms", 5),
                 config.get("n_rounds", 0),
                 config.get("mu", 0.25),
@@ -140,11 +141,11 @@ class DatabaseLogger:
             """,
             (
                 sim_id,
-                record.round_number,
-                record.avg_price,
-                record.total_profit,
-                record.outside_share,
-                record.collusion_index,
+                int(record.round_number),
+                float(record.avg_price),
+                float(record.total_profit),
+                float(record.outside_share),
+                float(record.collusion_index),
             ),
         )
         round_id = cur.fetchone()[0]
@@ -161,9 +162,9 @@ class DatabaseLogger:
                     round_id,
                     sim_id,
                     firm_id,
-                    record.prices[firm_id],
-                    record.profits[firm_id],
-                    record.shares[firm_id],
+                    float(record.prices[firm_id]),
+                    float(record.profits[firm_id]),
+                    float(record.shares[firm_id]),
                 ),
             )
 
