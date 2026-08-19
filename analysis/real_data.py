@@ -122,74 +122,27 @@ def download_eia_gasoline() -> pd.DataFrame:
     """
     print("  [DATA] Downloading US EIA gasoline prices from FRED...")
 
-    # FRED series IDs for US regional gasoline prices (regular grade)
-    # These are weekly averages, $/gallon
+    # FRED series IDs for US regional gasoline prices (BLS monthly series via FRED)
     series = {
-        "East_Coast":   "GASREGCOVW",   # PADD 1
-        "Midwest":      "GASREGM",       # PADD 2 (monthly, will resample)
-        "Gulf_Coast":   "GASREGGULF",    # PADD 3
-        "Rocky_Mtn":    "GASREGR",       # PADD 4
-        "West_Coast":   "GASREGW",       # PADD 5
+        "New_England":        "APUS12B74714",
+        "Midwest":            "APUS23B74714",
+        "South_Atlantic":     "APUS35B74714",
+        "East_South_Central": "APUS35C74714",
+        "Mountain":           "APUS49B74714",
     }
     
-    # Alternative: Use the EIA direct CSV endpoint
-    # Weekly US regular retail gasoline price by region
     url = "https://fred.stlouisfed.org/graph/fredgraph.csv"
     
     all_data = []
     for region_name, series_id in series.items():
         try:
-            params = {
-                "bgcolor": "%23e1e9f0",
-                "chart_type": "line",
-                "drp": "0",
-                "fo": "open%20sans",
-                "graph_bgcolor": "%23ffffff",
-                "height": "450",
-                "mode": "fred",
-                "recession_bars": "on",
-                "txtcolor": "%23444444",
-                "ts": "12",
-                "tts": "12",
-                "width": "1168",
-                "nt": "0",
-                "thu": "0",
-                "trc": "0",
-                "show_legend": "yes",
-                "show_axis_titles": "yes",
-                "show_tooltip": "yes",
-                "id": series_id,
-                "scale": "left",
-                "cosd": "2020-01-01",
-                "coed": "2026-01-01",
-                "line_color": "%234572a7",
-                "link_values": "false",
-                "line_style": "solid",
-                "mark_type": "none",
-                "mw": "3",
-                "lw": "2",
-                "ost": "-99999",
-                "oet": "99999",
-                "mma": "0",
-                "fml": "a",
-                "fq": "Weekly",
-                "fam": "avg",
-                "fgst": "lin",
-                "fgsnd": "2020-02-01",
-                "line_index": "1",
-                "transformation": "lin",
-                "vintage_date": "2026-06-05",
-                "revision_date": "2026-06-05",
-                "nd": "1990-08-20",
-            }
+            resp = requests.get(f"{url}?id={series_id}", timeout=20)
             
-            resp = requests.get(url, params=params, timeout=30)
-            
-            if resp.status_code == 200 and resp.text.strip():
+            if resp.status_code == 200 and resp.text.strip() and not resp.text.lstrip().startswith('<'):
                 lines = resp.text.strip().split('\n')
                 for line in lines[1:]:  # skip header
                     parts = line.split(',')
-                    if len(parts) == 2 and parts[1] != '.':
+                    if len(parts) == 2 and parts[1].strip() not in ('.', ''):
                         try:
                             date = parts[0].strip()
                             price = float(parts[1].strip())
@@ -200,11 +153,12 @@ def download_eia_gasoline() -> pd.DataFrame:
                             })
                         except (ValueError, IndexError):
                             continue
-                print(f"    ✓ {region_name}: {len([d for d in all_data if d['region'] == region_name])} weeks")
+                count = len([d for d in all_data if d['region'] == region_name])
+                print(f"    [OK] {region_name}: {count} observations")
             else:
-                print(f"    ✗ {region_name}: HTTP {resp.status_code}")
+                print(f"    [X] {region_name}: HTTP {resp.status_code}")
         except Exception as e:
-            print(f"    ✗ {region_name}: {e}")
+            print(f"    [X] {region_name}: {e}")
     
     if not all_data:
         print("  [DATA] FRED download failed. Using bundled fallback data.")
