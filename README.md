@@ -88,19 +88,23 @@ Scale-invariant calibration (every mode runs on the same Nash–monopoly band fo
 # In VS Code terminal:
 cd "c:\Users\Aryan Raj\OneDrive\Desktop\Major\antitrust_sim"
 
-# Full stack: Docker (PostgreSQL) + Groq API + Server
+# Full stack: Docker (PostgreSQL + n8n) + Groq/Ollama checks + Server
 .\start_echo.ps1
 
 # Server only — fastest, no Docker needed:
 .\start_echo.ps1 quick
 
-# Docker + Server:
+# Docker + Server (skip LLM/embeddings checks):
 .\start_echo.ps1 nollm
+
+# Simulations + figures 1–10 + server (demo / viva prep):
+.\start_echo.ps1 fullrun
 ```
 
-Then open Chrome → `http://127.0.0.1:8000`
+Then open Chrome → `http://127.0.0.1:8000`  
+n8n (if Docker is up) → `http://localhost:5678` (default login `admin` / `echo2026`)
 
-> **Tip:** Pick a dataset in the dashboard dropdown (US Gasoline, Amazon, Airlines, Crypto, Rideshare). Live mode streams real loader data over WebSocket; Vercel demo mode uses calibrated trajectories that match those markets.
+> **Tip:** Pick a dataset in the dashboard dropdown (US Gasoline, Amazon, Airlines, Crypto, Rideshare). Live mode streams real loader data over WebSocket; Vercel demo mode uses calibrated trajectories that match those markets. Put `GROQ_API_KEY=...` in a local `.env` (gitignored) for LLM / RAG modes.
 
 ### Option 2 — Manual
 
@@ -164,10 +168,11 @@ Each loader returns a `MarketContext` with costs, Nash-reachable price band, fir
 | Tool | Required for | Install |
 |------|-------------|---------|
 | Python 3.10+ | Everything | [python.org](https://python.org) |
-| Docker Desktop | PostgreSQL DB, RAG mode | [docker.com](https://docker.com) |
-| Groq API | LLM / RAG modes | [groq.com](https://groq.com) |
+| Docker Desktop | PostgreSQL DB, RAG mode, n8n | [docker.com](https://docker.com) |
+| Groq API key | LLM / RAG pricing agents | [groq.com](https://groq.com) — set `GROQ_API_KEY` in `.env` |
+| Ollama (optional) | `nomic-embed-text` embeddings for RAG / NLP clustering | [ollama.com](https://ollama.com) |
 
-> Docker is optional. Without it, Heuristic, RL, and DQN modes still work fully. The `start_echo.ps1` script detects what's installed and adjusts automatically.
+> Docker is optional. Without it, Heuristic, RL, and DQN modes still work fully. LLM needs Groq; RAG/NLP embeddings need Ollama. The `start_echo.ps1` script detects what's installed and adjusts automatically.
 
 ---
 
@@ -303,7 +308,7 @@ antitrust_sim/
 │
 ├── analysis/
 │   ├── plots.py               # Publication-ready figures (Figures 1–7)
-│   ├── real_data.py           # Empirical validation (EIA gasoline, Amazon)
+│   ├── real_data.py           # Empirical validation (BLS gasoline via FRED, Amazon)
 │   ├── strategy_classifier.py # Random Forest behavioral classifier
 │   └── forecaster.py          # Time-series price forecasting
 │
@@ -323,15 +328,28 @@ antitrust_sim/
 │   └── demo-data.js           # Pre-computed simulation data for Vercel
 │
 ├── n8n/
-│   └── collusion_alert_workflow.json # 11-node automated monitoring workflow
+│   └── collusion_alert_workflow.json # Alert pipeline (Normalize → severity router)
 │
 ├── api_server.py              # FastAPI backend (WebSocket + REST + Webhooks)
 ├── run_simulation.py          # CLI entry point (all modes + datasets)
 ├── start_echo.ps1             # One-script full-stack startup (Windows)
 ├── docker-compose.yml         # PostgreSQL + pgvector + n8n containers
 ├── vercel.json                # Vercel static deployment config
-└── requirements.txt           # Python dependencies
+├── requirements.txt           # Python dependencies
+├── echo_learning_guide.md     # Tools, algorithms, viva reference
+├── echo_project_guide.md      # Architecture, agents, detective system, Q&A
+└── echo_complete_guide.md     # Short teammate / viva walkthrough
 ```
+
+---
+
+## Documentation
+
+| Guide | Audience | Contents |
+|-------|----------|----------|
+| [echo_complete_guide.md](echo_complete_guide.md) | Teammates / quick viva | Problem → market → agents → detective in plain language |
+| [echo_project_guide.md](echo_project_guide.md) | Project walkthrough | Architecture, 5 datasets, scale-invariant Λ, file map, Viva Q&A |
+| [echo_learning_guide.md](echo_learning_guide.md) | Deep study | Tools, algorithms, cheat sheets, concept → code cross-reference |
 
 ---
 
@@ -361,13 +379,13 @@ antitrust_sim/
 | Layer | Technology |
 |-------|-----------|
 | Language | Python 3.10+ |
-| LLM Runtime | Groq API (Allam 2 7B) |
+| LLM Runtime | Groq API (Allam 2 7B) for pricing; Ollama optional for embeddings |
 | Database | PostgreSQL 16 + pgvector |
 | ML Framework | scikit-learn (RF + LR) |
 | Numerical | NumPy, SciPy |
 | API Server | FastAPI + Uvicorn (ASGI, WebSocket, Async Webhooks) |
-| Automation Pipeline | n8n (Docker container, HTTP Webhooks, Multi-node routing) |
-| Frontend | HTML/CSS/JS + Chart.js + Chart.js Annotation |
+| Automation Pipeline | n8n (Normalize payload nodes + severity routing + reports) |
+| Frontend | HTML/CSS/JS + Chart.js (autoscaling + `real_avg_series` overlay) |
 | Deployment | Vercel (static) + local uvicorn |
 | Infrastructure | Docker Compose (pgvector DB + n8n engine) |
 | Data & Analysis | Pandas, Matplotlib, Seaborn, BLS/FRED, CoinGecko |
@@ -397,21 +415,27 @@ ECHO includes an **n8n automated monitoring pipeline** that acts as an enterpris
 └────────┬──────────────────────┘         └──────────────────┬──────────────────────┘
          │                                                   │
 ┌────────▼──────────────────────┐         ┌──────────────────▼──────────────────────┐
-│ Severity Switch Node          │         │ Summary Aggregator Node                  │
-│ (Watch vs Warning vs Alert)   │         │ (Final Lambda, Peak Lambda, Rounds)      │
+│ Normalize Alert Payload       │         │ Normalize Complete Payload                │
+│ (flatten nested `$json.body`) │         │ (flatten nested `$json.body`)           │
 └────────┬──────────────────────┘         └──────────────────┬──────────────────────┘
          │                                                   │
 ┌────────▼──────────────────────┐         ┌──────────────────▼──────────────────────┐
-│ Collusion Scorecard Generator │         │ Executive Summary Generator             │
-│ (HTML / Markdown formatting)  │         │ (Full Market Audit Report)              │
+│ Severity Router               │         │ Format Simulation Report                   │
+│ (Critical ≥0.7 / Warn ≥0.5)  │         │ (Mean/Peak Λ, alerts, mode, dataset)         │
+└────────┬──────────────────────┘         └──────────────────┬──────────────────────┘
+         │                                                   │
+┌────────▼──────────────────────┐         ┌──────────────────▼──────────────────────┐
+│ Format Alert → Score Card     │         │ Send Report                             │
+│ (Watch / Warning / Critical)   │         │ (Slack/Email hook point)                │
 └───────────────────────────────┘         └─────────────────────────────────────────┘
 ```
 
 - **Docker Integration:** n8n runs as a persistent service inside `docker-compose.yml` on port `5678` with a dedicated data volume (`echo_n8n_data`).
 - **Fire-and-Forget Webhooks:** `api_server.py` dispatches non-blocking async tasks (`asyncio.create_task`) when:
-  1. A collusion alert is triggered (`/webhook/echo-alert`)
+  1. A collusion alert is triggered (`/webhook/echo-alert`) — common on DQN runs once Λ climbs
   2. A simulation finishes (`/webhook/echo-simulation-complete`)
-- **Workflow File:** Import `n8n/collusion_alert_workflow.json` directly into your local n8n instance (`http://localhost:5678`) to view and edit the 11-node automated monitoring graph.
+- **Payload Normalize:** Newer n8n webhook nodes nest POST JSON under `.body`. The workflow’s **Normalize** code nodes flatten fields so severity routers can read `$json.lambda` directly.
+- **Workflow File:** Import (or re-import) `n8n/collusion_alert_workflow.json` into `http://localhost:5678`, then **Publish**. Without Publish, production webhooks return 404.
 
 ---
 
@@ -437,7 +461,7 @@ ECHO includes an **n8n automated monitoring pipeline** that acts as an enterpris
 | 3 | LLM pricing agents (Groq API + scratchpad parsing) | ✅ Complete |
 | 4 | RAG episodic memory (hybrid pgvector + SQL) | ✅ Complete |
 | 5 | Collusion detection pipeline (6 methods) | ✅ Complete |
-| 5.5 | Empirical validation (EIA, Amazon, Airlines, Uber, Pharma, DRAM) | ✅ Complete |
+| 5.5 | Empirical validation (BLS/FRED gasoline, Amazon, Airlines, Uber, Pharma, DRAM) | ✅ Complete |
 | 6 | Q-Learning RL baseline agents | ✅ Complete |
 | 7 | Analysis & visualization (research figures) | ✅ Complete |
 | 8 | FastAPI + live WebSocket dashboard | ✅ Complete |

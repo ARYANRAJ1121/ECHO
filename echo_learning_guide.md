@@ -25,7 +25,7 @@
 | | |
 |---|---|
 | **What** | The programming language for the entire backend |
-| **Why** | Best ecosystem for ML/AI (NumPy, scikit-learn, pandas), easy Ollama integration, FastAPI for web |
+| **Why** | Best ecosystem for ML/AI (NumPy, scikit-learn, pandas), Groq API client for LLM agents, FastAPI for web |
 | **Where** | Every `.py` file in the project |
 
 **Key Python features we use:**
@@ -58,7 +58,7 @@
 | Standard deviation | `np.std(array)` | Price volatility, forecast features |
 | Dot product | `np.dot(a, b)` | Cosine similarity in NLP |
 | Vector norm | `np.linalg.norm(v)` | Cosine similarity denominator |
-| Linspace | `np.linspace(1.0, 5.0, 15)` | Discrete price grid for RL/DQN |
+| Linspace | `np.linspace(price_floor, price_ceiling, 15)` | Discrete price grid for RL/DQN — band is **dataset-scaled** via `resolve_price_band()`, not a fixed 1.0–5.0 toy range |
 
 ---
 
@@ -223,7 +223,7 @@ CREATE INDEX idx ON embeddings USING ivfflat (embedding vector_cosine_ops) WITH 
 |---------|-------|------|---------|
 | `db` | `pgvector/pgvector:pg16` | 5433 → 5432 | PostgreSQL + pgvector |
 | `n8n` | `n8nio/n8n:latest` | 5678 → 5678 | Automated Workflow & Alert Pipeline |
-| `ollama` (commented) | `ollama/ollama:latest` | 11434 | LLM server (run on host for GPU) |
+| `ollama` (commented) | `ollama/ollama:latest` | 11434 | Optional local embedding server (`nomic-embed-text` for RAG + NLP) |
 
 **Key Docker Compose features used:**
 - `volumes` — persist data across restarts (`echo_pgdata`, `echo_n8n_data`)
@@ -233,24 +233,39 @@ CREATE INDEX idx ON embeddings USING ivfflat (embedding vector_cosine_ops) WITH 
 
 ---
 
-## 1.11 Ollama
+## 1.11 Groq API & Ollama (Embeddings)
+
+### Groq API — Primary LLM for Pricing
 
 | | |
 |---|---|
-| **What** | Local LLM server — runs language models on your machine |
-| **Why** | Hosts Llama 3 8B (pricing agent brain) and nomic-embed-text (embedding model) |
-| **Where** | [llm_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/llm_agent.py#L211-L234), [nlp_cluster.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/regulator/nlp_cluster.py#L108-L114), [memory.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py#L91-L107) |
+| **What** | Cloud inference API for fast LLM chat completions |
+| **Why** | Hosts **Allam 2 7B** — the model our LLM and RAG agents use for pricing decisions and scratchpad reasoning |
+| **Where** | [llm_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/llm_agent.py#L215-L241), [rag_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/rag_agent.py) |
 
-**Two API endpoints we call:**
+**How we call it:**
+
+| Client | Model | Purpose | Output |
+|--------|-------|---------|--------|
+| `groq.Groq().chat.completions.create()` | `allam-2-7b` | Generate pricing decisions | Text (`<scratchpad>` + `<price>`) |
+
+**Allam 2 7B:** Arabic-English bilingual LLM served by Groq. Temperature=0.7 for some randomness in pricing decisions. Requires `GROQ_API_KEY` in the environment. Subject to Groq rate limits — we cap LLM runs to ~50 rounds in the default pipeline.
+
+**Code path:** `_build_prompt()` → `_call_llm()` (not `_call_ollama()`).
+
+### Ollama — Optional Local Embeddings
+
+| | |
+|---|---|
+| **What** | Local model server — **optional** for embedding inference only |
+| **Why** | Runs `nomic-embed-text` for RAG memory search and NLP scratchpad clustering (not used for pricing LLM inference) |
+| **Where** | [nlp_cluster.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/regulator/nlp_cluster.py#L108-L114), [memory.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py#L91-L107) |
 
 | Endpoint | Model | Purpose | Output |
 |----------|-------|---------|--------|
-| `POST /api/generate` | `llama3` | Generate pricing decisions | Text (scratchpad + price) |
 | `POST /api/embed` | `nomic-embed-text` | Convert text → vectors | 768-dim float array |
 
-**Llama 3 8B:** Meta's open-source LLM. 8 billion parameters. Runs locally on a GPU (or slowly on CPU). Temperature=0.7 for some randomness in pricing decisions.
-
-**nomic-embed-text:** Embedding model that converts any text into a 768-dimensional vector where semantically similar texts have vectors pointing in similar directions.
+**nomic-embed-text:** Embedding model that converts any text into a 768-dimensional vector where semantically similar texts have vectors pointing in similar directions. Ollama is commented out in Docker Compose — run on the host if you need local embeddings without a separate embedding API.
 
 ---
 
@@ -263,8 +278,8 @@ CREATE INDEX idx ON embeddings USING ivfflat (embedding vector_cosine_ops) WITH 
 | **Where** | [dashboard/script.js](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/script.js) |
 
 **Charts in our dashboard:**
-- **Price Trajectory** — 5 firm lines + Nash/Monopoly reference lines (line chart)
-- **Lambda Trajectory** — Collusion index over time with color zones (line chart)
+- **Price Trajectory** — 5 firm lines + Nash/Monopoly reference lines + **observed real market average** on a right-hand axis (from `real_avg_series`)
+- **Lambda Trajectory** — Collusion index over time with color zones + real-market Λ proxy reference line
 - **Price Forecast** — Predicted future prices with confidence intervals (at end)
 
 ---
@@ -321,8 +336,8 @@ Browser                          Server
 | | |
 |---|---|
 | **What** | HTTP client library for Python |
-| **Why** | Calls Ollama API (LLM inference + embeddings), fetches FRED API data |
-| **Where** | [llm_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/llm_agent.py#L230), [nlp_cluster.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/regulator/nlp_cluster.py#L112), [memory.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py#L103) |
+| **Why** | Groq SDK for LLM inference; optional Ollama HTTP calls for embeddings; FRED/CoinGecko fetches in data loaders |
+| **Where** | [llm_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/llm_agent.py), [nlp_cluster.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/regulator/nlp_cluster.py#L112), [memory.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py#L103), [data_loaders/](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/data_loaders/) |
 
 ---
 
@@ -337,8 +352,31 @@ Browser                          Server
 **Key features in ECHO:**
 - Dedicated Docker service running on port `5678`
 - Asynchronous POST webhooks (`/webhook/echo-alert` & `/webhook/echo-simulation-complete`)
+- **Normalize nodes** flatten newer n8n webhook payloads (`$json.body` → top-level `lambda`, `round`, `alerts`, etc.) so downstream nodes always read `$json.lambda`
 - 11-node workflow with severity routing, metric extraction, and Executive Summary formatting
 - Decouples notification delivery from simulation execution for zero performance impact
+
+---
+
+## 1.18 Data Loaders & Market Calibration
+
+| | |
+|---|---|
+| **What** | Five dataset-specific loaders that fetch or load real market parameters before each simulation |
+| **Why** | Calibrate Nash/monopoly benchmarks, firm names, and price bands to **real markets** — gasoline, Amazon, crypto, airlines, rideshare |
+| **Where** | [data_loaders/](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/data_loaders/), [run_simulation.py → resolve_price_band()](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/run_simulation.py#L45-L71) |
+
+**`MarketContext` dataclass** ([base.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/data_loaders/base.py)) carries:
+- `marginal_costs`, `firm_names`, `description`, `currency`, `mu`
+- `price_series` — per-firm observed price history (plotted on the dashboard overlay)
+- `is_fallback` — `True` when live fetch failed; synthetic numbers substituted (not empirical evidence)
+- `source`, `fallback_reason` — provenance for viva citations
+
+**`resolve_price_band()`** brackets each dataset's Nash and monopoly prices with a 30% margin so Λ stays meaningful and the 15-level RL/DQN grid has resolution where it matters — fixing failures when a loader's raw min/max price range was too wide (rideshare) or too tight (gasoline).
+
+**Scale-invariant heuristics:** Control agents anchor to fractions along the Nash→monopoly span (e.g. `nash + 0.10 × span`), so Λ ≈ 0.15 on every dataset whether a unit costs $3/gal or $64,000/BTC.
+
+**Factory:** `get_data_loader(dataset_name)` in [data_loaders/__init__.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/data_loaders/__init__.py).
 
 ---
 
@@ -658,7 +696,7 @@ re.search(r"<price>\s*([\d]+\.?\d*)\s*</price>", text, re.IGNORECASE)
 |---|---|
 | **What** | Converting text into fixed-size numerical vectors (768 dimensions) |
 | **Why** | Enables measuring "semantic similarity" between texts using math |
-| **Model** | nomic-embed-text via Ollama |
+| **Model** | nomic-embed-text via Ollama (optional local server) |
 | **Where** | [memory.py L91-107](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py#L91-L107), [nlp_cluster.py L108-114](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/regulator/nlp_cluster.py#L108-L114) |
 
 **How it works:** The embedding model (a neural network) reads the text and outputs 768 numbers. Texts with similar meaning produce vectors pointing in similar directions, even if the exact words are different.
@@ -843,6 +881,10 @@ Different agent types use different decision strategies, but all share the same 
 
 The `LambdaMonitor.observe()` method is called after every round. It tracks streaks and raises alerts — the engine notifies it, it reacts.
 
+## 4.6 Dashboard Real-Price Overlay
+
+The WebSocket `benchmarks` message includes `real_avg_series` (from `MarketContext.observed_market_average()`) and `real_lambda_proxy` (BLS gasoline convergence ≈ 0.90). [script.js](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/script.js) plots observed market average on a **right-hand Y-axis** alongside simulated firm prices, and draws a reference line for the real-market Λ proxy on the Lambda chart. `is_fallback` triggers a visible warning when synthetic parameters were substituted.
+
 ---
 
 # 5. Cheat Sheets
@@ -871,7 +913,7 @@ The `LambdaMonitor.observe()` method is called after every round. It tracks stre
 | ε min | 0.01 | 1% random at convergence |
 | ε decay | 0.99995 | Slow decay (needs 10K+ rounds) |
 | N prices | 15 | Discrete price bins |
-| Price range | [1.0, 5.0] | Legal bounds |
+| Price range | `[price_floor, price_ceiling]` per dataset | From `resolve_price_band()` — not a fixed 1.0–5.0 toy band |
 
 ### DQN Agent
 | Param | Value | Effect |
@@ -887,12 +929,12 @@ The `LambdaMonitor.observe()` method is called after every round. It tracks stre
 ### LLM Agent
 | Param | Value | Effect |
 |-------|-------|--------|
-| Model | llama3 (8B) | Language model |
+| Model | Groq `allam-2-7b` | Language model |
 | Temperature | 0.7 | Randomness in generation |
 | Max tokens | 300 | Output length cap |
 | Max retries | 3 | Retry on parse failure |
 | History window | 5 rounds | How much market data in prompt |
-| Timeout | 180s | First call loads model into GPU |
+| API key | `GROQ_API_KEY` | Required env var |
 
 ### Lambda Monitor
 | Param | Value | Effect |
@@ -927,8 +969,14 @@ The `LambdaMonitor.observe()` method is called after every round. It tracks stre
 | Experience replay | [dqn_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/dqn_agent.py) | `_train_step()` L332-361 |
 | Target network | [dqn_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/dqn_agent.py) | `copy_weights_from()` L156 |
 | LLM prompting | [llm_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/llm_agent.py) | `_build_prompt()` |
-| Ollama API call | [llm_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/llm_agent.py) | `_call_ollama()` |
+| Groq API call | [llm_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/llm_agent.py) | `_call_llm()` |
 | Scratchpad parsing | [llm_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/llm_agent.py) | `_parse_response()` |
+| Market context loader | [data_loaders/base.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/data_loaders/base.py) | `MarketContext` |
+| Dataset factory | [data_loaders/__init__.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/data_loaders/__init__.py) | `get_data_loader()` |
+| Price band calibration | [run_simulation.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/run_simulation.py) | `resolve_price_band()` |
+| Scale-invariant heuristics | [heuristic_agent.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/agents/heuristic_agent.py) | `target_price` / Nash-span anchors |
+| Real-price dashboard overlay | [script.js](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/script.js) | `real_avg_series`, `real_lambda_proxy` |
+| n8n webhook normalize | [collusion_alert_workflow.json](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/n8n/collusion_alert_workflow.json) | `normalize-alert` / `normalize-complete` nodes |
 | RAG memory store | [memory.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py) | `store_market_state()` |
 | Standard RAG search | [memory.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py) | `search_similar()` |
 | Hybrid RAG search | [memory.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py) | `hybrid_search()` |
@@ -992,11 +1040,11 @@ Use this when asked "What is your methodology?" or "How does your system work?"
 >
 > **Pillar 1 — Simulation Environment:** We built a **repeated Bertrand pricing game** using the **Multinomial Logit (MNL) demand model** — the same model used in real antitrust court cases by the CCI and EU Commission. 5 firms compete over hundreds of rounds in a **symmetric oligopoly** with **homogeneous products.**
 >
-> **Pillar 2 — Heterogeneous Agent Design:** Instead of testing one AI type, we implemented **five fundamentally different agent architectures** — heuristic baselines, **tabular Q-Learning**, **Deep Q-Networks (DQN)**, **LLM agents (Llama 3 8B)**, and **RAG-enhanced LLM agents with hybrid retrieval.** If collusion emerges across ALL architectures, it proves the phenomenon is **market-structural, not algorithm-specific.**
+> **Pillar 2 — Heterogeneous Agent Design:** Instead of testing one AI type, we implemented **five fundamentally different agent architectures** — heuristic baselines, **tabular Q-Learning**, **Deep Q-Networks (DQN)**, **LLM agents (Groq Allam 2 7B)**, and **RAG-enhanced LLM agents with hybrid retrieval.** If collusion emerges across ALL architectures, it proves the phenomenon is **market-structural, not algorithm-specific.**
 >
 > **Pillar 3 — Multi-Method Detection:** We built **six independent detection methods** — **statistical anomaly detection** (Lambda monitoring), **NLP semantic clustering**, **keyword-based sentiment analysis**, **Random Forest behavioral classification**, **time-series price forecasting**, and **causal perturbation testing** (demand shocks). Each method provides a **different type of evidence**, covering each other's blind spots.
 >
-> **Pillar 4 — Empirical Validation:** We validated our simulation's economic realism against **real-world pricing data** — US gasoline prices from the **EIA via FRED API** and Amazon product pricing from Kaggle — computing proxy collusion indices to benchmark our synthetic results.
+> **Pillar 4 — Empirical Validation:** We calibrated across **five real-world markets** (US gasoline, Amazon, crypto exchanges, airlines, rideshare) via `data_loaders` + `MarketContext`, computing proxy collusion indices and plotting observed `price_series` on the dashboard overlay to benchmark synthetic results.
 
 **Keywords to drop:** `Bertrand competition`, `Multinomial Logit demand`, `symmetric oligopoly`, `heterogeneous agents`, `multi-method detection pipeline`, `causal perturbation`, `empirical validation`, `FRED API`
 
@@ -1013,10 +1061,10 @@ Use this when asked "What is your methodology?" or "How does your system work?"
 | Need a cartel benchmark to measure how bad it gets | Computed Joint Monopoly Price using **constrained optimization** (SciPy) | `joint profit maximization`, `monopoly benchmark`, `bounded optimization`, `Brent's method` |
 | How do customers choose between firms? | **Multinomial Logit demand model** with log-sum-exp numerical stability | `discrete choice model`, `softmax`, `price elasticity`, `outside option`, `log-sum-exp trick` |
 | How to measure collusion in a single number? | **Collusion Index (Λ)** normalized between Nash (0) and Monopoly (1) | `supra-competitive pricing`, `collusion index`, `price premium`, `normalized metric` |
-| Need a baseline that proves collusion isn't inevitable | **Heuristic agents** (Steady, Follower, Undercut) — can't learn, can't collude | `control group`, `baseline validation`, `rule-based agents`, `null hypothesis` |
+| Need a baseline that proves collusion isn't inevitable | **Heuristic agents** (Steady, Follower, Undercut) — Nash-span anchors, Λ ≈ 0.15 on all datasets | `control group`, `scale-invariant calibration`, `rule-based agents`, `null hypothesis` |
 | Can trial-and-error learning cause collusion? | **Q-Learning agent** with Bellman equation discovers high-price equilibrium | `temporal difference learning`, `Bellman equation`, `epsilon-greedy exploration`, `reward shaping` |
 | Q-table can't handle large state spaces | **DQN with experience replay + target network** (DeepMind 2015) | `function approximation`, `experience replay buffer`, `target network`, `Adam optimizer`, `Xavier initialization` |
-| Can language understanding cause collusion? | **LLM agent (Llama 3 8B)** with structured scratchpad extraction | `large language model`, `prompt engineering`, `structured output`, `emergent reasoning`, `scratchpad analysis` |
+| Can language understanding cause collusion? | **LLM agent (Groq Allam 2 7B)** with structured scratchpad extraction | `large language model`, `prompt engineering`, `structured output`, `emergent reasoning`, `scratchpad analysis` |
 | Can memory amplify collusion? | **Hybrid RAG agent** with pgvector + SQL structural filtering | `retrieval-augmented generation`, `episodic memory`, `hybrid retrieval`, `vector similarity search`, `profit-aware filtering` |
 | How to detect collusion from prices alone? | **Lambda Monitor** with streak-based alerting (3-tier system) | `statistical anomaly detection`, `streak analysis`, `rolling average`, `threshold-based monitoring` |
 | How to detect collusion from agent thoughts? | **NLP Semantic Clustering** using embedding similarity (nomic-embed-text) | `semantic similarity`, `text embeddings`, `cosine similarity`, `convergent reasoning`, `pairwise analysis` |
@@ -1062,7 +1110,7 @@ Use this when asked "What is your methodology?" or "How does your system work?"
 | **Experience replay** | Training on shuffled past experiences | DQN training stability |
 | **Target network** | Frozen copy to stabilize training | DQN oscillation prevention |
 | **Epsilon-greedy exploration** | Random vs best-known action tradeoff | Exploration strategy |
-| **Large Language Model (LLM)** | AI that understands and generates text (Llama 3) | Agent type 4 |
+| **Large Language Model (LLM)** | AI that understands and generates text (Groq Allam 2 7B) | Agent type 4 |
 | **Prompt engineering** | Designing effective LLM instructions | How we get structured output |
 | **Retrieval-Augmented Generation (RAG)** | Enhancing LLM with searchable memory | Agent type 5 |
 | **Hybrid retrieval** | Combining vector search + SQL filters | Our RAG innovation |
@@ -1162,14 +1210,14 @@ ANALOGY:    "Instead of a baby learning by trial and error, this is like
              hiring an MBA graduate to set prices. You hand them a market
              report and they write a memo before deciding."
 
-MECHANISM:  "We use PROMPT ENGINEERING to give Llama 3 8B a structured
+MECHANISM:  "We use PROMPT ENGINEERING to give Groq Allam 2 7B a structured
              task: system message defines the role, user message provides
              last 5 rounds of market history, and we enforce XML output
              format with <scratchpad> and <price> tags."
 
-IN OUR CODE: "The prompt is built in _build_prompt(), Ollama is called
-              via HTTP POST to /api/generate with temperature=0.7, and
-              we parse the response using REGEX with fallback strategies."
+IN OUR CODE: "The prompt is built in _build_prompt(), Groq is called
+              via _call_llm() (chat.completions.create) with temperature=0.7,
+              and we parse the response using REGEX with fallback strategies."
 
 KEY FINDING: "The terrifying finding is that the LLM invents COOPERATIVE
               REASONING on its own. It writes things like 'undercutting
@@ -1225,9 +1273,10 @@ SIMULATION CORE:
   network for DQN — no PyTorch dependency, reducing complexity.
 
 AI/LLM LAYER:
-  Ollama running Llama 3 8B locally for pricing decisions and
-  nomic-embed-text for 768-dimensional text embeddings. LOCAL
-  inference ensures data privacy and reproducibility.
+  Groq API running Allam 2 7B for LLM and RAG pricing decisions
+  (structured scratchpad + price output). Optional local Ollama for
+  nomic-embed-text 768-dimensional embeddings in RAG memory and NLP
+  clustering — pricing inference does NOT use Ollama.
 
 DATABASE:
   PostgreSQL 16 with pgvector extension for dual-purpose storage:
@@ -1256,34 +1305,30 @@ INFRASTRUCTURE:
 ### Framework 6: "What are your key results?"
 
 ```
-"Four headline results:
+"Four headline results (scale-invariant Λ across 5 calibrated datasets):
 
-RESULT 1 — LLM AGENTS COLLUDE MASSIVELY:
-  Lambda reached 20.6 — meaning prices were 20× above the Nash-to-
-  Monopoly gap. Agents priced at approximately 2× the competitive
-  level. Scratchpad analysis reveals SPONTANEOUS COOPERATIVE
-  REASONING — the LLM literally writes 'undercutting would start
-  a price war' without any instruction to cooperate.
+RESULT 1 — LLM AGENTS COLLUDE STRONGLY:
+  Groq Allam 2 7B agents reach Λ ≈ 0.80–0.90 — immediate tacit
+  coordination within the calibrated Nash→monopoly band. Scratchpad
+  analysis reveals SPONTANEOUS COOPERATIVE REASONING — the LLM
+  literally writes 'undercutting would start a price war' without
+  any instruction to cooperate.
 
 RESULT 2 — HEURISTIC BASELINE VALIDATES THE MODEL:
-  Heuristic agents achieve Lambda ≈ 0.06 — virtually perfect
-  competition. This confirms our Nash benchmark is correct and
-  collusion is NOT an artifact of the simulation design.
+  Scale-invariant heuristic agents achieve Λ ≈ 0.15 on every dataset
+  — just above Nash, confirming our benchmark calibration is correct
+  and collusion is NOT an artifact of the simulation design.
 
 RESULT 3 — COLLUSION IS ARCHITECTURE-AGNOSTIC:
-  Both RL and DQN agents also converge to supra-competitive
-  pricing through PURE REWARD OPTIMIZATION — no language, no
-  reasoning, just Q-values. Combined with the LLM result, this
-  proves collusion is a MARKET-STRUCTURAL PHENOMENON.
+  DQN converges to Λ ≈ 0.61–0.85 through PURE REWARD OPTIMIZATION —
+  no language, no reasoning, just Q-values. Combined with the LLM
+  result, this proves collusion is a MARKET-STRUCTURAL PHENOMENON.
 
-RESULT 4 — DETECTION PIPELINE WORKS:
-  All 6 detection methods independently flag the collusive
-  behavior: Lambda alerts trigger, NLP clustering shows
-  convergent reasoning (similarity > 0.6), sentiment analysis
-  detects cooperative intent drift, Random Forest labels
-  'cooperative' strategy dominance, forecaster predicts
-  continued price elevation, and demand shock reveals
-  cross-firm coordination."
+RESULT 4 — REAL MARKETS SHOW SIMILAR PATTERNS:
+  US gasoline (BLS via FRED) proxy Λ ≈ 0.90; Amazon electronics
+  Λ_proxy ≈ 0.87. Dashboard overlays observed price history against
+  simulation. All 6 detection methods independently flag collusive
+  behavior in learning-agent runs."
 ```
 
 ---
@@ -1318,11 +1363,11 @@ RESULT 4 — DETECTION PIPELINE WORKS:
 
 > "We validate at **three levels:**
 >
-> **(1) Internal validation:** Heuristic agents (our **control group**) achieve Λ ≈ 0.06, confirming our Nash benchmark is correct. If even simple agents showed high Λ, our model would be flawed.
+> **(1) Internal validation:** Heuristic agents (our **control group**) achieve Λ ≈ 0.15 across all five calibrated datasets, confirming Nash benchmark and `resolve_price_band()` calibration are correct. If even simple agents showed high Λ, our model would be flawed.
 >
 > **(2) Cross-architecture validation:** Collusion emerges across **four independent architectures** (LLM, Q-Learning, DQN, RAG) — ruling out algorithm-specific artifacts.
 >
-> **(3) External validation:** We compute proxy collusion indices from **real-world data** — US gasoline prices (EIA via FRED API, Λ_proxy ≈ 0.91) and Amazon electronics pricing (Kaggle dataset, 42K listings, Λ_proxy ≈ 0.87) — showing our synthetic results are **consistent with real-market pricing patterns.**"
+> **(3) External validation:** We compute proxy collusion indices from **real-world data across five markets** — US gasoline (EIA/BLS via FRED, Λ_proxy ≈ 0.90), Amazon electronics (Kaggle, Λ_proxy ≈ 0.87), crypto exchanges, airlines, and rideshare — showing synthetic results are **consistent with real-market pricing patterns.** Runs with `is_fallback=True` are excluded from empirical claims."
 
 **Keywords:** `control group`, `null hypothesis`, `cross-validation`, `external validity`, `FRED API`, `empirical benchmarking`
 
@@ -1332,15 +1377,17 @@ RESULT 4 — DETECTION PIPELINE WORKS:
 
 > **(Be honest — professors respect this)**
 >
-> "(1) **Computational cost:** LLM inference is slow — each round takes ~2 seconds per agent with Ollama, limiting us to hundreds of rounds rather than the millions possible with RL agents.
+> "(1) **API dependency & rate limits:** LLM inference runs via **Groq API** — requires `GROQ_API_KEY` and is subject to rate limits, limiting us to hundreds of rounds rather than the millions possible with RL agents.
 >
 > (2) **Simplified market:** We use **symmetric firms** (equal costs, equal quality). Real markets have **differentiated products**, **capacity constraints**, and **entry/exit dynamics** that we don't model.
 >
-> (3) **Single LLM:** We only test Llama 3 8B. Different models (GPT-4, Claude, Gemini) might exhibit different collusion patterns. This is future work.
+> (3) **Single LLM:** We only test Groq **Allam 2 7B**. Different models (GPT-4, Claude, Gemini) might exhibit different collusion patterns. This is future work.
 >
-> (4) **Auto-labeling bias:** Our Random Forest classifier is trained on **heuristic labels**, not human-annotated data. This introduces potential labeling bias."
+> (4) **Embedding dependency:** RAG and NLP clustering need **nomic-embed-text** — typically via optional local Ollama; not bundled in the default Docker stack.
+>
+> (5) **Auto-labeling bias:** Our Random Forest classifier is trained on **heuristic labels**, not human-annotated data. This introduces potential labeling bias."
 
-**Keywords:** `computational bottleneck`, `symmetric assumption`, `generalizability`, `labeling bias`, `future work`
+**Keywords:** `API dependency`, `rate limits`, `symmetric assumption`, `generalizability`, `embedding dependency`, `labeling bias`, `future work`
 
 ---
 
