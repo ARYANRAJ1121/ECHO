@@ -177,3 +177,7 @@ Calvano et al. (2020) *AER* · Fish et al. (2025) LLM collusion · Mnih et al. (
 [MIT License](LICENSE) · [Live demo](https://echo-green-pi.vercel.app)
 
 </div>
+
+## Team
+
+- Nikita Agarwal — Research / Development
