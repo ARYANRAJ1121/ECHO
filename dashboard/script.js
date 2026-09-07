@@ -743,7 +743,7 @@ function addShockAnnotation(round, firmId) {
 // Summary Overlay
 // ══════════════════════════════════════
 
-function showSummary(data, regulator) {
+function showSummary(data, regulator, analysis) {
     const overlay = document.getElementById('summary-overlay');
     const lambda = data.converged_collusion_index || data.final_collusion_index || 0;
     let verdictClass = 'competitive';
@@ -798,7 +798,8 @@ function showSummary(data, regulator) {
                 </div>
             ` : ''}
             <div class="summary-verdict ${verdictClass}">${verdictText}</div>
-            <button class="primary-btn summary-close" onclick="closeSummary()">Close</button>
+            <p class="summary-pack-hint">Scroll down after Close for this run&rsquo;s charts (analysis/latest_run). Not the old files in analysis/figures.</p>
+            <button class="primary-btn summary-close" onclick="closeSummary()">Close &amp; view charts</button>
         </div>
     `;
     overlay.classList.remove('hidden');
@@ -806,6 +807,55 @@ function showSummary(data, regulator) {
 
 function closeSummary() {
     document.getElementById('summary-overlay').classList.add('hidden');
+    const pack = document.getElementById('analysis-pack');
+    if (pack && !pack.classList.contains('hidden')) {
+        pack.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+function hideAnalysisPack() {
+    const panel = document.getElementById('analysis-pack');
+    if (!panel) return;
+    panel.classList.add('hidden');
+    const grid = document.getElementById('analysis-pack-grid');
+    if (grid) grid.innerHTML = '';
+}
+
+function renderAnalysisPack(pack) {
+    const panel = document.getElementById('analysis-pack');
+    const grid = document.getElementById('analysis-pack-grid');
+    const note = document.getElementById('analysis-pack-note');
+    const meta = document.getElementById('analysis-pack-meta');
+    if (!panel || !grid || !pack || !pack.ok || !pack.figures || !pack.figures.length) {
+        hideAnalysisPack();
+        return;
+    }
+    const stamp = encodeURIComponent(pack.generated_at || Date.now());
+    meta.textContent = `${pack.dataset} · ${pack.mode} · ${pack.rounds} rounds`;
+    meta.className = 'badge done';
+    note.textContent = `${pack.data_source || ''}  Final Λ=${pack.final_lambda} (${pack.verdict}). Previous run files were deleted.`;
+    grid.innerHTML = pack.figures.map((fig) => {
+        const url = fig.url || `/run-analysis/${fig.file}?t=${stamp}`;
+        return `<figure class="analysis-pack-item">
+            <h3>${fig.title}</h3>
+            <img src="${url}" alt="${fig.title}">
+        </figure>`;
+    }).join('');
+    panel.classList.remove('hidden');
+}
+
+async function loadAnalysisPack(packFromWs) {
+    if (packFromWs && packFromWs.ok && packFromWs.figures && packFromWs.figures.length) {
+        renderAnalysisPack(packFromWs);
+        return;
+    }
+    try {
+        const res = await fetch('/api/analysis/latest');
+        if (!res.ok) return;
+        renderAnalysisPack(await res.json());
+    } catch (e) {
+        // Demo / Vercel has no FastAPI pack.
+    }
 }
 
 // ══════════════════════════════════════
@@ -909,6 +959,8 @@ function resetUI() {
     // Reset scratchpad
     document.getElementById('scratchpad-content').innerHTML =
         '<span class="scratchpad-empty">Start an LLM simulation to see agent reasoning here.</span>';
+
+    hideAnalysisPack();
 
     // Reset charts
     priceChart.data.labels = [];
@@ -1102,7 +1154,9 @@ function handleMessage(msg) {
         const verdict = finalLambda >= 0.7 ? 'collusion' : finalLambda >= 0.3 ? 'suspicious' : 'competitive';
         narratorDone(finalLambda, verdict);
 
-        showSummary(msg.data, msg.regulator);
+        showSummary(msg.data, msg.regulator, msg.analysis);
+
+        loadAnalysisPack(msg.analysis);
 
         if (msg.forecast) {
             renderForecast(msg.forecast);

@@ -366,6 +366,16 @@
                 </div>
             </div>
 
+            <!-- ──── FULL-WIDTH: latest-run analysis pack (replaced every sim) ──── -->
+            <div class="card glass-panel analysis-pack hidden" id="analysis-pack">
+                <div class="card-header">
+                    <h2>Run analysis</h2>
+                    <span class="badge idle" id="analysis-pack-meta"></span>
+                </div>
+                <p class="analysis-pack-note" id="analysis-pack-note"></p>
+                <div class="analysis-pack-grid" id="analysis-pack-grid"></div>
+            </div>
+
             <!-- ──── FULL-WIDTH: Demand Shock Control ──── -->
             <div class="card glass-panel shock-panel">
                 <div class="card-header">
@@ -411,7 +421,7 @@
     <div class="summary-overlay hidden" id="summary-overlay"></div>
 
     <script src="demo-data.js?v=3"></script>
-    <script src="script.js?v=4"></script>
+    <script src="script.js?v=6"></script>
     <script>
         // Onboarding logic
         const overlay = document.getElementById('onboarding-overlay');

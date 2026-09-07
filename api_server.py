@@ -36,6 +36,7 @@ from regulator.detector import LambdaMonitor
 from regulator.sentiment import ScratchpadSentimentAnalyzer
 from analysis.strategy_classifier import AgentStrategyClassifier
 from analysis.forecaster import PriceForecaster
+from analysis.run_pack import PACK_DIR, build_run_pack, load_latest_summary
 
 # ──────────────────────────────────────────────
 # App Setup
@@ -96,11 +97,27 @@ def read_root():
 
 
 app.mount("/dashboard", StaticFiles(directory="dashboard"), name="dashboard")
+os.makedirs(PACK_DIR, exist_ok=True)
+app.mount("/run-analysis", StaticFiles(directory=PACK_DIR), name="run_analysis")
 
 
 # ──────────────────────────────────────────────
 # REST Endpoints
 # ──────────────────────────────────────────────
+
+@app.get("/api/analysis/latest")
+def get_latest_run_analysis():
+    """JSON + figure list for the last completed simulation (folder is reset each run)."""
+    summary = load_latest_summary()
+    stamp = summary.get("generated_at", "")
+    figures = []
+    for fig in summary.get("figures", []):
+        item = dict(fig)
+        item["url"] = f"/run-analysis/{fig['file']}?t={stamp}"
+        figures.append(item)
+    summary["figures"] = figures
+    return JSONResponse(summary)
+
 
 @app.get("/api/simulation/status")
 def get_simulation_status():
@@ -562,6 +579,35 @@ async def simulate_endpoint(websocket: WebSocket):
                 "mean_cooperative": round(sr.get("mean_cooperative_score", 0), 3),
             }
 
+        # Replace previous analysis pack with charts for THIS run only.
+        analysis_pack = {}
+        try:
+            loop = asyncio.get_event_loop()
+            analysis_pack = await loop.run_in_executor(
+                None,
+                lambda: build_run_pack(
+                    dataset=dataset,
+                    mode=mode,
+                    records=sim_state.records,
+                    firm_names=firm_names,
+                    nash=float(engine.benchmarks.nash_price),
+                    monopoly=float(engine.benchmarks.monopoly_price),
+                    currency=market_ctx.currency,
+                    real_avg_series=real_average,
+                    regulator={
+                        "mean_lambda": report["mean_lambda"],
+                        "peak_lambda": report["peak_lambda"],
+                        "total_alerts": report["total_alerts"],
+                        "trend": report["trend"],
+                    },
+                    sentiment_report=sentiment_report,
+                    data_source=market_ctx.source,
+                ),
+            )
+        except Exception as pack_err:
+            print(f"Run pack failed: {pack_err}")
+            analysis_pack = {"ok": False, "error": str(pack_err), "figures": []}
+
         await websocket.send_text(json.dumps({
             "type": "summary",
             "data": summary,
@@ -574,6 +620,7 @@ async def simulate_endpoint(websocket: WebSocket):
             },
             "forecast": forecast_data,
             "sentiment_report": sentiment_report,
+            "analysis": analysis_pack,
         }))
 
         # n8n webhook: notify simulation complete

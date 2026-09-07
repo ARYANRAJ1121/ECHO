@@ -452,6 +452,31 @@ if __name__ == "__main__":
         print(f"  First alert round:   {report['first_alert_round']}")
     print("=" * 80)
 
+    # One-run figure pack (wipes previous latest_run/)
+    from analysis.run_pack import build_run_pack
+    build_run_pack(
+        dataset=args.dataset,
+        mode=args.mode,
+        records=[
+            {
+                "round": rec.round_number,
+                "prices": rec.prices,
+                "avg_price": rec.avg_price,
+                "lambda": rec.collusion_index,
+                "profits": rec.profits,
+                "shares": rec.shares,
+            }
+            for rec in engine.records
+        ],
+        firm_names=market_ctx.firm_names,
+        nash=float(engine.benchmarks.nash_price),
+        monopoly=float(engine.benchmarks.monopoly_price),
+        currency=market_ctx.currency,
+        real_avg_series=market_ctx.observed_market_average(n=300),
+        regulator=report,
+        data_source=market_ctx.source,
+    )
+
     # --- Phase 1.5: Empirical Validation ---
     if args.validate:
         from analysis.real_data import run_validation
