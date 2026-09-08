@@ -1,187 +1,150 @@
 <div align="center">
 
-# ECHO
+# ECHO: Emergent Collusion in Heterogeneous Oligopolies
 
-**Emergent Collusion in Heterogeneous Oligopolies**
-
-Multi-agent pricing lab where DQN, Q-Learning, and LLM agents compete in a Bertrand market — and spontaneously learn to coordinate without communication.
-
-<br/>
-
-[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-echo--green--pi.vercel.app-000?style=for-the-badge&logo=vercel)](https://echo-green-pi.vercel.app)
-[![Launch App](https://img.shields.io/badge/Open_Dashboard-127.0.0.1:8000-0ea5e9?style=for-the-badge)](http://127.0.0.1:8000)
-
-<br/>
+**An AI-driven economics laboratory for detecting algorithmic tacit collusion.**
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![Groq](https://img.shields.io/badge/LLM-Groq_Allam_2-000)](https://groq.com)
-[![FastAPI](https://img.shields.io/badge/FastAPI-WebSocket-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![PostgreSQL](https://img.shields.io/badge/pgvector-RAG_memory-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
-[![RL](https://img.shields.io/badge/RL-Q--Learning_%7C_DQN-F7931E)](https://github.com/ARYANRAJ1121/ECHO)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Groq](https://img.shields.io/badge/LLM-Groq_Llama_3-F55036?logo=groq&logoColor=white)](https://groq.com)
+[![PostgreSQL](https://img.shields.io/badge/pgvector-RAG_Memory-336791?logo=postgresql&logoColor=white)](https://postgresql.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-echo--green--pi.vercel.app-000?style=for-the-badge&logo=vercel)](https://echo-green-pi.vercel.app)
 </div>
 
 ---
 
-## Why this exists
+## 📖 Abstract
 
-Algorithmic pricing already runs Amazon, airlines, and ride-hail. Regulators (including the [DOJ vs RealPage, 2024](https://www.justice.gov/opa/pr/justice-department-sues-realpage-algorithmic-pricing-scheme-harms-millions-renters)) are asking a hard question:
+Algorithmic pricing engines currently power major sectors including e-commerce, ride-sharing, and aviation. A critical concern for antitrust regulators (e.g., DOJ vs. RealPage, 2024) is **Algorithmic Tacit Collusion**—the phenomenon where independent, profit-maximizing AI agents learn to maintain supra-competitive prices without explicit communication.
 
-> Can independent profit-maximizing AIs learn to keep prices high — without ever talking to each other?
-
-ECHO is a controlled lab for that question: **simulate → measure Λ → detect → alert**.
+**ECHO** is a robust, multi-agent sandbox designed to simulate, measure, and detect this behavior. By benchmarking traditional heuristics against Reinforcement Learning (Q-Learning, DQN) and Large Language Models (LLMs), ECHO provides a mathematical and empirical framework for understanding how AI pricing cartels emerge.
 
 ---
 
-## Quick start
+## ⚡ Core Features
 
-```powershell
-git clone https://github.com/ARYANRAJ1121/ECHO.git
-cd ECHO
-pip install -r requirements.txt
+*   **Multi-Agent Ecosystem:** Pit different AI architectures against each other in a controlled Bertrand oligopoly market.
+    *   **Heuristic:** Rule-based control group (e.g., matching, undercutting).
+    *   **Q-Learning:** Tabular RL using Bellman equations and $\epsilon$-greedy exploration.
+    *   **Deep Q-Networks (DQN):** Pure-NumPy Multi-Layer Perceptrons utilizing replay buffers and target networks.
+    *   **LLM Agents:** High-reasoning agents powered by Llama 3 via the Groq API.
+    *   **RAG Agents:** LLMs augmented with `pgvector` memory to recall historical market conditions.
+*   **Empirical Calibration:** Unlike synthetic-only labs, ECHO calibrates its demand models using real-world data (BLS US Gasoline, Amazon Retail, CoinGecko Crypto, Airline Fares).
+*   **The Regulator Suite:** A built-in detection framework to catch collusion.
+    *   **The Coordination Index ($\Lambda$):** Mathematically scales prices between the Nash Equilibrium ($\Lambda=0$) and the Monopoly Price ($\Lambda=1$).
+    *   **Demand Shock Probing:** Trigger dynamic market perturbations mid-simulation to test cartel loyalty.
+    *   **NLP Intent Analysis:** Real-time sentiment analysis of LLM scratchpads to prove collusive intent.
+*   **Real-Time Dashboard:** A responsive Vanilla JS/Chart.js frontend connected via WebSockets for live trajectory visualization.
 
-# fastest — dashboard only
-.\start_echo.ps1 quick
+---
 
-# full stack (Postgres + n8n + server)
-.\start_echo.ps1
+## 🏗️ System Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                       Dashboard (UI)                        │
+│   Chart.js | Live Overlays | NLP Scratchpad | WebSocket     │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ (WebSocket / REST)
+┌──────────────────────────────┴──────────────────────────────┐
+│                    FastAPI Backend Engine                   │
+│                                                             │
+│  ┌────────────────────┐   ┌──────────────────────────────┐  │
+│  │   Market Engine    │   │      Regulator Suite         │  │
+│  │ (MNL Logit Demand) │   │ (Λ Monitor, Causal Probes)   │  │
+│  └─────────┬──────────┘   └──────────────┬───────────────┘  │
+│            │                             │                  │
+│  ┌─────────┴─────────────────────────────┴───────────────┐  │
+│  │                   AI Pricing Agents                   │  │
+│  │  [ Heuristic ] [ Q-Learning ] [ DQN ] [ LLM / RAG ]   │  │
+│  └─────────┬─────────────────────────────┬───────────────┘  │
+└────────────┼─────────────────────────────┼──────────────────┘
+             │                             │
+┌────────────┴─────────┐       ┌───────────┴───────────────┐
+│ Real-World Datasets  │       │  PostgreSQL + pgvector    │
+│ (BLS, Amazon, etc.)  │       │ (Simulation Logs, Memory) │
+└──────────────────────┘       └───────────────────────────┘
 ```
 
-Open **[http://127.0.0.1:8000](http://127.0.0.1:8000)** · or skip install and use the **[live demo](https://echo-green-pi.vercel.app)**.
+---
 
-| Mode | Command | Needs |
-|------|---------|-------|
-| Heuristic / RL / DQN | `python run_simulation.py --dataset gasoline --mode dqn --rounds 500` | Python |
-| LLM | `--mode llm` | `GROQ_API_KEY` in `.env` |
-| RAG | `--mode rag --db` | Groq + Docker Postgres + Ollama embeddings |
+## 🚀 Quick Start
+
+### Prerequisites
+*   Python 3.10+
+*   Docker Desktop (for PostgreSQL & `pgvector`)
+*   Groq API Key (if running LLM/RAG modes)
+
+### Installation
+```bash
+# 1. Clone the repository
+git clone https://github.com/ARYANRAJ1121/ECHO.git
+cd ECHO
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Add your API Key
+echo "GROQ_API_KEY=your_key_here" > .env
+```
+
+### Running the Project
+
+ECHO includes an automated PowerShell script to handle the full-stack boot sequence.
+
+```powershell
+# Option A: Full Stack (Starts Database, runs all empirical sims, generates charts, boots UI)
+.\start_echo.ps1 fullrun
+
+# Option B: Headless Simulation (Terminal only)
+python run_simulation.py --dataset gasoline --mode dqn --rounds 1000
+
+# Option C: UI Server Only
+.\start_echo.ps1 quick
+```
+Navigate to `http://127.0.0.1:8000` to view the live dashboard.
 
 ---
 
-## Headline results
+## 📊 Headline Results & Findings
 
-Scale-invariant Λ — same `[0, 1]` band on \$3 gasoline and ~\$64k BTC:
+Across thousands of simulated rounds on empirically calibrated datasets, ECHO demonstrates that advanced AI agents successfully learn supra-competitive pricing **without explicit instructions to collude.**
 
-| Agent | Λ | Read |
-|-------|---:|------|
-| Heuristic (control) | **~0.15** | Competitive — stays near Nash |
-| Q-Learning | ~0.70–0.80 | Gradual coordination |
-| DQN | **~0.61–0.85** | Learns supra-competitive prices |
-| Groq Allam 2 7B | **~0.80–0.90** | Immediate tacit coordination |
+| Agent Architecture | Coordination Index ($\Lambda$) | Verdict |
+| :--- | :--- | :--- |
+| **Heuristic (Control)** | `~0.15` | Fierce Competition (Anchored near Nash) |
+| **Q-Learning** | `~0.70 - 0.80` | Gradual Tacit Coordination |
+| **Deep Q-Network (DQN)** | `~0.65 - 0.85` | Learns supra-competitive stability |
+| **LLM (Llama 3 70B)** | `~0.85 - 0.95` | Immediate, reasoned collusion |
 
 $$\Lambda = \frac{\bar{p} - p_{\mathrm{Nash}}}{p_{\mathrm{Monopoly}} - p_{\mathrm{Nash}}}$$
 
-Heuristics are anchored as fractions of each market’s Nash→monopoly span. Learning agents climb into the published real-world Λ band (~0.7–0.9) with **zero instruction to collude**.
+---
 
-**Live market proxies** (from loaders): BLS gasoline ≈ **0.90** · Amazon earbuds ≈ **0.87** · Crypto venues ≈ **0.99**
+## 📂 Repository Structure
+
+*   `/agents/` - Source code for all AI agents (DQN, LLM, RL).
+*   `/market/` - The economic engine, including the Multinomial Logit Demand model.
+*   `/regulator/` - The detection suite (Demand shocks, NLP clustering).
+*   `/data_loaders/` - Integration adapters for real-world datasets.
+*   `/dashboard/` - Frontend assets (HTML, CSS, JS, Chart.js).
+*   `/analysis/` - Post-simulation analytics and `matplotlib` plotting scripts.
+*   `/database/` - SQLAlchemy schemas and PostgreSQL connection management.
 
 ---
 
-## System at a glance
+## 🔬 References & Literature
 
-```text
-Dashboard (Chart.js) ──WebSocket──▶ FastAPI
-                                       │
-                    ┌──────────────────┼──────────────────┐
-                    ▼                  ▼                  ▼
-              Market Engine      Regulator Suite      n8n Alerts
-              MNL · Λ · shocks   NLP · RF · forecast  webhooks :5678
-                    ▲
-         Agents: Heuristic · Q-Learning · DQN · LLM · RAG
-                    │
-         Data: BLS/FRED · CoinGecko · Amazon CSV · Airlines · Rideshare
-                    │
-         Store: PostgreSQL 16 + pgvector (logs + RAG memory)
-```
-
-### Agents
-
-| | Mechanism |
-|--|-----------|
-| **Heuristic** | Steady / follower / undercut — control group |
-| **Q-Learning** | Tabular Bellman, ε-greedy over price grid |
-| **DQN** | Pure-NumPy MLP, replay buffer, target net |
-| **LLM** | Groq Allam 2 — `<scratchpad>` + `<price>` |
-| **RAG** | LLM + hybrid pgvector retrieval before each bid |
-
-### Detection (6 methods)
-
-Λ streak monitor · scratchpad embedding similarity · intent sentiment · Random Forest strategy labels · price forecaster · demand-shock causal probe
-
----
-
-## Real markets
-
-| Dataset | Source | History |
-|---------|--------|---------|
-| `gasoline` | BLS via FRED (5 US divisions) | Monthly series |
-| `crypto` | CoinGecko BTC/USD | 90-day daily |
-| `amazon` | Local Wireless Earbuds CSV | Per-seller prices |
-| `airlines` | DEL–BOM fare/cost estimates | Static (labelled) |
-| `rideshare` | Uber/Lyft per-mile estimates | Static (labelled) |
-
-Each loader builds a `MarketContext` (costs, firm names, Nash band, optional `price_series`). Failed live fetches surface a hard **SYNTHETIC FALLBACK** — not claimed as empirical.
-
----
-
-## Dashboard
-
-Interactive local / Vercel UI:
-
-- Autoscaling **price** + **Λ** charts with **observed market overlay** (secondary axis)
-- Live narrator, firm table, regulator alerts, scratchpad viewer
-- Demand shock mid-run · empirical Λ comparison panel · end-of-run verdict
-
----
-
-## Stack
-
-| Layer | Choice |
-|-------|--------|
-| Runtime | Python 3.10+, FastAPI, Uvicorn, WebSockets |
-| Models | Groq Allam 2 · Q-Learning · NumPy DQN · Hybrid RAG |
-| Embeddings | Ollama `nomic-embed-text` (optional) |
-| Data | BLS/FRED, CoinGecko, Pandas |
-| Infra | Docker Compose · Postgres/pgvector · n8n |
-| UI | HTML/CSS/JS · Chart.js · Vercel demo |
-
----
-
-## Repo map
-
-```text
-market/          MNL demand, Nash/monopoly, game loop
-agents/          Heuristic, RL, DQN, LLM (Groq), RAG
-regulator/       Λ monitor, NLP cluster, sentiment, shocks
-data_loaders/    MarketContext + 5 market adapters
-database/        schema, logger, pgvector memory
-analysis/        figures, RF classifier, forecaster, real_data
-dashboard/       landing + live app + demo trajectories
-n8n/             collusion alert workflow
-api_server.py    WebSocket stream + REST + webhooks
-run_simulation.py · start_echo.ps1 · docker-compose.yml
-```
-
----
-
-## References
-
-Calvano et al. (2020) *AER* · Fish et al. (2025) LLM collusion · Mnih et al. (2015) DQN · Anderson et al. (1992) discrete choice · Eckert (2013) gasoline
+*   **Calvano, E., et al. (2020).** *Artificial Intelligence, Algorithmic Pricing, and Collusion.* American Economic Review.
+*   **Anderson, S., de Palma, A., Thisse, J. (1992).** *Discrete Choice Theory of Product Differentiation.* MIT Press.
+*   **Mnih, V., et al. (2015).** *Human-level control through deep reinforcement learning.* Nature.
 
 ---
 
 <div align="center">
-
-**Aryan Raj** · [@ARYANRAJ1121](https://github.com/ARYANRAJ1121)
-
-[MIT License](LICENSE) · [Live demo](https://echo-green-pi.vercel.app)
-
+  <b>Developed by Aryan Raj</b><br>
+  Research & Development: Nikita Agarwal & Pranav Kudesia<br>
+  <i>MIT License</i>
 </div>
-
-## Team
-
-- Nikita Agarwal — Research / Development
-
-## Project Contributors
-
-- Pranav Kudesia — Research / Development
