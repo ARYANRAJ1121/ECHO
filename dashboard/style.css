@@ -1379,6 +1379,29 @@ input[type="number"] { width: 100px; }
 .summary-verdict.suspicious  { background: var(--yellow-bg); color: var(--yellow); }
 .summary-verdict.competitive { background: var(--green-bg); color: var(--green); }
 
+.summary-roster {
+    text-align: left;
+    margin: 0.75rem 0 0.4rem;
+    padding: 0.7rem 0.85rem;
+    background: #F3EDE4;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border);
+}
+.summary-roster-headline {
+    margin: 0 0 0.45rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.4;
+}
+.summary-roster ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
 .summary-pack-hint {
     margin: 0.6rem 0 0.9rem;
     font-size: 0.78rem;

@@ -414,9 +414,10 @@ function updateStrategyLabels(strategies) {
             
             const confPct = Math.round(strat.confidence * 100);
             
+            const firmLabel = (window._firmNames && window._firmNames[i]) ? window._firmNames[i] : `F${i+1}`;
             list.innerHTML += `
                 <div class="strategy-item">
-                    <span class="s-firm"><span class="firm-color-dot" style="background:${COLORS[i]}"></span>F${i+1}</span>
+                    <span class="s-firm"><span class="firm-color-dot" style="background:${COLORS[i]}"></span>${firmLabel}</span>
                     <span class="s-badge" style="background:${color}20; color:${color}; border: 1px solid ${color}40">${strat.strategy.toUpperCase()}</span>
                     <span class="s-conf">${confPct}% conf</span>
                 </div>
@@ -743,17 +744,33 @@ function addShockAnnotation(round, firmId) {
 // Summary Overlay
 // ══════════════════════════════════════
 
-function showSummary(data, regulator, analysis) {
+function showSummary(data, regulator, analysis, roster) {
     const overlay = document.getElementById('summary-overlay');
     const lambda = data.converged_collusion_index || data.final_collusion_index || 0;
     let verdictClass = 'competitive';
     let verdictText = '✅ COMPETITIVE — No significant collusion detected';
     if (lambda >= 0.7) {
         verdictClass = 'collusion';
-        verdictText = '🚨 COLLUSION DETECTED — Coordinated pricing observed';
+        verdictText = 'COLLUSION DETECTED — Coordinated pricing observed';
     } else if (lambda >= 0.3) {
         verdictClass = 'suspicious';
-        verdictText = '⚠️ SUSPICIOUS — Potential coordination patterns';
+        verdictText = 'SUSPICIOUS — Potential coordination patterns';
+    }
+
+    const packRoster = (analysis && analysis.cartel_roster) || roster;
+    let rosterBlock = '';
+    if (packRoster && packRoster.headline) {
+        const rows = (packRoster.firms || []).map((f) => {
+            const role = (f.role || '').replace('_', ' ');
+            const lam = (f.lambda == null) ? '—' : Number(f.lambda).toFixed(2);
+            return `<li><strong>${f.name}</strong> — ${role} (firm Λ ${lam})</li>`;
+        }).join('');
+        rosterBlock = `
+            <div class="summary-roster">
+                <p class="summary-roster-headline">${packRoster.headline}</p>
+                <ul>${rows}</ul>
+            </div>
+        `;
     }
 
     overlay.innerHTML = `
@@ -798,7 +815,8 @@ function showSummary(data, regulator, analysis) {
                 </div>
             ` : ''}
             <div class="summary-verdict ${verdictClass}">${verdictText}</div>
-            <p class="summary-pack-hint">Scroll down after Close for this run&rsquo;s charts (analysis/latest_run). Not the old files in analysis/figures.</p>
+            ${rosterBlock}
+            <p class="summary-pack-hint">Red bars in Run analysis = cartel ring (named firms). Lab labels from prices vs Nash/monopoly, not a court finding.</p>
             <button class="primary-btn summary-close" onclick="closeSummary()">Close &amp; view charts</button>
         </div>
     `;
@@ -1154,7 +1172,7 @@ function handleMessage(msg) {
         const verdict = finalLambda >= 0.7 ? 'collusion' : finalLambda >= 0.3 ? 'suspicious' : 'competitive';
         narratorDone(finalLambda, verdict);
 
-        showSummary(msg.data, msg.regulator, msg.analysis);
+        showSummary(msg.data, msg.regulator, msg.analysis, msg.cartel_roster);
 
         loadAnalysisPack(msg.analysis);
 

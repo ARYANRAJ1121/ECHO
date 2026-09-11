@@ -43,6 +43,83 @@ def _save(fig, path: str) -> None:
     plt.close(fig)
 
 
+def identify_cartel_roster(
+    prices: np.ndarray,
+    names: list[str],
+    nash: float | None,
+    monopoly: float | None,
+    tail: int = 50,
+) -> dict[str, Any]:
+    """Name which firms sit near monopoly vs Nash in the last `tail` rounds.
+
+    Per-firm Lambda_i = (mean price_i - Nash) / (monopoly - Nash).
+    This is a lab label from posted prices, not a legal finding.
+    """
+    n_firms = prices.shape[1]
+    names = (names or [f"Firm {i + 1}" for i in range(n_firms)])[:n_firms]
+    window = prices[-min(tail, len(prices)) :]
+    mean_p = window.mean(axis=0)
+
+    firms: list[dict[str, Any]] = []
+    span = None
+    if nash is not None and monopoly is not None:
+        span = float(monopoly) - float(nash)
+        if abs(span) < 1e-9:
+            span = None
+
+    for i in range(n_firms):
+        p = float(mean_p[i])
+        if span is None:
+            lam = None
+            role = "unknown"
+        else:
+            lam = (p - float(nash)) / span
+            if lam >= 0.7:
+                role = "cartel_ring"
+            elif lam >= 0.3:
+                role = "coordinating"
+            elif lam < 0:
+                role = "price_war"
+            else:
+                role = "competitive"
+        firms.append({
+            "firm_id": i,
+            "name": names[i],
+            "mean_price": round(p, 4),
+            "lambda": None if lam is None else round(float(lam), 4),
+            "role": role,
+        })
+
+    ring = [f["name"] for f in firms if f["role"] == "cartel_ring"]
+    coordinating = [f["name"] for f in firms if f["role"] == "coordinating"]
+    competitive = [f["name"] for f in firms if f["role"] in ("competitive", "price_war")]
+
+    if ring and not competitive and not coordinating:
+        headline = "Cartel ring (all firms): " + ", ".join(ring)
+    elif ring:
+        headline = "Cartel ring: " + ", ".join(ring)
+        if competitive:
+            headline += "  |  Competitive / undercutting: " + ", ".join(competitive)
+        if coordinating:
+            headline += "  |  Partial: " + ", ".join(coordinating)
+    elif coordinating:
+        headline = "No full ring. Partial coordination: " + ", ".join(coordinating)
+        if competitive:
+            headline += "  |  Competitive: " + ", ".join(competitive)
+    else:
+        headline = "No cartel ring. Competitive: " + ", ".join(competitive or names)
+
+    return {
+        "headline": headline,
+        "firms": firms,
+        "cartel_ring": ring,
+        "coordinating": coordinating,
+        "competitive": competitive,
+        "window_rounds": int(len(window)),
+        "note": "Roles from each firm's average price vs Nash/monopoly over the last rounds. Lab metric, not a court finding.",
+    }
+
+
 def build_run_pack(
     *,
     dataset: str,
@@ -170,6 +247,34 @@ def build_run_pack(
     _save(fig, os.path.join(out, "05_snapshot.png"))
     figures.append({"id": "snapshot", "file": "05_snapshot.png", "title": "Final price / profit / share"})
 
+    roster = identify_cartel_roster(prices, names, nash, monopoly)
+    fig, ax = plt.subplots(figsize=(9.5, 4.2))
+    y = np.arange(n_firms)
+    lams = [f["lambda"] if f["lambda"] is not None else 0.0 for f in roster["firms"]]
+    bar_colors = []
+    for f in roster["firms"]:
+        if f["role"] == "cartel_ring":
+            bar_colors.append("#B85A5A")
+        elif f["role"] == "coordinating":
+            bar_colors.append("#C17A4E")
+        elif f["role"] == "price_war":
+            bar_colors.append("#6B8CAE")
+        else:
+            bar_colors.append("#5A8F65")
+    ax.barh(y, lams, color=bar_colors)
+    ax.axvline(0.0, color="#5A8F65", ls="--", lw=1.1, label="Nash (0)")
+    ax.axvline(0.7, color="#B85A5A", ls=":", lw=1.1, label="Cartel ring (0.7)")
+    ax.axvline(1.0, color="#8A8070", ls="--", lw=0.9, label="Monopoly (1)")
+    ax.set_yticks(y)
+    ax.set_yticklabels(names)
+    ax.set_xlabel("Firm Lambda (last-window mean price vs Nash / monopoly)")
+    ax.set_title(roster["headline"][:90])
+    ax.legend(fontsize=7, loc="lower right")
+    ax.grid(True, axis="x", alpha=0.3)
+    _save(fig, os.path.join(out, "07_who_cartel.png"))
+    figures.append({"id": "roster", "file": "07_who_cartel.png", "title": "Who is in the cartel ring"})
+    print(f"  [Cartel roster] {roster['headline']}")
+
     # 6. Real overlay only when this dataset has history
     if real_avg_series and len(real_avg_series) >= 5:
         real = _arr(real_avg_series)
@@ -208,6 +313,7 @@ def build_run_pack(
         "mean_lambda": round(mean_l, 4),
         "final_avg_price": round(float(avg_p[-1]), 4),
         "verdict": verdict,
+        "cartel_roster": roster,
         "regulator": regulator or {},
         "sentiment_report": sentiment_report,
         "figures": figures,

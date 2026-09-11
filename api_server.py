@@ -621,6 +621,7 @@ async def simulate_endpoint(websocket: WebSocket):
             "forecast": forecast_data,
             "sentiment_report": sentiment_report,
             "analysis": analysis_pack,
+            "cartel_roster": (analysis_pack or {}).get("cartel_roster"),
         }))
 
         # n8n webhook: notify simulation complete
