@@ -127,6 +127,17 @@
                     <input type="number" id="rounds" value="100" min="10" max="100000">
                 </div>
                 <button id="start-btn" class="primary-btn">▶ Start Simulation</button>
+                <button id="pause-btn" class="ghost-btn" disabled>Pause</button>
+                <button id="stop-btn" class="ghost-btn" disabled>Stop</button>
+                <div class="control-group">
+                    <label for="sim-speed">Speed</label>
+                    <select id="sim-speed">
+                        <option value="0">Max</option>
+                        <option value="50" selected>Normal</option>
+                        <option value="200">Slow</option>
+                        <option value="500">Very slow</option>
+                    </select>
+                </div>
                 <button class="help-btn" id="help-btn" title="Show guide">?</button>
             </div>
         </header>
@@ -181,6 +192,7 @@
                 <div class="card glass-panel">
                     <div class="card-header">
                         <h2>Firm Performance</h2>
+                    <span class="text-muted" style="font-size:0.75rem;">Click a row to target that firm for a demand shock</span>
                     </div>
                     <div class="firm-table-container">
                         <table class="firm-table" id="firm-table">
@@ -390,8 +402,14 @@
                         <option value="3">Firm 4</option>
                         <option value="4">Firm 5</option>
                     </select>
-                    <button id="shock-btn" class="danger-btn" disabled>⚡ Trigger Shock (−30%)</button>
-                    <span class="text-muted" style="font-size:0.78rem;">Reduces selected firm's quality by 30%. Watch how competitors react.</span>
+                    <label for="shock-intensity">Hit</label>
+                    <select id="shock-intensity">
+                        <option value="0.15">15%</option>
+                        <option value="0.30" selected>30%</option>
+                        <option value="0.50">50%</option>
+                    </select>
+                    <button id="shock-btn" class="danger-btn" disabled>Trigger Shock</button>
+                    <span class="text-muted" style="font-size:0.78rem;">Cuts that firm's quality. Pause first if you want to watch the reaction round by round.</span>
                 </div>
                 <div class="shock-status" id="shock-status"></div>
             </div>
@@ -421,7 +439,7 @@
     <div class="summary-overlay hidden" id="summary-overlay"></div>
 
     <script src="demo-data.js?v=3"></script>
-    <script src="script.js?v=7"></script>
+    <script src="script.js?v=8"></script>
     <script>
         // Onboarding logic
         const overlay = document.getElementById('onboarding-overlay');

@@ -82,6 +82,9 @@ class SimulationState:
         self.sentiment_analyzer: ScratchpadSentimentAnalyzer | None = None
         self.strategy_classifier: AgentStrategyClassifier | None = None
         self.forecaster: PriceForecaster | None = None
+        self.paused: bool = False
+        self.stop_requested: bool = False
+        self.delay_ms: int = 50
 
 
 sim_state = SimulationState()
@@ -132,6 +135,8 @@ def get_simulation_status():
         "benchmarks": sim_state.benchmarks,
         "shock_events": sim_state.shock_events,
         "elapsed_seconds": round(time.time() - sim_state.start_time, 1) if sim_state.running else 0,
+        "paused": sim_state.paused,
+        "delay_ms": sim_state.delay_ms,
     }
 
 
@@ -202,10 +207,11 @@ def trigger_demand_shock(firm_id: int, req: ShockRequest = ShockRequest()):
             content={"error": f"Invalid firm_id. Must be 0-{sim_state.engine.demand_model.n_firms - 1}."},
         )
 
-    # Apply the shock: reduce quality for this firm
+    # Intensity is a fraction of current quality (0.3 = 30% reduction).
+    intensity = min(max(float(req.intensity), 0.05), 0.8)
     dm = sim_state.engine.demand_model
     old_quality = float(dm.quality[firm_id])
-    dm.quality[firm_id] -= req.intensity
+    dm.quality[firm_id] = old_quality * (1.0 - intensity)
     new_quality = float(dm.quality[firm_id])
 
     shock_event = {
@@ -221,6 +227,45 @@ def trigger_demand_shock(firm_id: int, req: ShockRequest = ShockRequest()):
     print(f"  *** SHOCK: Firm {firm_id} quality {old_quality:.3f} -> {new_quality:.3f} at round {sim_state.current_round}")
 
     return {"status": "shock_applied", "event": shock_event}
+
+
+class ControlRequest(BaseModel):
+    action: str = "pause"  # pause | resume | stop
+    delay_ms: int | None = None
+
+
+@app.post("/api/simulation/control")
+def control_simulation(req: ControlRequest):
+    """Pause, resume, stop, or change playback delay while a run is live."""
+    action = (req.action or "").lower()
+    if action == "speed" and req.delay_ms is not None:
+        sim_state.delay_ms = max(0, min(int(req.delay_ms), 2000))
+        return {"status": "ok", "delay_ms": sim_state.delay_ms, "paused": sim_state.paused}
+
+    if not sim_state.running:
+        return JSONResponse(status_code=400, content={"error": "No simulation is running."})
+
+    if action == "pause":
+        sim_state.paused = True
+    elif action == "resume":
+        sim_state.paused = False
+    elif action == "stop":
+        sim_state.stop_requested = True
+        sim_state.paused = False
+    elif action == "speed":
+        if req.delay_ms is not None:
+            sim_state.delay_ms = max(0, min(int(req.delay_ms), 2000))
+    else:
+        return JSONResponse(status_code=400, content={"error": "action must be pause, resume, stop, or speed"})
+
+    return {
+        "status": "ok",
+        "action": action,
+        "paused": sim_state.paused,
+        "stop_requested": sim_state.stop_requested,
+        "delay_ms": sim_state.delay_ms,
+    }
+
 
 # ──────────────────────────────────────────────
 # n8n Webhook Helper
@@ -314,6 +359,7 @@ async def simulate_endpoint(websocket: WebSocket):
         sim_state.total_rounds = n_rounds
         sim_state.running = True
         sim_state.start_time = time.time()
+        sim_state.delay_ms = max(0, min(int(config.get("delay_ms", 50)), 2000))
 
         # Load dataset
         loader = get_data_loader(dataset)
@@ -395,6 +441,12 @@ async def simulate_endpoint(websocket: WebSocket):
 
         # Run round by round
         for round_num in range(1, n_rounds + 1):
+            while sim_state.paused and not sim_state.stop_requested:
+                await asyncio.sleep(0.08)
+            if sim_state.stop_requested:
+                print(f"  Stop requested at round {round_num - 1}")
+                break
+
             sim_state.current_round = round_num
 
             record = engine._run_one_round(round_num)
@@ -538,7 +590,9 @@ async def simulate_endpoint(websocket: WebSocket):
                 await websocket.send_text(json.dumps(payload))
             else:
                 await websocket.send_text(json.dumps(payload))
-                await asyncio.sleep(0.05)
+                delay = sim_state.delay_ms / 1000.0
+                if delay > 0:
+                    await asyncio.sleep(delay)
 
         # Simulation complete
         summary = engine.summary()

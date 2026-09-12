@@ -8,6 +8,8 @@ let priceChart = null;
 let lambdaChart = null;
 let forecastChart = null;
 let isRunning = false;
+let isPaused = false;
+let demoPaused = false;
 let totalRounds = 100;
 let currentRound = 0;
 let alertCount = 0;
@@ -285,7 +287,19 @@ function initFirmTable() {
             <td class="firm-share">—</td>
             <td class="firm-delta"><span class="delta-flat">—</span></td>
         `;
+        tr.style.cursor = 'pointer';
+        tr.title = 'Click to target this firm for a demand shock';
+        tr.addEventListener('click', () => selectShockFirm(i));
         tbody.appendChild(tr);
+    }
+}
+
+function selectShockFirm(firmId) {
+    const sel = document.getElementById('shock-firm');
+    if (sel) sel.value = String(firmId);
+    for (let i = 0; i < 5; i++) {
+        const row = document.getElementById(`firm-row-${i}`);
+        if (row) row.classList.toggle('firm-row-selected', i === firmId);
     }
 }
 
@@ -639,8 +653,18 @@ function narratorDone(lambda, verdict) {
 // Demand Shock
 // ══════════════════════════════════════
 
+function shockIntensity() {
+    const el = document.getElementById('shock-intensity');
+    return el ? parseFloat(el.value) : 0.3;
+}
+
+function shockPctLabel() {
+    return `${Math.round(shockIntensity() * 100)}%`;
+}
+
 async function triggerShock() {
     const firmId = document.getElementById('shock-firm').value;
+    const intensity = shockIntensity();
     const btn = document.getElementById('shock-btn');
     btn.disabled = true;
     btn.textContent = 'Shocking...';
@@ -665,10 +689,10 @@ async function triggerShock() {
         }, 1000);
 
         addShockAnnotation(shockRound, parseInt(firmId));
-        addAlert(shockRound, 'alert', `⚡ Demand shock applied to ${shockedName} (quality −30%)`);
+        addAlert(shockRound, 'alert', `Demand shock applied to ${shockedName} (quality −${shockPctLabel()})`);
 
         btn.disabled = false;
-        btn.textContent = '⚡ Trigger Shock (−30%)';
+        btn.textContent = 'Trigger Shock';
         return;
     }
 
@@ -676,7 +700,7 @@ async function triggerShock() {
         const res = await fetch(`/api/simulation/shock/${firmId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ intensity: 0.3 }),
+            body: JSON.stringify({ intensity }),
         });
         const data = await res.json();
 
@@ -701,13 +725,13 @@ async function triggerShock() {
             addShockAnnotation(data.event.round, parseInt(firmId));
 
             // Add alert
-            addAlert(data.event.round, 'alert', `⚡ Demand shock applied to ${shockedName} (quality −30%)`);
+            addAlert(data.event.round, 'alert', `Demand shock applied to ${shockedName} (quality −${shockPctLabel()})`);
         }
     } catch (err) {
         alert('Failed to send shock: ' + err.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = '⚡ Trigger Shock (−30%)';
+        btn.textContent = 'Trigger Shock';
     }
 }
 
@@ -1163,9 +1187,9 @@ function handleMessage(msg) {
         badge.className = 'badge done';
         badge.textContent = 'Completed';
 
-        document.getElementById('start-btn').disabled = false;
-        document.getElementById('shock-btn').disabled = true;
         isRunning = false;
+        isPaused = false;
+        setLiveControls(false, false);
 
         // Narrator final verdict
         const finalLambda = msg.data.converged_collusion_index || msg.data.final_collusion_index || 0;
@@ -1190,13 +1214,79 @@ function handleMessage(msg) {
         badge.className = 'badge error';
         badge.textContent = 'Error';
 
-        document.getElementById('start-btn').disabled = false;
-        document.getElementById('shock-btn').disabled = true;
         isRunning = false;
+        isPaused = false;
+        setLiveControls(false, false);
 
         alert('Simulation Error: ' + msg.message);
         return;
     }
+}
+
+function setLiveControls(running, paused) {
+    const startBtn = document.getElementById('start-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const shockBtn = document.getElementById('shock-btn');
+    if (startBtn) startBtn.disabled = running;
+    if (stopBtn) stopBtn.disabled = !running;
+    if (shockBtn) shockBtn.disabled = !running;
+    if (pauseBtn) {
+        pauseBtn.disabled = !running;
+        pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+    }
+    const badge = document.getElementById('status-badge');
+    if (badge && running && paused) {
+        badge.className = 'badge idle';
+        badge.textContent = 'Paused';
+    } else if (badge && running && !paused) {
+        badge.className = 'badge running';
+        badge.textContent = 'Running';
+    }
+}
+
+async function sendControl(action, extra) {
+    const body = Object.assign({ action }, extra || {});
+    try {
+        await fetch('/api/simulation/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+    } catch (e) {
+        // Demo / Vercel has no control API.
+    }
+}
+
+async function togglePause() {
+    if (!isRunning) return;
+    isPaused = !isPaused;
+    demoPaused = isPaused;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        await sendControl(isPaused ? 'pause' : 'resume');
+    }
+    setLiveControls(true, isPaused);
+}
+
+async function stopSimulation() {
+    if (!isRunning) return;
+    demoPaused = false;
+    isPaused = false;
+    if (demoTimer) {
+        clearInterval(demoTimer);
+        demoTimer = null;
+    }
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        await sendControl('stop');
+        return;
+    }
+    isRunning = false;
+    setLiveControls(false, false);
+}
+
+function currentDelayMs() {
+    const el = document.getElementById('sim-speed');
+    return el ? parseInt(el.value, 10) : 50;
 }
 
 function startSimulation() {
@@ -1207,8 +1297,9 @@ function startSimulation() {
     totalRounds = rounds;
 
     isRunning = true;
-    document.getElementById('start-btn').disabled = true;
-    document.getElementById('shock-btn').disabled = false;
+    isPaused = false;
+    demoPaused = false;
+    setLiveControls(true, false);
 
     // Show/hide scratchpad panel based on mode
     const spPanel = document.getElementById('scratchpad-panel');
@@ -1246,7 +1337,7 @@ function startSimulation() {
             wsConnected = true;
             clearTimeout(wsTimeout);
             const dataset = document.getElementById('dataset').value;
-            ws.send(JSON.stringify({ mode, rounds, dataset }));
+            ws.send(JSON.stringify({ mode, rounds, dataset, delay_ms: currentDelayMs() }));
         };
 
         ws.onmessage = (event) => {
@@ -1270,9 +1361,9 @@ function startSimulation() {
                     badge.className = 'badge error';
                     badge.textContent = 'Disconnected';
                 }
-                document.getElementById('start-btn').disabled = false;
-                document.getElementById('shock-btn').disabled = true;
                 isRunning = false;
+                isPaused = false;
+                setLiveControls(false, false);
             }
         };
     } catch (e) {
@@ -1317,6 +1408,7 @@ function runDemoMode(mode, dataset) {
     const speed = mode === 'llm' ? 120 : mode === 'dqn' ? 40 : mode === 'rl' ? 20 : 30;
 
     demoTimer = setInterval(() => {
+        if (demoPaused) return;
         if (idx >= demo.rounds.length) {
             clearInterval(demoTimer);
             demoTimer = null;
@@ -1494,8 +1586,17 @@ document.addEventListener('DOMContentLoaded', () => {
     initAITabs();
 
     document.getElementById('start-btn').addEventListener('click', startSimulation);
+    document.getElementById('pause-btn').addEventListener('click', togglePause);
+    document.getElementById('stop-btn').addEventListener('click', stopSimulation);
     document.getElementById('load-validation').addEventListener('click', loadValidationData);
     document.getElementById('shock-btn').addEventListener('click', triggerShock);
+    document.getElementById('sim-speed').addEventListener('change', () => {
+        sendControl('speed', { delay_ms: currentDelayMs() });
+        if (demoTimer && isRunning) {
+            // Restart demo clock at the new cadence on next interval tick is enough;
+            // live WS reads delay_ms each round.
+        }
+    });
 
     // Hide scratchpad panel initially
     document.getElementById('scratchpad-panel').classList.add('hidden');

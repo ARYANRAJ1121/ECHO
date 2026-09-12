@@ -467,6 +467,30 @@ input[type="number"] { width: 100px; }
     transform: none;
 }
 
+.ghost-btn {
+    background: #FAF6F0;
+    color: #2B2620;
+    border: 1px solid #E5DED2;
+    padding: 0.55rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: var(--font-body);
+}
+.ghost-btn:hover:not(:disabled) {
+    border-color: #C17A4E;
+    color: #C17A4E;
+}
+.ghost-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.firm-table tr.firm-row-selected td {
+    background: rgba(193, 122, 78, 0.12);
+}
+
 .secondary-btn {
     background: transparent;
     color: #C17A4E;
