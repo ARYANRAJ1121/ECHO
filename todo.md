@@ -337,219 +337,171 @@ Core product is demo-ready. Items below are **extensions**, not blockers for viv
 
 ---
 
-## 🔮 Future Implementation
+## Phase 16: Dataset loaders (complete)
 
-> Extensions that would elevate ECHO from a course project to a publishable research platform.
+Calibrate the Bertrand stage game from named markets rather than a single toy parameter set.
 
----
+- [x] `MarketContext` and `MarketDataLoader` (`data_loaders/base.py`)
+- [x] US gasoline — BLS via FRED, five census divisions (`data_loaders/gasoline.py`)
+- [x] Crypto — CoinGecko BTC/USD across five venues (`data_loaders/crypto.py`)
+- [x] Amazon — local CSV, wireless earbuds (`data_loaders/amazon.py`)
+- [x] Indian airlines — static DEL–BOM parameters (`data_loaders/airlines.py`)
+- [x] Ride-sharing — static Uber/Lyft-style surge parameters (`data_loaders/rideshare.py`)
+- [x] `get_data_loader()` factory; `--dataset` on `run_simulation.py` (default: gasoline)
+- [x] All `build_*` paths consume `market_ctx`; live fetch failure is flagged, not silent
+- [x] Dashboard dataset selector; WebSocket forwards `dataset` to FastAPI
+- [x] `dataset_name` on `simulations`; n8n templates include dataset context
+- [x] `start_echo.ps1` fullrun uses `--dataset gasoline`
+- [x] Figure titles include the dataset name
+- [x] `scipy` in `requirements.txt`
 
-### F1: Multi-Model LLM Tournament 🧠
-
-**Goal:** Compare collusion behavior across different LLM architectures.
-
-- [ ] Add support for multiple LLM backends (GPT-4o, Claude, Gemini, Mistral)
-- [ ] Run identical market conditions with each model family
-- [ ] Compare: Which LLM colludes fastest? Hardest? Most resiliently?
-- [ ] Measure whether larger models (70B) collude differently than smaller ones (8B)
-- [ ] Cross-model experiments: mix GPT agents with Llama agents in the same market
-
-**Why it matters:** Regulators need to know if the collusion risk is model-specific or universal.
-
----
-
-### F2: Asymmetric Firms & Cost Heterogeneity 🏭
-
-**Goal:** Go beyond “different costs, same quality, no capacity.”
-
-- [x] Heterogeneous **marginal costs** per firm (loaders + logit)
-- [ ] Varying **quality** per firm (brand differentiation as a first-class experiment)
-- [ ] Capacity constraints
-- [ ] Entry/exit if unprofitable
-- [ ] Mixed brains in one market (e.g. 3 DQN + 2 undercutters) as a default UI mode
-
-**Research question:** "Does market asymmetry make collusion harder or just shift leadership?"
+Example: `python run_simulation.py --dataset crypto --mode dummy --rounds 50`
 
 ---
 
-### F3: Multi-Product Markets & Cross-Subsidization 🛒
+## Future work
 
-**Goal:** Extend beyond single-product to portfolio pricing.
-
-- [ ] Each firm sells 3-5 products simultaneously
-- [ ] Cross-elasticity of demand between products
-- [ ] Bundling strategies (discount product A to drive sales of product B)
-- [ ] Test: Can agents learn to coordinate across product categories?
-
-**Why it matters:** Amazon doesn't compete on one product — it uses loss leaders.
-This captures a more realistic collusion surface.
+These items are **out of scope for the submitted major project**. They form a research and engineering backlog if ECHO is extended toward a publication-grade laboratory. Heterogeneous **marginal costs** are already in the engine; remaining F2 items are listed for completeness.
 
 ---
 
-### F4: Communication Channel Experiments 💬
+### F1. Cross-model LLM evaluation
 
-**Goal:** Study how information sharing affects collusion.
+Compare tacit coordination under a **common market protocol** across hosted and local language models (Groq Allam 2 7B today; additional Groq or OpenAI-compatible endpoints; optional local Ollama chat).
 
-- [ ] Channel 0: No communication (current setup — agents only see prices)
-- [ ] Channel 1: Public price announcements (agents broadcast intended prices)
-- [ ] Channel 2: Private messaging (bilateral agent-to-agent messages)
-- [ ] Channel 3: Shared scratchpad (all agents can read each other's reasoning)
-- [ ] Measure: How does communication transparency affect Lambda convergence?
+- [ ] Pluggable LLM backend behind `LLMPricingAgent`
+- [ ] Identical seeds, round count, and `MarketContext` per model family
+- [ ] Report time-to-threshold, peak and terminal Λ, and scratchpad intent rates
+- [ ] Optional mixed-architecture oligopoly (two model families in one market)
 
-**Research question:** "Is tacit collusion fundamentally different from explicit coordination when both use LLMs?"
-
----
-
-### F5: Dynamic Market Conditions 🌊
-
-**Goal:** Add realistic market turbulence that challenges collusive equilibria.
-
-- [ ] Seasonal demand fluctuations (sinusoidal demand cycles)
-- [ ] Random external shocks (supply chain disruptions, regulation changes)
-- [ ] Consumer behavior shifts (price sensitivity changes over time)
-- [ ] New entrant injection mid-simulation (disruptive competitor appears)
-- [ ] Market growth/contraction (expanding or shrinking total demand)
-- [ ] Test: How resilient is AI collusion to market turbulence?
+**Rationale.** Establish whether high Λ is an artefact of one 7B checkpoint or a broader property of language-model pricers.
 
 ---
 
-### F6: Regulatory Intervention Simulator ⚖️
+### F2. Richer firm heterogeneity
 
-**Goal:** Test whether regulatory tools actually break AI collusion.
+- [x] Firm-specific marginal costs (`MarketContext.marginal_costs`)
+- [ ] Firm-specific quality as an experimental factor
+- [ ] Capacity constraints and rationing
+- [ ] Exit when continuation value is negative
+- [ ] Mixed agent classes in one run (for example DQN majors versus heuristic undercutters) as a first-class dashboard mode
 
-- [ ] Price ceiling enforcement (regulator caps maximum price)
-- [ ] Mandatory price transparency (all prices public with delay)
-- [ ] Leniency program simulation (first defector gets immunity)
-- [ ] Algorithmic audit requirement (agents must explain pricing decisions)
-- [ ] Market structure intervention (forced divestiture — split agent pool)
-- [ ] Measure: Which regulatory tool is most effective against algorithmic collusion?
-
-**Why it matters:** Regulators (CCI, DOJ, EU DMA) need evidence-based policy recommendations. This module would directly inform antitrust enforcement strategy.
+**Research question.** Does asymmetry destabilise tacit coordination, or does it only reassign price leadership?
 
 ---
 
-### F7: Advanced Detection — Graph Neural Networks 🕸️
+### F3. Multi-product demand
 
-**Goal:** Upgrade the detection pipeline from statistical methods to deep learning.
+Extend multinomial logit demand from a single good to a small product portfolio with cross-elasticities and optional bundling, so coordination can be studied across categories rather than one fare or one SKU.
 
-- [ ] Model the market as a graph (firms = nodes, price correlations = edges)
-- [ ] Train a GNN to classify market states as competitive/suspicious/collusive
-- [ ] Temporal graph: track how the interaction graph evolves over rounds
-- [ ] Attention mechanism to identify the "ringleader" firm
-- [ ] Anomaly detection with autoencoders (learn "normal" market and flag deviations)
-- [ ] Compare GNN detection accuracy vs current Random Forest + Lambda pipeline
+- [ ] Simultaneous pricing of several products per firm
+- [ ] Cross-elasticity / nested logit (or equivalent)
+- [ ] Bundling and loss-leader experiments
+- [ ] Measure whether high Λ on one product spills into another
 
 ---
 
-### F8: Multi-Market Simulation 🌐
+### F4. Information structure
 
-**Goal:** Scale from one market to an interconnected economy.
+Hold the stage game fixed and vary what agents observe.
 
-- [ ] Multiple simultaneous markets (e.g., 5 cities, each with 5 firms)
-- [ ] Cross-market spillover (price change in Market A affects demand in Market B)
-- [ ] Firm presence across markets (Amazon operates in all cities)
-- [ ] Test: Does collusion in one market spread contagiously to others?
-- [ ] Network effects and platform dynamics
+| Protocol | Information set |
+|----------|-----------------|
+| Baseline (current) | Posted prices and profits only |
+| Public announcements | Intended next-round prices |
+| Private messages | Bilateral cheap talk |
+| Shared scratchpads | LLM reasoning visible to rivals |
 
-**Why it matters:** Real algorithmic pricing operates across geographies. The RealPage lawsuit involved coordinated pricing across multiple rental markets.
-
----
-
-### F9: Real-Time API Data Integration 📊
-
-**Goal:** Replace simulated data with live market feeds.
-
-- [ ] Integrate live gas station pricing APIs (GasBuddy, EIA real-time)
-- [ ] Web scraping pipeline for e-commerce prices (Amazon, Flipkart)
-- [ ] Stream real price data into the dashboard alongside simulation
-- [ ] Compute real-world Lambda in real-time and compare with simulated Lambda
-- [ ] Alert system: flag real markets that show simulation-like collusion patterns
+**Research question.** How do Λ and time-to-alert change as the information structure moves from tacit to explicit?
 
 ---
 
-### F10: Explainable AI (XAI) for Regulators 📋
+### F5. Non-stationary markets
 
-**Goal:** Make the detection pipeline interpretable for non-technical regulators.
-
-- [ ] SHAP values for strategy classifier decisions
-- [ ] Natural language report generation ("This market shows collusion because...")
-- [ ] Evidence packaging: auto-generate a regulatory filing from detection results
-- [ ] Counterfactual analysis: "If Firm 3 had priced competitively, total welfare would be X% higher"
-- [ ] Interactive explainability dashboard for regulators
+- [ ] Seasonal or trending `market_size` / μ
+- [ ] Cost or quality shocks that are not the regulator sting
+- [ ] Mid-run entry of an additional firm
+- [ ] Robustness of learned high-price equilibria under those perturbations
 
 ---
 
-### F11: Mobile-Responsive Dashboard + PWA 📱
+### F6. Policy counterfactuals
 
-**Goal:** Make the dashboard accessible on any device.
+Instrument the engine with optional constraints and compare Λ and consumer-side outcomes (outside share, average price versus Nash):
 
-- [ ] Responsive CSS redesign for mobile/tablet
-- [ ] Progressive Web App (PWA) with offline support
-- [ ] Push notifications for collusion alerts
-- [ ] Touch-friendly chart interactions
-- [ ] QR code for quick access during viva presentations
+- price ceilings
+- delayed public transparency
+- leniency / first-defector bonus
+- mandatory textual justification (LLM modes)
+- forced split of the agent pool
 
----
-
----
-
-## Phase 16: Real-World Dataset Integration ✅
-
-**Goal:** Replace all synthetic/hardcoded simulation parameters with live, real-world market data.
-
-- [x] `MarketContext` dataclass and `MarketDataLoader` ABC (`data_loaders/base.py`)
-- [x] US Gasoline loader — **BLS via FRED**, 5 **census divisions** (`data_loaders/gasoline.py`)
-- [x] Crypto Exchanges loader — CoinGecko API, BTC/USD across 5 exchanges (`data_loaders/crypto.py`)
-- [x] Amazon Marketplace loader — Local CSV, Wireless Earbuds pricing (`data_loaders/amazon.py`)
-- [x] Indian Airlines loader — Static DEL-BOM route params (`data_loaders/airlines.py`)
-- [x] Ride-sharing loader — Static Uber/Lyft surge pricing (`data_loaders/rideshare.py`)
-- [x] `get_data_loader()` factory in `data_loaders/__init__.py`
-- [x] `--dataset` CLI flag in `run_simulation.py` (default: `gasoline`)
-- [x] All `build_*` functions take `market_ctx`; live fetch may still **fallback** (flagged, not silent)
-- [x] Dashboard dataset dropdown selector (`dashboard/app.html`)
-- [x] WebSocket passes `dataset` to backend (`dashboard/script.js`)
-- [x] `api_server.py` loads dataset via `get_data_loader()` and injects into simulation
-- [x] Database schema: `dataset_name` column in `simulations` table
-- [x] n8n alert templates include dataset context
-- [x] `start_echo.ps1` passes `--dataset gasoline` in fullrun mode
-- [x] `analysis/plots.py` includes dataset name in figure titles
-- [x] Removed all dead `if True: ... else:` branches from `run_simulation.py`
-- [x] Added `scipy` to `requirements.txt`
-
-**Deliverable:** `python run_simulation.py --dataset crypto --mode dummy --rounds 50` runs on live BTC data.
+This remains a **laboratory** for CCI- and DOJ-style questions. Λ is an index, not a court finding.
 
 ---
 
-### F12: Benchmark Suite & Reproducibility Package 📦
+### F7. Graph-based detection
 
-**Goal:** Make ECHO a standard benchmark for algorithmic collusion research.
+Represent firms as nodes and contemporaneous price (or scratchpad) similarity as edges. Train a temporal graph model to classify market regimes and to rank likely price leaders; report accuracy against Λ-based labels and against the current Random Forest.
 
-- [ ] Optional **LangSmith or Langfuse** on Groq (`_call_llm`) — traces + format eval; Lambda stays the collusion metric
-- [ ] Standardized experiment configs (JSON/YAML)
-- [ ] Reproducibility scripts (seed everything, deterministic runs)
-- [ ] Pre-computed result datasets for comparison
-- [ ] Docker one-command full experiment reproduction
-- [ ] Formal benchmark metrics beyond Lambda (welfare loss, consumer surplus, Gini index)
-- [ ] LaTeX-ready figure export
-- [ ] CI/CD pipeline with automated testing
+- [ ] Static and temporal graphs of the oligopoly
+- [ ] Regime classification (competitive / watch / collusive)
+- [ ] Leadership ranking versus `identify_cartel_roster()`
+- [ ] Ablation versus LambdaMonitor + RF
 
 ---
 
-### Future Implementation Priority Matrix
+### F8. Linked markets
 
-| Priority | Extension | Effort | Impact | Research Value |
-|----------|-----------|--------|--------|----------------|
-| 🔴 High | F1: Multi-Model LLM Tournament | Medium | High | 🔥🔥🔥 |
-| 🔴 High | F6: Regulatory Intervention Simulator | Medium | High | 🔥🔥🔥 |
-| 🟡 Medium | F2: Asymmetric Firms | Medium | High | 🔥🔥 |
-| 🟡 Medium | F4: Communication Channels | Medium | High | 🔥🔥🔥 |
-| 🟡 Medium | F5: Dynamic Market Conditions | Low | Medium | 🔥🔥 |
-| 🟡 Medium | F10: Explainable AI for Regulators | Medium | High | 🔥🔥 |
-| 🟢 Low | F3: Multi-Product Markets | High | Medium | 🔥🔥 |
-| 🟢 Low | F7: GNN Detection | High | Medium | 🔥🔥🔥 |
-| 🟢 Low | F8: Multi-Market Simulation | High | High | 🔥🔥🔥 |
-| 🟢 Low | F9: Real-Time API Data | Medium | Medium | 🔥 |
-| 🟢 Low | F11: Mobile Dashboard + PWA | Low | Low | 🔥 |
-| 🟢 Low | F12: Benchmark Suite | Medium | Medium | 🔥🔥 |
+Several Bertrand markets with overlapping firms and demand spillovers, to study whether coordination in one geography or product line transmits to another (motivated by multi-market algorithmic pricing, including RealPage-style settings).
+
+---
+
+### F9. Additional market telemetry
+
+Periodic ingestion of further public series **beyond** the existing FRED, CoinGecko, and CSV loaders, with an explicit provenance flag. Overlays remain **calibration and comparison**; dashboard ticks are simulated Bertrand prices, not live exchange matches. Any retailer crawl must respect robots.txt and terms of service, or be omitted.
+
+---
+
+### F10. Explainability for non-specialist readers
+
+- [ ] SHAP (or equivalent) attributions on the strategy classifier
+- [ ] Structured narrative reports grounded in Nash, monopoly, Λ, and shock response
+- [ ] Simple counterfactuals (if firm *i* had priced at Nash…)
+- [ ] Keep LLM-as-judge **off** the official collusion metric
+
+---
+
+### F11. Dashboard hardening
+
+Responsive layout, optional PWA, and tighter mobile chart UX. Secondary to the research extensions above.
+
+---
+
+### F12. Reproducibility, evaluation, and observability
+
+- [ ] JSON/YAML experiment manifests and fixed seeds
+- [ ] Welfare / consumer-surplus style supplements to Λ
+- [ ] CI for unit tests on demand, band calibration, and roster logic
+- [ ] Optional **LangSmith or Langfuse** on Groq generations (latency, parse success, cost). Λ remains the economic score.
+
+---
+
+### Indicative priority
+
+| Priority | Item | Effort | Expected contribution |
+|----------|------|--------|------------------------|
+| High | F1 Cross-model LLM evaluation | Medium | External validity of LLM collusion |
+| High | F6 Policy counterfactuals | Medium | Maps the lab to enforcement questions |
+| Medium | F2 Remaining heterogeneity and mixed agents | Medium | Closer industry structure |
+| Medium | F4 Information structure | Medium | Tacit versus explicit coordination |
+| Medium | F5 Non-stationary demand | Low | Robustness of high-Λ equilibria |
+| Medium | F10 Explainability | Medium | Readable evidence packs |
+| Medium | F12 Reproducibility and LLM tracing | Medium | Credible experiments |
+| Lower | F3 Multi-product demand | High | Broader IO realism |
+| Lower | F7 Graph detection | High | Alternative detector |
+| Lower | F8 Linked markets | High | Contagion of coordination |
+| Lower | F9 Additional live feeds | Medium | Richer overlays |
+| Lower | F11 Mobile dashboard | Low | Presentation polish |
 
 ---
 
