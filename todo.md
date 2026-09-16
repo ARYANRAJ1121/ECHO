@@ -29,12 +29,11 @@ math engine that computes: "given 5 prices, who sells how much, and who profits?
   - Runs N rounds of the Bertrand pricing game
   - Collects prices from agents, computes outcomes, stores history
 - [x] Heuristic dummy agents (`agents/heuristic_agent.py`)
-  - SteadyAgent: always charges cost + fixed markup
-  - FollowerAgent: moves toward market average price
-  - UndercutAgent: undercuts the cheapest rival
+  - SteadyAgent / FollowerAgent / UndercutAgent
+  - Markups are **fractions of the Nash–monopoly span** (not a global cost+₹0.50)
 - [x] Orchestrator (`run_simulation.py`)
-  - CLI: `python run_simulation.py --mode dummy --rounds 50`
-- [x] First result: Lambda = 0.06 (no collusion with dummy agents)
+  - CLI: `python run_simulation.py --dataset gasoline --mode dummy --rounds 50`
+- [x] Control-group result: heuristic Λ **~0.15** on calibrated markets (near Nash)
 
 **Deliverable:** `python run_simulation.py --mode dummy` works.
 
@@ -69,23 +68,16 @@ math engine that computes: "given 5 prices, who sells how much, and who profits?
 **Goal:** Replace dummy agents with real AI that makes pricing decisions.
 
 - [x] LLM agent class (`agents/llm_agent.py`)
-  - Sends market state to Ollama API (localhost:11434)
-  - Parses structured output: `<scratchpad>` + `<price>`
-  - Retry logic + fallback pricing if LLM gives garbage
-- [x] Prompt engineering
-  - System: "You are a profit-maximizing pricing manager"
-  - User: last 5 rounds of prices + profits for all firms
-  - Output format: XML tags for reliable parsing
-  - Key: prompt does NOT mention collusion (we observe if it emerges)
+  - Groq API, default model **`allam-2-7b`** (`GROQ_API_KEY`)
+  - Parses `<scratchpad>` + `<price>`; retries + fallback if parse fails
+  - Prompt uses **this dataset's** cost, floor, ceiling, currency (not a ₹1–₹5 toy box)
+- [x] Prompt does NOT mention collusion (we observe if it emerges)
 - [x] 5 independent LLM agent instances
-- [x] Scratchpad history stored in memory
-- [x] Save scratchpads to PostgreSQL (`database/db.py`)
+- [x] Scratchpads stored in memory + optional PostgreSQL
 
-**Deliverable:** `python run_simulation.py --mode llm --rounds 3` works.
+**Deliverable:** `python run_simulation.py --mode llm --rounds 3` with a Groq key.
 
-**First result:** Lambda = 20.6 (vs 0.06 for heuristic agents).
-LLM agents priced at 2x-3x Nash level. Scratchpads show agents reasoning
-about competitor behavior and choosing not to undercut. Textbook tacit collusion.
+**Typical result (calibrated band):** LLM Λ **~0.80–0.90**. Scratchpads often reason about avoiding fare wars. Ollama is **not** required for chat — only for embeddings (RAG / NLP).
 
 ---
 
@@ -150,20 +142,16 @@ about competitor behavior and choosing not to undercut. Textbook tacit collusion
 
 **Goal:** Ground the simulation in real-world pricing data.
 
-- [x] Download US EIA gasoline price data (FRED API, free, public domain)
-- [x] Generate calibrated Amazon marketplace data (6 categories, 557 listings)
-- [x] Identify product categories with 5+ competing sellers
-- [x] Calculate real-world Lambda values (Lambda_proxy = 1 - CoV)
-- [x] Compare simulated vs real Lambda distributions
-- [x] Figure 8: Empirical Validation (4-panel: time series, distribution, categories, violin)
-- [x] Figure 9: US Gasoline Prices by Region
-- [x] Figure 10: Amazon Price Distribution by Category
-- [x] JSON validation report (`analysis/data/validation_report.json`)
-- [x] Integrated into CLI: `python run_simulation.py --mode dummy --rounds 50 --validate`
+- [x] Download **BLS** average US gasoline via **FRED** (census divisions — not dead EIA PADD IDs)
+- [x] Amazon marketplace CSV (wireless earbuds)
+- [x] CoinGecko 90-day BTC/USD (crypto loader)
+- [x] Static airlines (DEL–BOM) and rideshare parameter sets
+- [x] `is_fallback` + dashboard warning when a live fetch fails
+- [x] Lambda_proxy on observed series (1 − CoV) — **not** the same as sim Λ
+- [x] Figures 8–10 style empirical plots via `analysis/generate_all_figures.py` / `plots.py`
+- [x] CLI: `python run_simulation.py --mode dummy --rounds 50 --validate`
 
-**Key findings:**
-- Gasoline: Mean Lambda = 0.91 (high coordination, as expected for homogeneous good)
-- Amazon: Mean Lambda = 0.87 (moderate coordination within product categories)
+**Note:** Dashboard price lines are **simulated**. Real series **calibrate** and overlay. Vercel cannot write new validation dumps.
 
 ---
 
@@ -213,31 +201,23 @@ Same outcome, fundamentally different mechanism.
 **Goal:** Build a live demo for viva presentations.
 
 - [x] FastAPI backend (`api_server.py`)
-  - `GET /api/simulation/status` — current round + Lambda
-  - `GET /api/simulation/history` — full round history
-  - `GET /api/agents/{firm_id}/scratchpad` — read agent reasoning
-  - `GET /api/validation` — empirical validation data
-  - `POST /api/simulation/shock/{firm_id}` — trigger demand shock
-  - WebSocket `/ws/simulate` — real-time round streaming
-- [x] Dashboard (`dashboard/index.html`, `style.css`, `script.js`)
-  - Real-time price trajectory chart (Chart.js, 5 firms + benchmarks)
-  - Lambda trajectory chart with color-coded zones (0.3 watch, 0.7 alert)
-  - Live firm performance table (price, profit, share, delta)
-  - Regulator gauge with severity glow effects
-  - Scratchpad viewer (tabbed, per-firm, keyword highlighting)
-  - Collusion alert feed (watch/warning/alert levels)
-  - Demand shock control panel with firm selector
-  - Shock annotations on charts (vertical lines)
-  - Summary overlay with verdict (competitive/suspicious/collusion)
-  - Progress bar + smart round defaults per agent mode
-- [x] Premium glassmorphism UI with dark mode, micro-animations
-- [x] LLM agent mode support (streams scratchpads over WebSocket)
+  - Status / history / scratchpad / validation REST
+  - `POST /api/simulation/shock/{firm_id}` — quality cut as a **fraction** (15/30/50%)
+  - `POST /api/simulation/control` — pause / resume / stop / speed
+  - `GET /api/analysis/latest` — last run pack JSON
+  - WebSocket `/ws/simulate` — live rounds + summary + `cartel_roster`
+- [x] Dashboard **`dashboard/app.html`** (not only `index.html`)
+  - Chart.js prices (5 firms + Nash/monopoly; optional real overlay)
+  - Lambda chart + gauge + streak alerts
+  - Firm table (click a **named** row to target a shock)
+  - Pause / Stop / Speed
+  - Scratchpad viewer (LLM modes)
+  - Summary overlay + **named cartel ring**
+  - **Run analysis** gallery from `analysis/latest_run/`
+- [x] Light editorial UI (cache-bust `script.js?v=`)
+- [x] Demo fallback when WebSocket is missing (Vercel)
 
-**Viva demo script:**
-> "Watch these 5 AI agents. Day 1: they're competing, prices near Nash.
-> Day 340: Lambda crosses 0.7 — collusion has emerged.
-> Now I trigger a demand shock on Firm 3...
-> See? All 5 firms adjusted prices. That's cartel behavior."
+**Viva demo:** localhost `.\start_echo.ps1 quick` → Airlines + DQN → watch Λ vs Nash/monopoly → Pause + shock one carrier → finish → roster chart.
 
 ---
 
@@ -250,11 +230,11 @@ Same outcome, fundamentally different mechanism.
   - [x] Forward pass: ReLU activations + linear output
   - [x] Backpropagation with MSE loss and gradient clipping
   - [x] Experience replay buffer (stores 10K transitions)
-  - [x] Target network with periodic sync (every 100 rounds)
+  - [x] Target network with periodic sync (every **100** training steps)
   - [x] Epsilon-greedy with decay schedule
-- [x] State representation: prices + profits + market shares (15-dim)
-- [x] Action space: discretized price grid (same as Q-Learning)
-- [x] Demonstrates convergent supra-competitive pricing
+- [x] State: **5** continuous features (own/rival price & profit, round_norm) — not a 15-dim table
+- [x] Action space: 15-level grid inside `resolve_price_band()`
+- [x] Typical Λ **~0.61–0.85** (e.g. airlines DQN 500 rounds can sit ~0.83)
 - [x] CLI: `python run_simulation.py --mode dqn --rounds 500`
 
 **Key contribution:** Collusion emerges from DQN agents built entirely from scratch
@@ -278,8 +258,7 @@ architecture-independent — it's a property of the market dynamics, not the lea
 - [x] 9 engineered features per firm per round
   - Price relative to Nash/Monopoly, profit margin, market share
   - Price volatility, round momentum, competitor gap
-- [x] Labels: competitive, cooperative, exploratory, predatory
-- [x] Classification report with accuracy + per-class metrics
+- [x] Labels: competitive, cooperative, exploratory, predatory (**rule auto-labels**, then RF — can disagree with market Λ; trust the gauge first)
 
 ### Method 6: Price Forecaster (`analysis/forecaster.py`)
 - [x] Linear Regression with lagged price features
@@ -311,7 +290,7 @@ architecture-independent — it's a property of the market dynamics, not the lea
 - [x] All 4 modes fully interactive in browser
 - [x] Demand shocks + empirical validation working in demo mode
 
-**Deliverable:** Public URL for teammates and viva evaluators — no setup required.
+**Deliverable:** Public URL for **static** demo. Real Groq / DQN / `latest_run` still need localhost FastAPI.
 
 ---
 
@@ -319,22 +298,43 @@ architecture-independent — it's a property of the market dynamics, not the lea
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | Market simulation engine (MNL demand, Nash/Monopoly solvers) | ✅ Complete |
-| 2 | Docker + PostgreSQL infrastructure | ✅ Complete |
-| 3 | LLM pricing agents (Ollama + scratchpad parsing) | ✅ Complete |
-| 4 | RAG episodic memory (hybrid pgvector + SQL) | ✅ Complete |
-| 5 | Collusion detection pipeline (3 methods → 6 methods) | ✅ Complete |
-| 5.5 | Empirical validation (EIA gasoline, Amazon) | ✅ Complete |
-| 6 | Q-Learning RL baseline agents | ✅ Complete |
-| 7 | Analysis & visualization (6 research figures) | ✅ Complete |
-| 8 | FastAPI + live dashboard | ✅ Complete |
-| 9 | Deep Q-Network (DQN) agent | ✅ Complete |
-| 10 | NLP sentiment + strategy classifier + price forecasting | ✅ Complete |
-| 11 | Vercel deployment with interactive demo mode | ✅ Complete |
+| 1 | Market engine (MNL, Nash, monopoly, Lambda) | ✅ |
+| 2 | Docker + PostgreSQL + pgvector | ✅ |
+| 3 | LLM agents (**Groq Allam 2 7B**) | ✅ |
+| 4 | RAG (Groq + Ollama embeddings + pgvector) | ✅ |
+| 5 | Lambda + NLP cluster + demand shock | ✅ |
+| 5.5 | Empirical overlays (BLS/FRED, Amazon CSV, CoinGecko) | ✅ |
+| 6 | Q-Learning baseline | ✅ |
+| 7 | Paper-style figures (`analysis/figures/`) | ✅ |
+| 8 | FastAPI + **app.html** live dashboard | ✅ |
+| 9 | NumPy DQN | ✅ |
+| 10 | Sentiment + RF strategy + forecaster | ✅ |
+| 11 | Vercel static demo | ✅ |
+| 16 | Five `data_loaders` + `--dataset` | ✅ |
+| 12 | Scale-invariant band, run pack, roster, live controls | ✅ |
 
-> **All 11 phases complete.** The project is fully functional — simulation, detection, analysis, dashboard, and deployment.
+Core product is demo-ready. Items below are **extensions**, not blockers for viva.
 
 ---
+
+## Phase 12: Calibration, analysis pack, live controls ✅
+
+**Goal:** Make Λ comparable across markets and make the dashboard a viva lab.
+
+- [x] `resolve_price_band()` — floor/ceiling around **this** Nash and monopoly
+- [x] Per-firm `marginal_costs` in `Observation` / logit
+- [x] Heuristic targets as **fractions of the Nash–monopoly span**
+- [x] `analysis/run_pack.py` — wipe `analysis/latest_run/` each run; 01–07 PNGs + `summary.json`
+- [x] `identify_cartel_roster()` — named firms vs last-window firm-Λ
+- [x] Serve pack at `/run-analysis` + overlay on Simulation Complete
+- [x] Pause / Resume / Stop / speed (`POST /api/simulation/control`)
+- [x] Shock intensity as **percent of quality**; click firm row to target
+- [x] `start_echo.ps1` — `quick` / `nollm` / `fullrun`; Groq key check
+- [x] n8n workflow + payload flatten (`n8n/collusion_alert_workflow.json`)
+- [x] Docs: `echo_project_guide.md` (DEL–BOM story, current stack), viva pack generator
+
+**Not in repo (optional later):** LangSmith / Langfuse tracing on Groq.
+
 ---
 
 ## 🔮 Future Implementation
@@ -359,13 +359,13 @@ architecture-independent — it's a property of the market dynamics, not the lea
 
 ### F2: Asymmetric Firms & Cost Heterogeneity 🏭
 
-**Goal:** Remove the symmetry assumption — real markets have firms of different sizes.
+**Goal:** Go beyond “different costs, same quality, no capacity.”
 
-- [ ] Heterogeneous cost structures (e.g., Firm 1 has cost=0.8, Firm 3 has cost=1.2)
-- [ ] Varying quality parameters (brand differentiation)
-- [ ] Capacity constraints (firm can only serve X% of market)
-- [ ] Entry/exit dynamics — firms can leave if unprofitable
-- [ ] Test: Do stronger firms lead collusion? Do weak firms defect?
+- [x] Heterogeneous **marginal costs** per firm (loaders + logit)
+- [ ] Varying **quality** per firm (brand differentiation as a first-class experiment)
+- [ ] Capacity constraints
+- [ ] Entry/exit if unprofitable
+- [ ] Mixed brains in one market (e.g. 3 DQN + 2 undercutters) as a default UI mode
 
 **Research question:** "Does market asymmetry make collusion harder or just shift leadership?"
 
@@ -497,14 +497,14 @@ This captures a more realistic collusion surface.
 **Goal:** Replace all synthetic/hardcoded simulation parameters with live, real-world market data.
 
 - [x] `MarketContext` dataclass and `MarketDataLoader` ABC (`data_loaders/base.py`)
-- [x] US Gasoline loader — FRED API, 5 PADD regions, live weekly prices (`data_loaders/gasoline.py`)
+- [x] US Gasoline loader — **BLS via FRED**, 5 **census divisions** (`data_loaders/gasoline.py`)
 - [x] Crypto Exchanges loader — CoinGecko API, BTC/USD across 5 exchanges (`data_loaders/crypto.py`)
 - [x] Amazon Marketplace loader — Local CSV, Wireless Earbuds pricing (`data_loaders/amazon.py`)
 - [x] Indian Airlines loader — Static DEL-BOM route params (`data_loaders/airlines.py`)
 - [x] Ride-sharing loader — Static Uber/Lyft surge pricing (`data_loaders/rideshare.py`)
 - [x] `get_data_loader()` factory in `data_loaders/__init__.py`
 - [x] `--dataset` CLI flag in `run_simulation.py` (default: `gasoline`)
-- [x] All `build_*` simulation functions require `market_ctx` (no more synthetic fallback)
+- [x] All `build_*` functions take `market_ctx`; live fetch may still **fallback** (flagged, not silent)
 - [x] Dashboard dataset dropdown selector (`dashboard/app.html`)
 - [x] WebSocket passes `dataset` to backend (`dashboard/script.js`)
 - [x] `api_server.py` loads dataset via `get_data_loader()` and injects into simulation
@@ -523,6 +523,7 @@ This captures a more realistic collusion surface.
 
 **Goal:** Make ECHO a standard benchmark for algorithmic collusion research.
 
+- [ ] Optional **LangSmith or Langfuse** on Groq (`_call_llm`) — traces + format eval; Lambda stays the collusion metric
 - [ ] Standardized experiment configs (JSON/YAML)
 - [ ] Reproducibility scripts (seed everything, deterministic runs)
 - [ ] Pre-computed result datasets for comparison
@@ -552,4 +553,4 @@ This captures a more realistic collusion surface.
 
 ---
 
-*Last updated: August 2026*
+*Last updated: September 2026*
