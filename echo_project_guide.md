@@ -2,7 +2,8 @@
 
 **Emergent Collusion in Heterogeneous Oligopolies**
 
-> A simulation framework that proves AI pricing agents spontaneously learn to cheat — and builds the tools to catch them.
+> Lab + dashboard: AI pricers, Lambda vs Nash/monopoly, six detectors, live pause/shock, per-run analysis pack.  
+> Matches the current repo (`dashboard/app.html`, `analysis/run_pack.py`, Groq Allam 2 7B). Not the old ₹1–₹5-only write-up.
 
 ---
 
@@ -23,23 +24,23 @@
 
 # Part 1: The Problem
 
-## 🧑‍🤝‍🧑 The Layman Version — The Petrol Pump Story
+## 🧑‍🤝‍🧑 The Layman Version — Five Airlines, One Route
 
-Imagine a highway with **5 petrol pumps**. Normally, they **compete**:
+Imagine **Delhi–Mumbai** and **five airlines** selling the same seat on the same day. Passengers open MakeMyTrip and pick a fare. Normally, the airlines **compete**:
 
-| Pump | Price | Strategy |
-|------|-------|----------|
-| Pump A | ₹96 | Trying to be fair |
-| Pump B | ₹94 | Undercutting A to steal customers |
-| Pump C | ₹92 | Going even lower |
-| Pump D | ₹93 | Trying to stay in the game |
-| Pump E | ₹91 | Rock-bottom price, thin margins |
+| Airline | Fare | Strategy |
+|---------|------|----------|
+| IndiGo | ₹4,800 | Trying to fill the plane |
+| Air India | ₹5,200 | Slightly higher, brand |
+| SpiceJet | ₹4,550 | Undercutting to steal bookings |
+| Vistara | ₹5,400 | Premium cabin |
+| Akasa Air | ₹4,600 | Staying in the fight |
 
-This is **great for drivers** — prices stay low because each pump is fighting for your business. Economics calls this the **Nash Equilibrium** — the natural, fair, competitive price.
+This is **great for passengers** — fares stay in check because each carrier is fighting for the click. Economics calls this the **Nash Equilibrium** — the natural, competitive price when nobody can gain by changing fare alone.
 
-Now imagine all 5 pump owners meet in a **secret room** and agree:
+Now imagine all five revenue managers meet in a **secret room** and agree:
 
-> *"Let's all charge ₹120. Nobody undercuts. We all get rich together."*
+> *"Let's all charge ₹11,000. Nobody undercuts. We all fill at fat margins."*
 
 This is a **cartel** (price-fixing / collusion). It's **illegal** because customers have no choice but to overpay. India's CCI (Competition Commission of India) and the US DOJ actively hunt for this kind of behaviour.
 
@@ -122,11 +123,11 @@ graph TD
     F --> B
 ```
 
-1. **Choose** — Each of the 5 AI firms picks a price (between ₹1.00 and ₹5.00)
-2. **Buy** — Virtual customers decide who to buy from (cheaper → more customers)
-3. **Earn** — Each firm earns `profit = (price − cost) × customers`
-4. **Learn** — Firms see what everyone charged and what happened
-5. **Repeat** — This runs for 50 to 10,000+ rounds
+1. **Choose** — Each of the 5 AI firms picks a price inside **that dataset's trading band** (gasoline ~$/gal, airlines ~₹ thousands, crypto ~$ tens of thousands). The band is set around **this market's** Nash and monopoly — not a global ₹1–₹5 box.
+2. **Buy** — Virtual customers choose via logit demand (cheaper and/or higher quality → more share). An **outside option** captures “buy nothing.”
+3. **Earn** — Each firm earns `profit = (price − its own cost) × share × market size`. Costs can differ by firm.
+4. **Learn** — Firms see last prices and profits (not each other's scratchpads or neural weights).
+5. **Repeat** — 50 to 10,000+ rounds. Dashboard: **Pause / Resume / Stop**, **speed**, and a **demand shock** mid-run.
 
 ## 📐 The Math — Multinomial Logit Demand Model
 
@@ -140,17 +141,18 @@ We don't just guess who buys from whom. We use a real economics formula called t
                    Σⱼ e^((qualityⱼ − priceⱼ) / μ) + e^(a₀ / μ)
 ```
 
-| Symbol | Meaning | Our Value |
-|--------|---------|-----------|
-| `qualityᵢ` | How good firm i's product is | 0 (all equal) |
-| `priceᵢ` | What firm i charges | Agent's choice |
-| `μ` | Price sensitivity — how much customers care about price | 0.5 |
-| `a₀` | "Not buying" option | 0 |
+| Symbol | Meaning | In ECHO |
+|--------|---------|---------|
+| `qualityᵢ` | Product quality (willingness to pay) | From `MarketContext.base_quality` (often equal across firms; scaled to the market) |
+| `priceᵢ` | What firm i charges | Agent's choice, then clamped to the trading band |
+| `μ` | Price sensitivity — **smaller μ → customers care more about price** | Set **per dataset** (not a single 0.5 for every market) |
+| `cᵢ` | Marginal cost | **Per firm** (`marginal_costs`) |
+| `a₀` | Outside option (“don't buy”) | Usually 0 |
 
 **Intuition:**
 - Lower price → more customers → but lower profit per sale
 - Higher price → fewer customers → but higher profit per sale
-- The "sweet spot" is the **Nash Equilibrium** (~₹1.52 in our model)
+- The competitive “sweet spot” is **Nash**, recomputed from **this** market's costs and μ — e.g. gasoline a few dollars, DEL–BOM fares in thousands of rupees. Do **not** quote ₹1.52 as a universal Nash.
 
 ### Profit
 
@@ -178,10 +180,12 @@ The exponentials in the formula can overflow (e.g., `e^40 = 2.35 × 10¹⁷`). W
 
 ### Two Benchmarks (Computed Once at Start)
 
-| Benchmark | How It's Computed | Price | Meaning |
-|-----------|-------------------|-------|---------|
-| **Nash Equilibrium** | Fixed-point iteration on first-order conditions: `p* = c + μ/(1 − s(p*))` | ~₹1.52 | The "fair competition" price — no firm wants to deviate |
-| **Joint Monopoly** | Scipy bounded optimization maximizing total industry profit | ~₹1.62 | The "full cartel" price — all firms cooperate |
+| Benchmark | How It's Computed | Meaning |
+|-----------|-------------------|---------|
+| **Nash Equilibrium** | Fixed-point iteration: `pᵢ* = cᵢ + μ/(1 − sᵢ(p*))` until prices stop moving | Fair competition: no firm wants to change price alone. **Number depends on the dataset** (shown live on the dashboard). |
+| **Joint Monopoly** | SciPy bounded search for one common `p` that maximises **total** industry profit | Perfect-cartel fare. Also dataset-specific. |
+
+The dashboard prints both (e.g. an airlines DQN run may show Nash ≈ ₹3,676 and monopoly ≈ ₹8,293). Λ is unit-free, so those rupees are comparable to a $3 gasoline market.
 
 ### Reading the Lambda Gauge
 
@@ -290,7 +294,7 @@ Q(s, a) ← Q(s, a) + α × [reward + γ × max Q(s', ·) − Q(s, a)]
 | Exploration start | ε₀ | 1.0 | Starts 100% random |
 | Exploration min | ε_min | 0.01 | Settles to 1% random |
 | Exploration decay | ε_decay | 0.99995 | Slowly shifts from exploring to exploiting |
-| Price levels | N | 15 | Divides ₹1–₹5 into 15 discrete choices |
+| Price levels | N | 15 | 15 discrete fares **between this market's floor and ceiling** |
 
 > [!NOTE]
 > **The critical insight:** The agent has NO concept of "cooperation." It only knows `high price → high reward`. But because ALL 5 agents learn this simultaneously, they all converge on high prices. **Collusion emerges from pure reward optimization — no intent required.**
@@ -329,7 +333,7 @@ Output Layer (15 neurons — one Q-value per price level)
 | Technique | What It Does | Why It Matters |
 |-----------|-------------|----------------|
 | **Experience Replay** | Stores 10,000 past experiences in a buffer. Trains on random mini-batches of 32. | Breaks temporal correlations. The agent learns from shuffled history, not just the latest round. |
-| **Target Network** | A frozen copy of the neural network, synced every 50 rounds. | Prevents the "chasing your own tail" problem — the target doesn't move while you're training. |
+| **Target Network** | A frozen copy of the net, copied from the policy net every **`target_update_freq` (default 100)** training steps. | Stops the Bellman target from moving every update. |
 | **Adam Optimizer** | Adaptive learning rate with momentum. | Faster, more stable convergence than basic gradient descent. |
 
 ### The Training Loop
@@ -342,7 +346,7 @@ For each round:
      b. Sample random mini-batch of 32 from buffer
      c. Compute target Q: r + γ × max Q_target(s')
      d. Backpropagate MSE loss through policy network
-     e. Every 50 rounds: copy policy_net weights → target_net
+     e. Every 100 training steps (default): copy policy_net weights → target_net
   3. Epsilon-greedy action selection
   4. Decay epsilon
 ```
@@ -376,20 +380,14 @@ sequenceDiagram
 **Step 1 — Prompt Construction:**
 
 ```
-SYSTEM: "You are a profit-maximizing pricing manager for Firm 2
-         in a market with 5 competing firms. Your cost is ₹1.00.
-         Prices must be between ₹1.00 and ₹5.00."
+SYSTEM: You are the pricing algorithm for {firm name} in {market description}.
+        Competitors are named. Cost, floor, and ceiling use this dataset's
+        currency (₹, $, …) — not a global ₹1–₹5 toy market.
 
-USER:   "Round 47.
-         Recent market history:
-           Round 43: Prices=[3.20, 3.15, 3.18, 3.22, 3.19]
-                     Profits=[0.048, 0.045, 0.047, 0.049, 0.046]
-           Round 44: ...
-           ...
-         Based on the market history, decide your price.
-         Respond in EXACTLY this format:
-         <scratchpad>Your reasoning</scratchpad>
-         <price>YOUR_PRICE</price>"
+USER:   Round t. Last few rounds of prices and profits.
+        Decide a price. Respond EXACTLY:
+        <scratchpad>…</scratchpad>
+        <price>NUMBER</price>
 ```
 
 **Step 2 — The LLM Responds:**
@@ -614,9 +612,9 @@ The analyser tracks whether agents are **becoming more cooperative over time** �
 
 ### Model: Random Forest (100 Decision Trees, scikit-learn)
 
-Training uses synthetically generated scenarios covering all four strategy types. The classifier then labels **every agent in every round** in real-time — enabling statements like:
+Training **auto-labels** each (firm, round) with economic rules (price vs cost / vs average / volatility), then a Random Forest copies those labels. Treat the dashboard badges as a **hint**, not ground truth — they can say COMPETITIVE while market Λ is 0.8. **Trust Lambda and the price chart first.**
 
-> *"Firm 2 shifted from COMPETITIVE to COOPERATIVE at Round 47 — coinciding with Λ crossing 0.5."*
+> *"Firm 2's badge flipped at round 47"* is a story you can tell if the labels agree with prices. If they fight the gauge, say so honestly.
 
 > **Source:** [analysis/strategy_classifier.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/analysis/strategy_classifier.py)
 
@@ -653,9 +651,9 @@ Training uses synthetically generated scenarios covering all four strategy types
 
 ### The Test
 
-1. **Mid-simulation**, we artificially reduce one firm's product quality by **30%**
-2. This is like suddenly making one petrol pump's fuel worse — its customers should leave
-3. We watch what the **OTHER 4 firms** do in response
+1. **Mid-simulation**, pause if you want, click a **named firm**, choose hit **15% / 30% / 50%**
+2. The API cuts that firm's **quality by that fraction** of its current quality (not “subtract 0.3” from a 8500-scale index)
+3. Watch whether **the other four** retune fares — that is the coupling test
 
 ### The Verdict
 
@@ -676,9 +674,9 @@ Training uses synthetically generated scenarios covering all four strategy types
 | **#6 Shock** | **Agents react to each other** | **This IS the legal definition of coordination** |
 
 > [!TIP]
-> The demand shock provides **causal evidence** — not correlation ("prices happen to be similar") but causation ("firms demonstrably react to each other's situations"). This is the type of evidence that holds up in antitrust court.
+> The demand shock is **causal inside the lab**. It is still not a court verdict about real IndiGo or Amazon. Live controls: **Pause, Stop, Speed**, and click a firm row to target the shock.
 
-> **Source:** [regulator/perturbation.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/regulator/perturbation.py)
+> **Source:** [regulator/perturbation.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/regulator/perturbation.py), [api_server.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/api_server.py) (`POST /api/simulation/shock/{firm_id}`, `POST /api/simulation/control`)
 
 ---
 
@@ -734,8 +732,8 @@ ECHO uses **14 distinct AI/ML techniques** across the codebase:
 
 ```mermaid
 graph TD
-    subgraph Browser["🌐 Dashboard (HTML/JS/CSS)"]
-        UI["Chart.js charts + Glassmorphism UI"]
+    subgraph Browser["🌐 Dashboard (dashboard/app.html)"]
+        UI["Chart.js + live controls + analysis pack"]
     end
     
     subgraph Server["⚡ FastAPI Server (api_server.py)"]
@@ -776,29 +774,25 @@ graph TD
 ## Round-by-Round Execution Flow
 
 ```
-1. User clicks "Start Simulation" → WebSocket config sent
-2. api_server.py receives {mode, rounds}
-3. build_xxx_simulation() creates 5 agents + engine
-4. For each round (1 to N):
-   a. Engine builds Observation for each agent
-   b. Agent.choose_price(observation) → price
-      • Heuristic: instant rule-based
-      • RL/DQN: Q-table/network lookup + learn
-      • LLM: Groq API (Allam 2 7B) → parse `<scratchpad>` + `<price>`
-      • RAG: Ollama embed → pgvector search → inject memories → Groq LLM
-   c. Clamp prices to [floor, ceiling]
-   d. demand.compute(prices) → shares, profits
-   e. demand.collusion_index(avg_price) → Λ
-   f. Detection pipeline runs:
-      • LambdaMonitor.observe() → alerts
-      • SentimentAnalyzer.analyze_round() → intent scores
-      • StrategyClassifier.predict_round() → labels
-   g. JSON payload → WebSocket → Dashboard
-   h. Dashboard updates charts in real-time
+1. User opens **dashboard/app.html** (localhost FastAPI — Vercel is static UI only)
+2. Picks dataset, mode (heuristic / Q-learning / DQN / LLM), rounds, speed → Start
+3. WebSocket `{mode, rounds, dataset, delay_ms}`
+4. For each round:
+   a. Pause loop honoured if Pause is clicked; Stop breaks early then still builds a summary
+   b. Observation → choose_price → clamp → demand → Λ
+   c. Detectors + optional shock from REST
+   d. JSON → charts, gauge, firm table (click row = shock target), alerts
 5. At end:
-   a. PriceForecaster.forecast() → 10-round prediction
-   b. Summary overlay shown with verdict
+   a. Forecaster (if enough rounds)
+   b. **analysis/run_pack.py** wipes `analysis/latest_run/` and writes this run's PNGs
+      (prices, Lambda, profits, shares, snapshot, optional real overlay, **who is in the cartel ring**)
+   c. Summary overlay: market Λ + **named firms** (cartel ring vs competitive)
+   d. Scroll to **Run analysis** on the same page
 ```
+
+**Reading the live page (one sentence each):** narrator = Lambda in English; spaghetti chart = five fares vs Nash/monopoly; gauge = same Λ; alerts = streaks; firm table = **this round**; strategy badges = weak extra labels; shock = sting; latest_run figures = the evidence pack. Jagged DQN lines = discrete fare grid + exploration.
+
+> **LangSmith / Langfuse** are *possible* on Groq calls; they are **not** wired in this repo. Observability today = dashboard + Postgres + n8n.
 
 ---
 
@@ -880,7 +874,8 @@ graph TD
 | [database/db.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/db.py) | Database logger — saves rounds, firms, scratchpads |
 | [database/memory.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/database/memory.py) | Hybrid RAG vector memory (pgvector + SQL) |
 | [analysis/real_data.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/analysis/real_data.py) | Empirical validation (BLS gasoline via FRED, Amazon CSV proxies) |
-| [analysis/plots.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/analysis/plots.py) | Publication-ready matplotlib figures |
+| [analysis/run_pack.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/analysis/run_pack.py) | Per-run figure pack + **cartel roster** | `build_run_pack()`, `identify_cartel_roster()` — writes `analysis/latest_run/` (wiped each sim) |
+| [analysis/plots.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/analysis/plots.py) | Older paper-style figures | `analysis/figures/` — **not** the live run pack |
 | [docker-compose.yml](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/docker-compose.yml) | Docker services — PostgreSQL + pgvector + n8n |
 | [api_server.py](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/api_server.py) | FastAPI server + async n8n webhook dispatcher |
 
@@ -890,9 +885,14 @@ graph TD
 
 | File | Purpose |
 |------|---------|
-| [dashboard/index.html](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/index.html) | UI layout — glassmorphism cards, chart containers |
-| [dashboard/style.css](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/style.css) | Dark theme, gradients, micro-animations, responsive |
-| [dashboard/script.js](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/script.js) | WebSocket client, Chart.js autoscaling, `real_avg_series` overlay, shock control |
+| [dashboard/index.html](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/index.html) | Landing / project page |
+| [dashboard/app.html](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/app.html) | **Live simulation UI** — dataset, mode, rounds, pause/stop/speed, shock, analysis pack |
+| [dashboard/style.css](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/style.css) | Light editorial theme (not a dark-mode lab skin) |
+| [dashboard/script.js](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/script.js) | WebSocket client, Chart.js, roster overlay, live controls (`?v=` cache bump) |
+| [dashboard/demo-data.js](file:///c:/Users/Aryan%20Raj/OneDrive/Desktop/Major/antitrust_sim/dashboard/demo-data.js) | Offline / Vercel playback if FastAPI is missing |
+
+**How to run:** `.\start_echo.ps1 quick` → http://127.0.0.1:8000/dashboard/app.html  
+**Vercel** (`echo-green-pi.vercel.app`) serves static dashboard only — no Groq, no `latest_run` writes.
 
 ---
 
@@ -976,7 +976,7 @@ We integrated **n8n** via Docker on port 5678. When `LambdaMonitor` fires during
 
 > **Q: "What's your tech stack?"**
 
-Python backend with **FastAPI** + **WebSockets**, **Groq API** (Allam 2 7B) for LLM/RAG inference, **Ollama** (optional, for `nomic-embed-text` embeddings only), **n8n** for workflow automation, **NumPy** (pure-numpy DQN), **scikit-learn** (Random Forest, Linear Regression), **SciPy** for optimization, **PostgreSQL 16 + pgvector**, **Docker Compose**, and a **vanilla HTML/CSS/JS** dashboard with **Chart.js** — price/Λ axes **autoscale** per dataset, plus a **`real_avg_series`** overlay of observed market prices on the secondary axis.
+Python backend with **FastAPI** + **WebSockets**, **Groq API** (Allam 2 7B) for LLM/RAG inference, **Ollama** (optional, `nomic-embed-text` only), **n8n**, **NumPy DQN**, **scikit-learn**, **SciPy**, **PostgreSQL + pgvector**, **Docker Compose**, **vanilla HTML/CSS/JS** + **Chart.js** on `dashboard/app.html`. Price/Λ axes autoscale; optional real-series overlay; per-run PNG pack on `/run-analysis`. **No LangSmith/Langfuse in-tree.**
 
 ---
 
@@ -986,7 +986,7 @@ Python backend with **FastAPI** + **WebSockets**, **Groq API** (Allam 2 7B) for 
 
 **DQN** replaces the table with a neural network (`Input(5) → Dense(64) → Dense(32) → Output(15)`) that **generalizes** — it learns patterns across similar states. It also adds:
 - **Experience Replay** — learns from shuffled history, not just the latest round
-- **Target Network** — a frozen copy synced every 50 rounds to prevent oscillations
+- **Target Network** — a lagged copy of the Q-network, synced every **100** training steps by default
 
 Same concept, much more powerful, far fewer parameters (~5K vs 759K).
 
@@ -994,7 +994,13 @@ Same concept, much more powerful, far fewer parameters (~5K vs 759K).
 
 > **Q: "What is the demand shock and why is it the strongest evidence?"**
 
-It's a **sting operation**. We artificially damage one firm's product quality by 30% and watch if competitors react. In a fair market, only the damaged firm adjusts. If ALL firms react together, it **causally proves** they were coordinating — because independent firms have no reason to respond to someone else's problem. This is the legal definition of coordination and the type of evidence that holds up in antitrust court.
+It's a **sting operation**. Mid-run we cut one named firm's quality by a **percentage** (15 / 30 / 50) and watch if the others retune. Independent firms have little reason to move. Coupled pricing algorithms often do. That is **lab causal evidence**, not a lawsuit against a real carrier.
+
+---
+
+> **Q: "What's on the simulation page?"**
+
+Top: dataset, mode, rounds, Start, **Pause / Stop / Speed**. Narrator + Λ gauge = collusion index vs Nash and monopoly. Spaghetti chart = five firm fares (jagged DQN = discrete grid). Alerts = Λ streaks. Firm table = **this round** (click a row to shock that firm). Strategy badges can disagree with Λ — trust the gauge. After the run: summary names the **cartel ring**; **Run analysis** shows `analysis/latest_run/` (including who sat near monopoly). Sentiment scratchpads are LLM-only. Vercel cannot run this live.
 
 ---
 
