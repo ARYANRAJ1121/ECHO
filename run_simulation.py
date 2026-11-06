@@ -343,6 +343,17 @@ if __name__ == "__main__":
                         choices=["gasoline", "crypto", "amazon", "rideshare", "airlines"],
                         default="gasoline",
                         help="Real-world dataset to use (default: gasoline)")
+    # Policy Counterfactuals (F6)
+    parser.add_argument("--policy-cap-frac", type=float, default=None,
+                        help="Regulatory price cap as fraction of Nash-Monopoly span (e.g., 0.50)")
+    parser.add_argument("--fixed-price-cap", type=float, default=None,
+                        help="Hard absolute price ceiling imposed by regulator")
+    parser.add_argument("--transparency-delay", type=int, default=0,
+                        help="Lag rival price visibility by k rounds to disrupt punishment (default: 0)")
+    parser.add_argument("--leniency-bonus", type=float, default=0.0,
+                        help="Antitrust whistleblower bonus awarded to defectors undercutting cartel")
+    parser.add_argument("--policy-start-round", type=int, default=1,
+                        help="Round at which regulatory policy begins (enables A/B split comparisons)")
     args = parser.parse_args()
 
     # RAG mode requires database
@@ -404,6 +415,37 @@ if __name__ == "__main__":
     else:
         engine, n_rounds = build_dummy_simulation(args.rounds, market_ctx=market_ctx)
 
+    # Configure Antitrust Policy Counterfactual (F6) if specified
+    from market.policy import PolicyConfig
+    policy = None
+    if any([
+        args.policy_cap_frac is not None,
+        args.fixed_price_cap is not None,
+        args.transparency_delay > 0,
+        args.leniency_bonus > 0.0,
+    ]):
+        parts = []
+        if args.policy_cap_frac is not None:
+            parts.append(f"Cap({int(args.policy_cap_frac*100)}%)")
+        if args.fixed_price_cap is not None:
+            parts.append(f"FixedCap({args.fixed_price_cap})")
+        if args.transparency_delay > 0:
+            parts.append(f"Delay({args.transparency_delay}r)")
+        if args.leniency_bonus > 0.0:
+            parts.append(f"Leniency({args.leniency_bonus:.1f})")
+        policy_name = " + ".join(parts) if parts else "Antitrust Remedy"
+
+        policy = PolicyConfig(
+            name=policy_name,
+            price_cap_fraction=args.policy_cap_frac,
+            fixed_price_cap=args.fixed_price_cap,
+            transparency_delay=args.transparency_delay,
+            leniency_bonus=args.leniency_bonus,
+            active_from_round=args.policy_start_round,
+        )
+        engine.policy = policy
+        print(f"\n[Antitrust Policy] Enforcing '{policy_name}' starting at round {args.policy_start_round}")
+
     # Start sim in DB (for non-RAG modes)
     if args.db and sim_id is None:
         sim_id = db_logger.start_simulation({
@@ -451,6 +493,28 @@ if __name__ == "__main__":
     if report['first_alert_round']:
         print(f"  First alert round:   {report['first_alert_round']}")
     print("=" * 80)
+
+    # --- Policy Counterfactual Evaluation (F6) ---
+    engine_summary = engine.summary()
+    if "policy" in engine_summary:
+        pol = engine_summary["policy"]
+        print("\n" + "=" * 80)
+        print(f"ANTITRUST POLICY INTERVENTION REPORT: {pol['name'].upper()}")
+        print("=" * 80)
+        print(f"  Policy Regime:               {pol['name']}")
+        print(f"  Active from Round:           {pol['config']['active_from_round']}")
+        print(f"  Active Rounds Evaluated:     {pol['active_rounds_count']}")
+        if pol['pre_policy_avg_lambda'] is not None:
+            print(f"  Pre-Intervention Mean Lambda:{pol['pre_policy_avg_lambda']:.4f}")
+        if pol['post_policy_avg_lambda'] is not None:
+            print(f"  Post-Intervention Mean Lambda:{pol['post_policy_avg_lambda']:.4f}")
+        if pol['lambda_reduction'] is not None:
+            direction = "REDUCED (Collusion Disrupted)" if pol['lambda_reduction'] > 0 else "INCREASED/FLAT"
+            print(f"  Net Lambda Impact:           {pol['lambda_reduction']:+.4f} [{direction}]")
+        print(f"  Total Consumer Savings:      {market_ctx.currency} {pol['total_consumer_savings']:,.2f}")
+        print(f"  Rounds Price Cap Clamped:    {pol['capped_rounds_count']}")
+        print(f"  Leniency Awards Granted:     {pol['total_leniency_awarded_count']}")
+        print("=" * 80)
 
     # One-run figure pack (wipes previous latest_run/)
     from analysis.run_pack import build_run_pack

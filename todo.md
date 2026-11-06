@@ -425,15 +425,19 @@ Hold the stage game fixed and vary what agents observe.
 
 ---
 
-### F6. Policy counterfactuals
+### F6. Policy counterfactuals (Implemented)
 
 Instrument the engine with optional constraints and compare Λ and consumer-side outcomes (outside share, average price versus Nash):
 
-- price ceilings
-- delayed public transparency
-- leniency / first-defector bonus
-- mandatory textual justification (LLM modes)
-- forced split of the agent pool
+- [x] Regulatory price ceilings (`PolicyConfig.price_cap_fraction`, `fixed_price_cap`)
+- [x] Delayed public transparency (`PolicyConfig.transparency_delay` lagging history)
+- [x] Leniency / first-defector bonus (`PolicyConfig.leniency_bonus` rewarding defectors)
+- [x] A/B counterfactual evaluation (`active_from_round` pre/post Lambda comparisons)
+- [x] CLI flags (`--policy-cap-frac`, `--transparency-delay`, `--leniency-bonus`, `--policy-start-round`)
+- [x] Live REST endpoints (`GET/POST /api/simulation/policy`)
+- [x] Comprehensive test suite (`tests/test_policy.py`)
+- [ ] Mandatory textual justification (LLM modes)
+- [ ] Forced split of the agent pool
 
 This remains a **laboratory** for CCI- and DOJ-style questions. Λ is an index, not a court finding.
 

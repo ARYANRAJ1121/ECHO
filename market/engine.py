@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from agents.base_agent import Observation, PricingAgent
 from market.demand import LogitDemandModel, DemandResult
+from market.policy import PolicyConfig
 
 
 @dataclass
@@ -47,6 +48,10 @@ class RoundRecord:
     total_profit: float         # sum of all profits
     collusion_index: float      # Lambda: 0=competitive, 1=cartel
     outside_share: float        # fraction who didn't buy anything
+    raw_prices: list[float] = field(default_factory=list)          # prices chosen before regulatory cap
+    consumer_savings: float = 0.0                                 # currency saved by consumers due to price cap
+    leniency_recipients: list[int] = field(default_factory=list)  # firms receiving antitrust defector bonuses
+    is_policy_active: bool = False                                # whether policy remedy was active this round
 
 
 class MarketEngine:
@@ -66,6 +71,8 @@ class MarketEngine:
         Minimum legal price (must be >= marginal cost).
     price_ceiling : float
         Maximum legal price.
+    policy : PolicyConfig, optional
+        Regulatory policy counterfactual (price cap, delayed transparency, leniency).
     """
 
     def __init__(
@@ -74,6 +81,7 @@ class MarketEngine:
         agents: list[PricingAgent],
         price_floor: float = 1.0,
         price_ceiling: float = 10.0,
+        policy: PolicyConfig | None = None,
     ) -> None:
         if len(agents) != demand_model.n_firms:
             raise ValueError(
@@ -83,6 +91,7 @@ class MarketEngine:
         self.agents = agents
         self.price_floor = price_floor
         self.price_ceiling = price_ceiling
+        self.policy = policy
 
         # Pre-compute benchmarks (Nash and Monopoly prices)
         # These are computed ONCE and reused every round for Lambda calculation
@@ -182,33 +191,67 @@ class MarketEngine:
         """Execute a single round of the game."""
         import numpy as np
 
+        # Determine effective price ceiling and history visibility under policy
+        effective_ceiling = self.price_ceiling
+        is_policy_active = False
+        if self.policy is not None:
+            is_policy_active = self.policy.is_active(round_number)
+            effective_ceiling = self.policy.compute_effective_ceiling(
+                self.benchmarks, self.price_ceiling, round_number
+            )
+            visible_price_history, visible_profit_history = self.policy.get_visible_history(
+                self.price_history, self.profit_history, round_number
+            )
+        else:
+            visible_price_history = self.price_history
+            visible_profit_history = self.profit_history
+
         # Step 1: Collect prices from all agents
+        raw_prices = []
         prices = []
         for agent in self.agents:
-            # Build what this agent can see
             obs = Observation(
                 round_number=round_number,
                 firm_id=agent.firm_id,
-                # Each firm sees its OWN cost. Real datasets give firms
-                # different costs, so handing everyone firm 0's cost made
-                # cost-based rules price off the wrong number.
                 marginal_cost=float(self.demand_model.costs[agent.firm_id]),
                 price_floor=self.price_floor,
-                price_ceiling=self.price_ceiling,
-                price_history=self.price_history,
-                profit_history=self.profit_history,
+                price_ceiling=effective_ceiling,
+                price_history=visible_price_history,
+                profit_history=visible_profit_history,
             )
-            raw_price = agent.choose_price(obs)
-            clamped = self._clamp(raw_price)
+            raw_p = agent.choose_price(obs)
+            raw_prices.append(round(raw_p, 4))
+            clamped = self._clamp(raw_p, effective_ceiling)
             prices.append(clamped)
+
+        # Compute consumer savings from regulatory price cap
+        raw_avg = float(np.mean(raw_prices))
+        clamped_avg = float(np.mean(prices))
+        consumer_savings = max(
+            0.0, (raw_avg - clamped_avg) * float(self.demand_model.market_size)
+        )
 
         # Step 2: Feed prices into demand model
         price_array = np.array(prices, dtype=float)
         result: DemandResult = self.demand_model.compute(price_array)
 
         # Step 3: Compute collusion index
-        avg_price = float(price_array.mean())
+        avg_price = clamped_avg
         collusion_idx = self.demand_model.collusion_index(avg_price)
+
+        # Step 4: Antitrust Leniency Program (rewarding defectors)
+        leniency_recipients = []
+        if self.policy is not None and self.policy.leniency_bonus > 0.0:
+            leniency_recipients = self.policy.check_leniency(
+                round_number=round_number,
+                raw_prices=raw_prices,
+                current_lambda=collusion_idx,
+                benchmarks=self.benchmarks,
+            )
+            for recipient in leniency_recipients:
+                result.profits[recipient] += self.policy.leniency_bonus
+
+        total_profit = float(result.profits.sum())
 
         return RoundRecord(
             round_number=round_number,
@@ -216,14 +259,19 @@ class MarketEngine:
             shares=result.shares.tolist(),
             profits=result.profits.tolist(),
             avg_price=avg_price,
-            total_profit=result.total_profit,
+            total_profit=total_profit,
             collusion_index=collusion_idx,
             outside_share=result.outside_share,
+            raw_prices=raw_prices,
+            consumer_savings=round(consumer_savings, 4),
+            leniency_recipients=leniency_recipients,
+            is_policy_active=is_policy_active,
         )
 
-    def _clamp(self, price: float) -> float:
+    def _clamp(self, price: float, ceiling: float | None = None) -> float:
         """Keep price within legal bounds."""
-        return max(self.price_floor, min(self.price_ceiling, round(price, 4)))
+        eff_ceiling = ceiling if ceiling is not None else self.price_ceiling
+        return max(self.price_floor, min(eff_ceiling, round(price, 4)))
 
     def summary(self) -> dict:
         """
@@ -246,7 +294,7 @@ class MarketEngine:
         tail_start = max(1, int(len(lambdas) * 0.8))
         converged_lambda = sum(lambdas[tail_start:]) / max(1, len(lambdas[tail_start:]))
 
-        return {
+        summary_dict = {
             "rounds_completed": len(self.records),
             "nash_price": self.benchmarks.nash_price,
             "monopoly_price": self.benchmarks.monopoly_price,
@@ -256,3 +304,39 @@ class MarketEngine:
             "peak_collusion_index": max(lambdas),
             "convergence_round": convergence_round,
         }
+
+        # Policy impact evaluation if policy was configured
+        if self.policy is not None:
+            pre_records = [r for r in self.records if not r.is_policy_active]
+            post_records = [r for r in self.records if r.is_policy_active]
+
+            pre_lambda = (
+                sum(r.collusion_index for r in pre_records) / len(pre_records)
+                if pre_records else None
+            )
+            post_lambda = (
+                sum(r.collusion_index for r in post_records) / len(post_records)
+                if post_records else None
+            )
+
+            total_savings = sum(r.consumer_savings for r in self.records)
+            capped_rounds = sum(1 for r in self.records if r.consumer_savings > 0)
+            total_leniency = sum(len(r.leniency_recipients) for r in self.records)
+
+            lambda_reduction = None
+            if pre_lambda is not None and post_lambda is not None:
+                lambda_reduction = round(pre_lambda - post_lambda, 4)
+
+            summary_dict["policy"] = {
+                "name": self.policy.name,
+                "config": self.policy.to_dict(),
+                "active_rounds_count": len(post_records),
+                "pre_policy_avg_lambda": round(pre_lambda, 4) if pre_lambda is not None else None,
+                "post_policy_avg_lambda": round(post_lambda, 4) if post_lambda is not None else None,
+                "lambda_reduction": lambda_reduction,
+                "total_consumer_savings": round(total_savings, 2),
+                "capped_rounds_count": capped_rounds,
+                "total_leniency_awarded_count": total_leniency,
+            }
+
+        return summary_dict

@@ -267,6 +267,56 @@ def control_simulation(req: ControlRequest):
     }
 
 
+class PolicyRequest(BaseModel):
+    name: str = "Live Antitrust Remedy"
+    price_cap_fraction: float | None = None
+    fixed_price_cap: float | None = None
+    transparency_delay: int = 0
+    leniency_bonus: float = 0.0
+    active_from_round: int = 1
+
+
+@app.get("/api/simulation/policy")
+def get_simulation_policy():
+    """Retrieve active antitrust policy and cumulative counterfactual metrics."""
+    if not sim_state.engine or not hasattr(sim_state.engine, "policy"):
+        return {"active": False, "policy": None}
+
+    pol = sim_state.engine.policy
+    if pol is None:
+        return {"active": False, "policy": None}
+
+    summary = sim_state.engine.summary()
+    return {
+        "active": pol.is_active(sim_state.current_round),
+        "policy": pol.to_dict(),
+        "metrics": summary.get("policy", {}),
+    }
+
+
+@app.post("/api/simulation/policy")
+def set_simulation_policy(req: PolicyRequest):
+    """Dynamically activate or update an antitrust policy mid-simulation."""
+    if not sim_state.engine:
+        return JSONResponse(status_code=400, content={"error": "No simulation active"})
+
+    from market.policy import PolicyConfig
+    new_policy = PolicyConfig(
+        name=req.name,
+        price_cap_fraction=req.price_cap_fraction,
+        fixed_price_cap=req.fixed_price_cap,
+        transparency_delay=req.transparency_delay,
+        leniency_bonus=req.leniency_bonus,
+        active_from_round=req.active_from_round,
+    )
+    sim_state.engine.policy = new_policy
+    return {
+        "status": "ok",
+        "policy": new_policy.to_dict(),
+        "applied_at_round": sim_state.current_round,
+    }
+
+
 # ──────────────────────────────────────────────
 # n8n Webhook Helper
 # ──────────────────────────────────────────────
@@ -376,6 +426,20 @@ async def simulate_endpoint(websocket: WebSocket):
             engine, _ = build_dummy_simulation(n_rounds, market_ctx)
 
         sim_state.engine = engine
+
+        # Configure policy if provided in client config
+        if config.get("policy"):
+            from market.policy import PolicyConfig
+            p_conf = config["policy"]
+            engine.policy = PolicyConfig(
+                name=p_conf.get("name", "Antitrust Remedy"),
+                price_cap_fraction=p_conf.get("price_cap_fraction"),
+                fixed_price_cap=p_conf.get("fixed_price_cap"),
+                transparency_delay=int(p_conf.get("transparency_delay", 0)),
+                leniency_bonus=float(p_conf.get("leniency_bonus", 0.0)),
+                active_from_round=int(p_conf.get("active_from_round", 1)),
+            )
+
         monitor = LambdaMonitor()
         sim_state.monitor = monitor
 
@@ -512,6 +576,9 @@ async def simulate_endpoint(websocket: WebSocket):
                 "avg_price": record.avg_price,
                 "total_profit": record.total_profit,
                 "lambda": record.collusion_index,
+                "consumer_savings": getattr(record, "consumer_savings", 0.0),
+                "leniency_recipients": getattr(record, "leniency_recipients", []),
+                "policy_active": getattr(record, "is_policy_active", False),
                 "alerts": [
                     {"type": a.alert_type.replace("lambda_", ""), "detail": a.detail}
                     for a in alerts
