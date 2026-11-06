@@ -381,10 +381,11 @@ Compare tacit coordination under a **common market protocol** across hosted and 
 ### F2. Richer firm heterogeneity
 
 - [x] Firm-specific marginal costs (`MarketContext.marginal_costs`)
+- [x] Mixed agent classes in one run (`build_mixed_simulation`: 2 DQN + 1 Q-Learn + 1 Follower vs 1 Maverick discounter)
+- [x] First-class dashboard mode and Vercel website playback for mixed oligopoly
 - [ ] Firm-specific quality as an experimental factor
 - [ ] Capacity constraints and rationing
 - [ ] Exit when continuation value is negative
-- [ ] Mixed agent classes in one run (for example DQN majors versus heuristic undercutters) as a first-class dashboard mode
 
 **Research question.** Does asymmetry destabilise tacit coordination, or does it only reassign price leadership?
 

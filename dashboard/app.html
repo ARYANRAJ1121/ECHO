@@ -40,14 +40,14 @@
                         <span class="step-num">01</span>
                         <div>
                             <strong>Choose Dataset & Mode</strong>
-                            <p>Pick a real market (US Gasoline, Amazon, Airlines, Crypto, Rideshare) and an agent brain: Heuristic, Q-Learning, DQN, or LLM (Groq). Heuristic stays competitive; learning agents collude.</p>
+                            <p>Pick a real market and an agent brain: Heuristic, Q-Learning, DQN, Groq LLM, or <strong>Mixed (Cartel vs Maverick)</strong> to test if a single competitive AI breaks the cartel.</p>
                         </div>
                     </div>
                     <div class="onboarding-step">
                         <span class="step-num">02</span>
                         <div>
-                            <strong>Watch Prices Evolve</strong>
-                            <p>The price chart shows all 5 firms plus Nash and Monopoly benchmarks, with the <em>observed real market average</em> on a secondary axis when live history is available.</p>
+                            <strong>Watch Prices Evolve & Apply Policy</strong>
+                            <p>The price chart shows all 5 firms plus Nash and Monopoly benchmarks. Select an <strong>Antitrust Policy</strong> (Price Caps, Transparency Delay, or Leniency) to test active market remedies.</p>
                         </div>
                     </div>
                     <div class="onboarding-step">
@@ -119,7 +119,18 @@
                         <option value="dummy">Heuristic (Fast)</option>
                         <option value="rl">Q-Learning (RL)</option>
                         <option value="dqn">Deep Q-Network (DQN)</option>
+                        <option value="mixed">Mixed (4 Cartel vs 1 Maverick)</option>
                         <option value="llm">LLM — Groq Allam 2</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="policy-select">Policy</label>
+                    <select id="policy-select">
+                        <option value="none">None (Free Market)</option>
+                        <option value="cap_50">Price Cap (50% span)</option>
+                        <option value="delay_3">Delay Transparency (3r)</option>
+                        <option value="leniency">Antitrust Leniency</option>
+                        <option value="remedy">Combined Remedy</option>
                     </select>
                 </div>
                 <div class="control-group">
@@ -157,6 +168,10 @@
             <div class="narrator-lambda" id="narrator-lambda-badge" style="display:none">
                 <span id="narrator-lambda-label">Λ</span>
                 <span id="narrator-lambda-val">—</span>
+            </div>
+            <div class="narrator-savings" id="narrator-savings-badge" style="display:none; align-items:center; gap:0.4rem; padding:0.25rem 0.6rem; border-radius:6px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); font-size:0.8rem; color:#60a5fa;">
+                <span>🛡️ Policy Savings:</span>
+                <strong id="narrator-savings-val">$0.00</strong>
             </div>
         </div>
 

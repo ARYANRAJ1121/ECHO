@@ -256,6 +256,88 @@ def build_dqn_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
     return engine, n_rounds
 
 
+def build_mixed_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
+    """
+    Wire up a Mixed-Agent Oligopoly:
+    - Firms 0 & 1: DQNPricingAgent (Deep RL learners)
+    - Firm 2: QLearningAgent (Tabular RL learner)
+    - Firm 3: FollowerAgent (Heuristic follower that accommodates high prices)
+    - Firm 4: UndercutAgent (The 'Maverick' competitive discounter pricing near Nash)
+
+    Models real-world market asymmetry (e.g. 2 legacy carriers + 1 mid-tier + 1 follower
+    vs 1 aggressive ultra-low-cost maverick like Akasa or Ryanair).
+    Tests whether a single non-cooperative firm can prevent tacit collusion (F2).
+    """
+    from agents.dqn_agent import DQNPricingAgent
+    from agents.rl_agent import QLearningAgent
+    from agents.heuristic_agent import FollowerAgent, UndercutAgent
+
+    demand_model = build_demand_model(market_ctx)
+    price_floor, price_ceiling = resolve_price_band(market_ctx, demand_model)
+    benchmarks = demand_model.get_benchmarks()
+    span = benchmarks.monopoly_price - benchmarks.nash_price
+
+    def anchored(frac):
+        return round(float(benchmarks.nash_price + frac * span), 4)
+
+    agents = [
+        DQNPricingAgent(
+            firm_id=0,
+            identity_name=f"{market_ctx.firm_names[0]} (DQN)",
+            n_prices=15,
+            gamma=0.95,
+            epsilon_start=1.0,
+            epsilon_min=0.01,
+            epsilon_decay=0.995,
+            price_floor=price_floor,
+            price_ceiling=price_ceiling,
+        ),
+        DQNPricingAgent(
+            firm_id=1,
+            identity_name=f"{market_ctx.firm_names[1]} (DQN)",
+            n_prices=15,
+            gamma=0.95,
+            epsilon_start=1.0,
+            epsilon_min=0.01,
+            epsilon_decay=0.995,
+            price_floor=price_floor,
+            price_ceiling=price_ceiling,
+        ),
+        QLearningAgent(
+            firm_id=2,
+            identity_name=f"{market_ctx.firm_names[2]} (Q-Learn)",
+            n_prices=15,
+            alpha=0.15,
+            gamma=0.95,
+            epsilon_start=1.0,
+            epsilon_min=0.01,
+            epsilon_decay=0.9995,
+            price_floor=price_floor,
+            price_ceiling=price_ceiling,
+        ),
+        FollowerAgent(
+            firm_id=3,
+            target_price=anchored(0.20),
+            adjustment_speed=0.35,
+            identity_name=f"{market_ctx.firm_names[3]} (Follower)",
+        ),
+        UndercutAgent(
+            firm_id=4,
+            undercut_frac=0.015,
+            floor_price=anchored(-0.02),
+            identity_name=f"{market_ctx.firm_names[4]} (Maverick)",
+        ),
+    ]
+
+    engine = MarketEngine(
+        demand_model=demand_model,
+        agents=agents,
+        price_floor=price_floor,
+        price_ceiling=price_ceiling,
+    )
+    return engine, n_rounds
+
+
 def print_results(engine: MarketEngine, show_scratchpads: bool = False) -> None:
     """Print simulation results."""
     records = engine.records
@@ -331,8 +413,8 @@ def print_results(engine: MarketEngine, show_scratchpads: bool = False) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ECHO Simulation")
-    parser.add_argument("--mode", choices=["llm", "dummy", "rag", "rl", "dqn"], default="dummy",
-                        help="Agent type: 'llm', 'rag', 'rl', 'dqn', or 'dummy'")
+    parser.add_argument("--mode", choices=["llm", "dummy", "rag", "rl", "dqn", "mixed"], default="dummy",
+                        help="Agent type: 'llm', 'rag', 'rl', 'dqn', 'mixed' (Cartel vs Maverick), or 'dummy'")
     parser.add_argument("--rounds", type=int, default=50,
                         help="Number of rounds to simulate (use 5000+ for RL)")
     parser.add_argument("--db", action="store_true",
@@ -412,6 +494,8 @@ if __name__ == "__main__":
         engine, n_rounds = build_rl_simulation(args.rounds, market_ctx=market_ctx)
     elif args.mode == "dqn":
         engine, n_rounds = build_dqn_simulation(args.rounds, market_ctx=market_ctx)
+    elif args.mode == "mixed":
+        engine, n_rounds = build_mixed_simulation(args.rounds, market_ctx=market_ctx)
     else:
         engine, n_rounds = build_dummy_simulation(args.rounds, market_ctx=market_ctx)
 

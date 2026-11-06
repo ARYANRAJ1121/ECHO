@@ -30,6 +30,7 @@ from run_simulation import (
     build_rl_simulation,
     build_llm_simulation,
     build_dqn_simulation,
+    build_mixed_simulation,
 )
 from data_loaders import get_data_loader
 from regulator.detector import LambdaMonitor
@@ -420,6 +421,8 @@ async def simulate_endpoint(websocket: WebSocket):
             engine, _ = build_rl_simulation(n_rounds, market_ctx)
         elif mode == "dqn":
             engine, _ = build_dqn_simulation(n_rounds, market_ctx)
+        elif mode == "mixed":
+            engine, _ = build_mixed_simulation(n_rounds, market_ctx)
         elif mode == "llm":
             engine, _ = build_llm_simulation(n_rounds, market_ctx)
         else:
@@ -519,7 +522,7 @@ async def simulate_endpoint(websocket: WebSocket):
             engine.profit_history.append(record.profits)
 
             # RL/DQN learning step
-            if mode in ("rl", "dqn"):
+            if mode in ("rl", "dqn", "mixed"):
                 from agents.base_agent import Observation
                 for i, agent in enumerate(engine.agents):
                     if hasattr(agent, "learn"):

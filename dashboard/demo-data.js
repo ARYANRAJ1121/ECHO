@@ -106,7 +106,7 @@ const DATASET_CONFIGS = {
     },
 };
 
-function generateDemoData(mode, dataset) {
+function generateDemoData(mode, dataset, policy) {
     const cfg  = DATASET_CONFIGS[dataset] || DATASET_CONFIGS.gasoline;
     const NASH = cfg.nash;
     const MONO = cfg.mono;
@@ -115,13 +115,24 @@ function generateDemoData(mode, dataset) {
     const MU   = cfg.mu;
     const CUR  = cfg.currency;
 
+    let firmNames = cfg.firm_names;
+    if (mode === 'mixed') {
+        firmNames = [
+            `${cfg.firm_names[0]} (DQN)`,
+            `${cfg.firm_names[1]} (DQN)`,
+            `${cfg.firm_names[2]} (Q-Learn)`,
+            `${cfg.firm_names[3]} (Follower)`,
+            `${cfg.firm_names[4]} (Maverick)`,
+        ];
+    }
+
     const benchmarks = {
         type:             'benchmarks',
         nash_price:       NASH,
         monopoly_price:   MONO,
         price_floor:      cfg.floor,
         price_ceiling:    cfg.ceiling,
-        firm_names:       cfg.firm_names,
+        firm_names:       firmNames,
         dataset_name:     cfg.name,
         currency:         CUR,
         data_source:      cfg.data_source,
@@ -134,8 +145,8 @@ function generateDemoData(mode, dataset) {
         real_lambda_proxy: cfg.real_lambda_proxy,
     };
 
-    const numRounds = { dummy: 100, rl: 200, dqn: 150, llm: 60 }[mode] || 100;
-    const rng       = seededRandom({ dummy: 42, rl: 137, dqn: 256, llm: 999 }[mode] || 42);
+    const numRounds = { dummy: 100, rl: 200, dqn: 150, mixed: 120, llm: 60 }[mode] || 100;
+    const rng       = seededRandom({ dummy: 42, rl: 137, dqn: 256, mixed: 314, llm: 999 }[mode] || 42);
     const RANGE     = MONO - NASH;
 
     // Trajectories are fractions of the Nash→monopoly span (scale-invariant).
@@ -155,6 +166,13 @@ function generateDemoData(mode, dataset) {
             return NASH + RANGE * (0.55 + 0.30 * Math.pow((t - 0.25) / 0.75, 0.4));
         },
 
+        mixed: (t) => {
+            // Cartel firms (0,1,2,3) attempt to climb, but Maverick (firm 4) undercuts near Nash.
+            // Resulting average Lambda is held in the competitive/watch zone (0.22 - 0.38).
+            const baseRise = NASH + RANGE * (0.22 + 0.12 * Math.sin(t * Math.PI * 3));
+            return baseRise + (rng() - 0.5) * RANGE * 0.04;
+        },
+
         llm: (t) => {
             if (t < 0.05) return NASH + RANGE * (0.55 + rng() * 0.12);
             return NASH + RANGE * (0.78 + 0.10 * Math.min(t, 1.0)) + (rng() - 0.5) * RANGE * 0.02;
@@ -163,7 +181,11 @@ function generateDemoData(mode, dataset) {
 
     const getTraj = trajectories[mode] || trajectories.dummy;
     const spreadBase = RANGE * 0.04;
-    const firmSpreads = [+1.0, -0.75, +1.75, -1.25, +0.5].map(s => s * spreadBase);
+    let firmSpreads = [+1.0, -0.75, +1.75, -1.25, +0.5].map(s => s * spreadBase);
+    if (mode === 'mixed') {
+        // Firms 0-3 push high, Firm 4 is the Maverick pricing near Nash
+        firmSpreads = [RANGE * 0.35, RANGE * 0.30, RANGE * 0.25, RANGE * 0.20, -RANGE * 0.18];
+    }
 
     const rounds  = [];
     let watchStreak = 0, warnStreak = 0, alertStreak = 0;
@@ -198,17 +220,34 @@ function generateDemoData(mode, dataset) {
 
     const priceDecimals = NASH > 1000 ? 1 : NASH > 100 ? 2 : 3;
 
+    let cumulativeSavings = 0;
     for (let r = 1; r <= numRounds; r++) {
         const t      = r / numRounds;
-        const target = getTraj(t);
+        let target = getTraj(t);
+
+        // Delayed transparency policy disrupts coordination convergence
+        if (policy === 'delay_3' || policy === 'remedy') {
+            target = target - (rng() * 0.15 * RANGE);
+        }
 
         const spreadDecay = mode === 'llm' ? 0.15 : mode === 'dummy' ? 0.55 : Math.max(0.08, 1 - t * 1.2);
         const noise = (rng() - 0.5) * RANGE * 0.015;
-        const prices = firmSpreads.map(s =>
+
+        let effCeiling = cfg.ceiling;
+        if (policy === 'cap_50' || policy === 'remedy') {
+            effCeiling = NASH + 0.50 * RANGE;
+        }
+
+        const rawPrices = firmSpreads.map(s =>
             clamp(target + s * spreadDecay + noise, cfg.floor, cfg.ceiling)
         );
+        const prices = rawPrices.map(p => Math.min(p, effCeiling));
 
+        const rawAvg = rawPrices.reduce((a, b) => a + b) / N;
         const avgPrice = prices.reduce((a, b) => a + b) / N;
+        const roundSavings = Math.max(0, (rawAvg - avgPrice) * 100);
+        cumulativeSavings += roundSavings;
+
         const lambda = clamp((avgPrice - NASH) / (MONO - NASH), -0.2, 1.25);
 
         // Softmax shares using quality ≈ NASH so utilities stay near zero at competitive prices
@@ -270,6 +309,9 @@ function generateDemoData(mode, dataset) {
             shares:    shares.map(s => parseFloat(s.toFixed(4))),
             avg_price: parseFloat(avgPrice.toFixed(priceDecimals)),
             lambda:    parseFloat(lambda.toFixed(4)),
+            consumer_savings: parseFloat(roundSavings.toFixed(2)),
+            cumulative_savings: parseFloat(cumulativeSavings.toFixed(2)),
+            policy_active: policy && policy !== 'none',
             alerts:    roundAlerts,
             strategies,
             sentiment,

@@ -556,17 +556,29 @@ function updateNarrator(round, total, lambda, avgPrice, mode) {
     const price = avgPrice ? `${window._currency || '$'}${avgPrice.toFixed(2)}` : '—';
     const agentLabel = mode === 'llm' ? 'LLM (Groq)' :
                        mode === 'rl'  ? 'Q-Learning' :
-                       mode === 'dqn' ? 'Deep Q-Network' : 'Heuristic';
+                       mode === 'dqn' ? 'Deep Q-Network' :
+                       mode === 'mixed' ? 'Mixed (4 Cartel vs 1 Maverick)' : 'Heuristic';
 
     let state, ico, msg;
 
     if (round === 1) {
         state = 'state-running';
         ico   = '🚀';
-        msg   = `<strong>Round ${round} / ${total} — Simulation started.</strong> 
-                 Five ${agentLabel} agents just entered the market. 
-                 Each firm independently sets its own price — no communication allowed. 
-                 Watch the price chart: initially prices are scattered as agents explore the market.`;
+        msg   = mode === 'mixed'
+            ? `<strong>Round ${round} / ${total} — Mixed Oligopoly started.</strong> 
+               Firms 1-4 are trying to coordinate high prices, while Firm 5 (The Maverick) 
+               is an aggressive competitive discounter. Watch whether the maverick can disrupt the cartel!`
+            : `<strong>Round ${round} / ${total} — Simulation started.</strong> 
+               Five ${agentLabel} agents just entered the market. 
+               Each firm independently sets its own price — no communication allowed. 
+               Watch the price chart: initially prices are scattered as agents explore the market.`;
+
+    } else if (mode === 'mixed' && lam < 0.45) {
+        state = 'state-running';
+        ico   = '🛡️';
+        msg   = `<strong>Round ${round} / ${total} — Maverick Disrupting Cartel!</strong> 
+                 Average price: ${price}. Λ = ${lam.toFixed(3)}. 
+                 Notice Firm 5 continuously undercutting near Nash — preventing the cartel from pushing prices to monopoly!`;
 
     } else if (round < 15) {
         state = 'state-running';
@@ -1119,6 +1131,19 @@ function handleMessage(msg) {
         const mode = document.getElementById('agent-mode').value;
         updateNarrator(msg.round, totalRounds, msg.lambda, msg.avg_price, mode);
 
+        // Update Policy Savings badge
+        const savBadge = document.getElementById('narrator-savings-badge');
+        const savVal = document.getElementById('narrator-savings-val');
+        if (savBadge && savVal) {
+            const savings = msg.cumulative_savings !== undefined ? msg.cumulative_savings : (msg.consumer_savings || 0);
+            if (savings > 0 || msg.policy_active) {
+                savBadge.style.display = 'flex';
+                savVal.textContent = `${window._currency || '$'}${savings.toFixed(2)}`;
+            } else {
+                savBadge.style.display = 'none';
+            }
+        }
+
         // Price chart
         const priceData = [
             ...msg.prices,
@@ -1314,6 +1339,14 @@ function startSimulation() {
 
     resetUI();
 
+    const polEl = document.getElementById('policy-select');
+    const policy = polEl ? polEl.value : 'none';
+    let policyPayload = null;
+    if (policy === 'cap_50') policyPayload = { name: 'Price Cap (50%)', price_cap_fraction: 0.5 };
+    else if (policy === 'delay_3') policyPayload = { name: 'Delayed Transparency (3r)', transparency_delay: 3 };
+    else if (policy === 'leniency') policyPayload = { name: 'Antitrust Leniency', leniency_bonus: 50.0 };
+    else if (policy === 'remedy') policyPayload = { name: 'Combined Remedy', price_cap_fraction: 0.5, transparency_delay: 3, leniency_bonus: 50.0 };
+
     // Try WebSocket first (for local dev), fallback to demo mode
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${proto}//${window.location.host}/ws/simulate`;
@@ -1329,7 +1362,7 @@ function startSimulation() {
             if (!wsConnected) {
                 ws.close();
                 console.log('[ECHO] Backend not available, switching to demo mode');
-                runDemoMode(mode, document.getElementById('dataset').value);
+                runDemoMode(mode, document.getElementById('dataset').value, policy);
             }
         }, 1500);
         
@@ -1337,7 +1370,7 @@ function startSimulation() {
             wsConnected = true;
             clearTimeout(wsTimeout);
             const dataset = document.getElementById('dataset').value;
-            ws.send(JSON.stringify({ mode, rounds, dataset, delay_ms: currentDelayMs() }));
+            ws.send(JSON.stringify({ mode, rounds, dataset, delay_ms: currentDelayMs(), policy: policyPayload }));
         };
 
         ws.onmessage = (event) => {
@@ -1349,7 +1382,7 @@ function startSimulation() {
             if (!wsConnected) {
                 clearTimeout(wsTimeout);
                 console.log('[ECHO] WebSocket error, switching to demo mode');
-                runDemoMode(mode, document.getElementById('dataset').value);
+                runDemoMode(mode, document.getElementById('dataset').value, policy);
             }
         };
 
@@ -1369,7 +1402,7 @@ function startSimulation() {
     } catch (e) {
         // WebSocket constructor itself failed (e.g., bad URL)
         console.log('[ECHO] WebSocket unavailable, using demo mode');
-        runDemoMode(mode, document.getElementById('dataset').value);
+        runDemoMode(mode, document.getElementById('dataset').value, policy);
     }
 }
 
@@ -1379,10 +1412,15 @@ function startSimulation() {
 
 let demoTimer = null;
 
-function runDemoMode(mode, dataset) {
+function runDemoMode(mode, dataset, policy) {
     if (!window.generateDemoData) {
         alert('Demo data not loaded. Please refresh the page.');
         return;
+    }
+
+    if (!policy) {
+        const polEl = document.getElementById('policy-select');
+        policy = polEl ? polEl.value : 'none';
     }
 
     // The connect timeout and ws.onerror can both fire for one failed
@@ -1394,7 +1432,7 @@ function runDemoMode(mode, dataset) {
         resetUI();
     }
 
-    const demo = window.generateDemoData(mode, dataset || 'gasoline');
+    const demo = window.generateDemoData(mode, dataset || 'gasoline', policy);
     totalRounds = demo.numRounds;
 
     // Update rounds input to match demo data

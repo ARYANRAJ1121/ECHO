@@ -198,3 +198,4 @@ class PolicyConfig:
             leniency_bonus=bonus,
             active_from_round=active_from_round,
         )
+

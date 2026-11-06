@@ -151,6 +151,20 @@ class MarketEngine:
                     response_times=response_times if response_times else None,
                 )
 
+            # Notify learning agents (RL, DQN)
+            for i, agent in enumerate(self.agents):
+                if hasattr(agent, "learn"):
+                    obs = Observation(
+                        round_number=round_num,
+                        firm_id=agent.firm_id,
+                        marginal_cost=float(self.demand_model.costs[agent.firm_id]),
+                        price_floor=self.price_floor,
+                        price_ceiling=self.price_ceiling,
+                        price_history=self.price_history,
+                        profit_history=self.profit_history,
+                    )
+                    agent.learn(obs, record.prices, record.profits[i])
+
             # Store in RAG memory for agents that support it
             for agent in self.agents:
                 if hasattr(agent, "store_round_memory"):
