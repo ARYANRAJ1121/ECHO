@@ -29,6 +29,7 @@ from run_simulation import (
     build_dummy_simulation,
     build_rl_simulation,
     build_llm_simulation,
+    build_gemini_simulation,
     build_dqn_simulation,
     build_mixed_simulation,
 )
@@ -423,6 +424,8 @@ async def simulate_endpoint(websocket: WebSocket):
             engine, _ = build_dqn_simulation(n_rounds, market_ctx)
         elif mode == "mixed":
             engine, _ = build_mixed_simulation(n_rounds, market_ctx)
+        elif mode == "gemini":
+            engine, _ = build_gemini_simulation(n_rounds, market_ctx)
         elif mode == "llm":
             engine, _ = build_llm_simulation(n_rounds, market_ctx)
         else:
@@ -551,9 +554,9 @@ async def simulate_endpoint(websocket: WebSocket):
                     alerts=[{"type": a.alert_type, "severity": a.severity, "detail": a.detail} for a in alerts],
                 ))
 
-            # Collect scratchpads for LLM/RAG agents
+            # Collect scratchpads for LLM/RAG/Gemini agents
             scratchpads = {}
-            if mode in ("llm", "rag"):
+            if mode in ("llm", "rag", "gemini"):
                 for agent in engine.agents:
                     if hasattr(agent, "scratchpad_history") and agent.scratchpad_history:
                         text = agent.scratchpad_history[-1]

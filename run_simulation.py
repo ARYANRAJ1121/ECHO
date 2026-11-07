@@ -71,8 +71,13 @@ def resolve_price_band(market_ctx, demand_model: LogitDemandModel) -> tuple[floa
     return floor, ceiling
 
 
-def build_llm_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
-    """Wire up 5 LLM agents talking to Groq API."""
+def build_llm_simulation(
+    n_rounds: int,
+    market_ctx,
+    provider: str = "groq",
+    model: str | None = None,
+) -> tuple[MarketEngine, int]:
+    """Wire up 5 LLM agents talking to Groq, Gemini, or Ollama."""
     from agents.llm_agent import LLMPricingAgent
 
     demand_model = build_demand_model(market_ctx)
@@ -80,7 +85,8 @@ def build_llm_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
     agents = [
         LLMPricingAgent(
             firm_id=i,
-            model="allam-2-7b",
+            provider=provider,
+            model=model,
             temperature=0.7,
             identity_name=market_ctx.firm_names[i],
             market_description=market_ctx.description,
@@ -97,6 +103,15 @@ def build_llm_simulation(n_rounds: int, market_ctx) -> tuple[MarketEngine, int]:
         price_ceiling=price_ceiling,
     )
     return engine, n_rounds
+
+
+def build_gemini_simulation(
+    n_rounds: int,
+    market_ctx,
+    model: str = "gemini-2.5-flash",
+) -> tuple[MarketEngine, int]:
+    """Wire up 5 LLM agents talking to Google Gemini API."""
+    return build_llm_simulation(n_rounds, market_ctx, provider="gemini", model=model)
 
 
 def build_rag_simulation(n_rounds: int, sim_id: int, market_ctx) -> tuple[MarketEngine, int]:
@@ -413,8 +428,12 @@ def print_results(engine: MarketEngine, show_scratchpads: bool = False) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ECHO Simulation")
-    parser.add_argument("--mode", choices=["llm", "dummy", "rag", "rl", "dqn", "mixed"], default="dummy",
-                        help="Agent type: 'llm', 'rag', 'rl', 'dqn', 'mixed' (Cartel vs Maverick), or 'dummy'")
+    parser.add_argument("--mode", choices=["llm", "dummy", "rag", "rl", "dqn", "mixed", "gemini"], default="dummy",
+                        help="Agent type: 'llm', 'gemini', 'rag', 'rl', 'dqn', 'mixed', or 'dummy'")
+    parser.add_argument("--llm-provider", choices=["groq", "gemini", "ollama"], default="groq",
+                        help="LLM provider for --mode llm (default: groq)")
+    parser.add_argument("--llm-model", type=str, default=None,
+                        help="Custom model name for LLM provider (e.g. 'gemini-2.5-flash', 'allam-2-7b')")
     parser.add_argument("--rounds", type=int, default=50,
                         help="Number of rounds to simulate (use 5000+ for RL)")
     parser.add_argument("--db", action="store_true",
@@ -488,8 +507,10 @@ if __name__ == "__main__":
             (engine.benchmarks.nash_price, engine.benchmarks.monopoly_price, sim_id),
         )
         db_logger.conn.commit()
+    elif args.mode == "gemini":
+        engine, n_rounds = build_gemini_simulation(args.rounds, market_ctx=market_ctx, model=args.llm_model or "gemini-2.5-flash")
     elif args.mode == "llm":
-        engine, n_rounds = build_llm_simulation(args.rounds, market_ctx=market_ctx)
+        engine, n_rounds = build_llm_simulation(args.rounds, market_ctx=market_ctx, provider=args.llm_provider, model=args.llm_model)
     elif args.mode == "rl":
         engine, n_rounds = build_rl_simulation(args.rounds, market_ctx=market_ctx)
     elif args.mode == "dqn":
@@ -549,7 +570,7 @@ if __name__ == "__main__":
         db_logger.end_simulation(sim_id)
         db_logger.close()
 
-    print_results(engine, show_scratchpads=(args.mode in ("llm", "rag")))
+    print_results(engine, show_scratchpads=(args.mode in ("llm", "rag", "gemini")))
 
     # --- Antitrust Regulator: Lambda Monitor ---
     from regulator.detector import LambdaMonitor

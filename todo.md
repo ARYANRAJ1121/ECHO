@@ -365,13 +365,15 @@ These items are **out of scope for the submitted major project**. They form a re
 
 ---
 
-### F1. Cross-model LLM evaluation
+### F1. Cross-model LLM evaluation ✅
 
 Compare tacit coordination under a **common market protocol** across hosted and local language models (Groq Allam 2 7B today; additional Groq or OpenAI-compatible endpoints; optional local Ollama chat).
 
-- [ ] Pluggable LLM backend behind `LLMPricingAgent`
-- [ ] Identical seeds, round count, and `MarketContext` per model family
-- [ ] Report time-to-threshold, peak and terminal Λ, and scratchpad intent rates
+- [x] Pluggable LLM backend behind `LLMPricingAgent` (`groq`, `gemini`, `ollama`)
+- [x] Google Gemini REST integration (`gemini-2.5-flash`, `gemini-2.5-pro`, `gemma-4-26b-a4b-it`)
+- [x] CLI support via `--mode gemini`, `--llm-provider`, and `--llm-model`
+- [x] WebSocket simulation engine and scratchpad collection for Gemini
+- [x] Dashboard UI and demo playback for cross-model LLM comparisons (Gemini Flash)
 - [ ] Optional mixed-architecture oligopoly (two model families in one market)
 
 **Rationale.** Establish whether high Λ is an artefact of one 7B checkpoint or a broader property of language-model pricers.

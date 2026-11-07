@@ -554,7 +554,8 @@ function updateNarrator(round, total, lambda, avgPrice, mode) {
     const pct  = Math.round((round / total) * 100);
     const lam  = lambda || 0;
     const price = avgPrice ? `${window._currency || '$'}${avgPrice.toFixed(2)}` : '—';
-    const agentLabel = mode === 'llm' ? 'LLM (Groq)' :
+    const agentLabel = mode === 'gemini' ? 'LLM (Google Gemini Flash)' :
+                       mode === 'llm' ? 'LLM (Groq)' :
                        mode === 'rl'  ? 'Q-Learning' :
                        mode === 'dqn' ? 'Deep Q-Network' :
                        mode === 'mixed' ? 'Mixed (4 Cartel vs 1 Maverick)' : 'Heuristic';
@@ -1041,7 +1042,7 @@ function resetUI() {
     const mode = document.getElementById('agent-mode').value;
     const sentEmpty = document.getElementById('sentiment-empty');
     const sentList = document.getElementById('sentiment-list');
-    if (mode === 'llm' || mode === 'rag') {
+    if (mode === 'llm' || mode === 'gemini' || mode === 'rag') {
         sentEmpty.classList.remove('hidden');
         sentList.classList.add('hidden');
         sentEmpty.textContent = 'Waiting for LLM analysis...';
@@ -1329,9 +1330,9 @@ function startSimulation() {
     // Show/hide scratchpad panel based on mode
     const spPanel = document.getElementById('scratchpad-panel');
     const spBadge = document.getElementById('scratchpad-mode-badge');
-    if (mode === 'llm' || mode === 'rag') {
+    if (mode === 'llm' || mode === 'gemini' || mode === 'rag') {
         spPanel.classList.remove('hidden');
-        spBadge.textContent = mode === 'rag' ? 'RAG Mode' : 'LLM Mode';
+        spBadge.textContent = mode === 'gemini' ? 'Gemini Flash' : mode === 'rag' ? 'RAG Mode' : 'LLM Mode';
         spBadge.className = 'badge running';
     } else {
         spPanel.classList.add('hidden');
@@ -1443,7 +1444,7 @@ function runDemoMode(mode, dataset, policy) {
 
     // Play rounds with animation
     let idx = 0;
-    const speed = mode === 'llm' ? 120 : mode === 'dqn' ? 40 : mode === 'rl' ? 20 : 30;
+    const speed = (mode === 'llm' || mode === 'gemini') ? 120 : mode === 'dqn' ? 40 : mode === 'rl' ? 20 : 30;
 
     demoTimer = setInterval(() => {
         if (demoPaused) return;

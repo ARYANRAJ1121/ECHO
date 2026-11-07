@@ -145,8 +145,8 @@ function generateDemoData(mode, dataset, policy) {
         real_lambda_proxy: cfg.real_lambda_proxy,
     };
 
-    const numRounds = { dummy: 100, rl: 200, dqn: 150, mixed: 120, llm: 60 }[mode] || 100;
-    const rng       = seededRandom({ dummy: 42, rl: 137, dqn: 256, mixed: 314, llm: 999 }[mode] || 42);
+    const numRounds = { dummy: 100, rl: 200, dqn: 150, mixed: 120, llm: 60, gemini: 60 }[mode] || 100;
+    const rng       = seededRandom({ dummy: 42, rl: 137, dqn: 256, mixed: 314, llm: 999, gemini: 777 }[mode] || 42);
     const RANGE     = MONO - NASH;
 
     // Trajectories are fractions of the Nash→monopoly span (scale-invariant).
@@ -176,6 +176,11 @@ function generateDemoData(mode, dataset, policy) {
         llm: (t) => {
             if (t < 0.05) return NASH + RANGE * (0.55 + rng() * 0.12);
             return NASH + RANGE * (0.78 + 0.10 * Math.min(t, 1.0)) + (rng() - 0.5) * RANGE * 0.02;
+        },
+
+        gemini: (t) => {
+            if (t < 0.05) return NASH + RANGE * (0.52 + rng() * 0.14);
+            return NASH + RANGE * (0.79 + 0.09 * Math.min(t, 1.0)) + (rng() - 0.5) * RANGE * 0.02;
         },
     };
 
@@ -230,7 +235,7 @@ function generateDemoData(mode, dataset, policy) {
             target = target - (rng() * 0.15 * RANGE);
         }
 
-        const spreadDecay = mode === 'llm' ? 0.15 : mode === 'dummy' ? 0.55 : Math.max(0.08, 1 - t * 1.2);
+        const spreadDecay = (mode === 'llm' || mode === 'gemini') ? 0.15 : mode === 'dummy' ? 0.55 : Math.max(0.08, 1 - t * 1.2);
         const noise = (rng() - 0.5) * RANGE * 0.015;
 
         let effCeiling = cfg.ceiling;
@@ -293,7 +298,7 @@ function generateDemoData(mode, dataset, policy) {
         });
 
         let sentiment = null;
-        if (mode === 'llm' || mode === 'rag') {
+        if (mode === 'llm' || mode === 'gemini' || mode === 'rag') {
             const coopLevel = clamp(0.25 + lambda * 0.65, 0.25, 0.91);
             sentiment = {
                 mean_cooperative: parseFloat((coopLevel + (rng() - 0.5) * 0.06).toFixed(3)),
@@ -317,7 +322,7 @@ function generateDemoData(mode, dataset, policy) {
             sentiment,
         };
 
-        if (mode === 'llm') {
+        if (mode === 'llm' || mode === 'gemini') {
             const scratchpads = {};
             for (let i = 0; i < N; i++) {
                 const tIdx = Math.floor(rng() * llmThoughts[i].length);

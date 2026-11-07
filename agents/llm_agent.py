@@ -44,22 +44,28 @@ import re
 import json
 import time
 import os
+import requests
 import groq
 from dotenv import load_dotenv
 
-load_dotenv(os.path.expanduser("~/.env"))
-load_dotenv() # Also load local .env if it exists
+load_dotenv()  # Load local .env if it exists
+try:
+    home_env = os.path.expanduser("~/.env")
+    if os.path.isfile(home_env):
+        load_dotenv(home_env)
+except Exception:
+    pass
 
 from agents.base_agent import Observation, PricingAgent
 
 
 class LLMPricingAgent(PricingAgent):
     """
-    A pricing agent powered by a local LLM via Ollama.
+    A pricing agent powered by an LLM (Groq, Google Gemini, or local Ollama).
 
     Each round:
     1. Builds a prompt describing the market situation
-    2. Sends it to Ollama (Llama 3 8B)
+    2. Sends it to LLM provider (Groq, Gemini, or Ollama)
     3. Parses the response for <scratchpad> and <price>
     4. Returns the price
 
@@ -67,10 +73,10 @@ class LLMPricingAgent(PricingAgent):
     ----------
     firm_id : int
         Which firm this agent controls (0-4).
-    ollama_host : str
-        URL of the Ollama server. Default: http://localhost:11434
+    provider : str
+        LLM backend provider: 'groq', 'gemini', or 'ollama'.
     model : str
-        Which model to use. Default: llama3
+        Model identifier.
     temperature : float
         LLM temperature. Lower = more deterministic. Default: 0.7
     max_retries : int
@@ -80,7 +86,8 @@ class LLMPricingAgent(PricingAgent):
     def __init__(
         self,
         firm_id: int,
-        model: str = "allam-2-7b",
+        provider: str = "groq",
+        model: str | None = None,
         temperature: float = 0.7,
         max_retries: int = 3,
         identity_name: str | None = None,
@@ -90,9 +97,20 @@ class LLMPricingAgent(PricingAgent):
     ) -> None:
         name = identity_name if identity_name else f"LLM_Firm_{firm_id}"
         super().__init__(firm_id=firm_id, name=name)
-        
-        self.client = groq.Groq(api_key=os.environ.get("GROQ_API_KEY"))
-        self.model = model
+
+        self.provider = provider.lower()
+        if self.provider == "gemini":
+            self.model = model or "gemini-2.5-flash"
+            self.client = None
+        elif self.provider == "ollama":
+            self.model = model or "llama3"
+            self.client = None
+        else:
+            self.provider = "groq"
+            self.model = model or "allam-2-7b"
+            groq_key = os.environ.get("GROQ_API_KEY")
+            self.client = groq.Groq(api_key=groq_key) if groq_key else None
+
         self.temperature = temperature
         self.max_retries = max_retries
         self.market_description = market_description or "generic market"
@@ -212,33 +230,79 @@ class LLMPricingAgent(PricingAgent):
         return "\n".join(lines)
 
     # ----------------------------------------------------------------
-    # Groq API call
+    # Pluggable LLM Backend (Groq, Gemini, Ollama)
     # ----------------------------------------------------------------
 
     def _call_llm(self, prompt: str) -> str:
-        """
-        Send prompt to Groq and get the full response text.
-        """
-        # Split prompt into system and user for better Groq behavior
+        """Route prompt to configured provider."""
+        if self.provider == "gemini":
+            return self._call_gemini(prompt)
+        elif self.provider == "ollama":
+            return self._call_ollama(prompt)
+        else:
+            return self._call_groq(prompt)
+
+    def _call_groq(self, prompt: str) -> str:
+        """Send prompt to Groq API."""
+        if not self.client:
+            raise ValueError("GROQ_API_KEY environment variable is not set in .env")
+
         system_msg, user_msg = prompt.split("\n\n", 1)
-        
         chat_completion = self.client.chat.completions.create(
             messages=[
-                {
-                    "role": "system",
-                    "content": system_msg,
-                },
-                {
-                    "role": "user",
-                    "content": user_msg,
-                }
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
             ],
             model=self.model,
             temperature=self.temperature,
             max_tokens=300,
         )
-        
         return chat_completion.choices[0].message.content or ""
+
+    def _call_gemini(self, prompt: str) -> str:
+        """Send prompt to Google Gemini API."""
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable is not set in .env")
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        payload = {
+            "contents": [
+                {
+                    "parts": [{"text": prompt}]
+                }
+            ],
+            "generationConfig": {
+                "temperature": self.temperature,
+                "maxOutputTokens": 300,
+            }
+        }
+        res = requests.post(url, headers=headers, json=payload, timeout=25)
+        if res.status_code != 200:
+            raise RuntimeError(f"Gemini API returned status {res.status_code}: {res.text[:200]}")
+        data = res.json()
+        candidates = data.get("candidates", [])
+        if not candidates:
+            raise RuntimeError(f"No candidates returned by Gemini: {data}")
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if not parts:
+            raise RuntimeError(f"Empty parts returned by Gemini: {data}")
+        return parts[0].get("text", "")
+
+    def _call_ollama(self, prompt: str) -> str:
+        """Send prompt to local Ollama server."""
+        url = "http://localhost:11434/api/generate"
+        payload = {
+            "model": self.model or "llama3",
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": self.temperature}
+        }
+        res = requests.post(url, json=payload, timeout=30)
+        if res.status_code != 200:
+            raise RuntimeError(f"Ollama returned {res.status_code}: {res.text}")
+        return res.json().get("response", "")
 
     # ----------------------------------------------------------------
     # Response parsing
