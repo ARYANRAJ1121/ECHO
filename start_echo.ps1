@@ -70,19 +70,28 @@ Write-Host ""
 Write-Host "[3/5] Checking LLM & Embedding Providers..." -ForegroundColor Yellow
 
 $hasGroq = $false
+$hasGemini = $false
 $envFiles = @(".env", "$HOME\.env", "$env:USERPROFILE\.env")
 foreach ($ef in $envFiles) {
     if (Test-Path $ef) {
         $content = Get-Content $ef -Raw
         if ($content -match "GROQ_API_KEY") { $hasGroq = $true }
+        if ($content -match "GEMINI_API_KEY") { $hasGemini = $true }
     }
 }
 if ($env:GROQ_API_KEY) { $hasGroq = $true }
+if ($env:GEMINI_API_KEY) { $hasGemini = $true }
 
 if ($hasGroq) {
     Write-Host "      Groq API key found (LLM agents ready: Allam 2 / Llama 3)." -ForegroundColor Green
 } else {
-    Write-Host "      GROQ_API_KEY not found. Set it in .env to enable cloud LLM agents." -ForegroundColor DarkYellow
+    Write-Host "      GROQ_API_KEY not found. Set it in .env to enable Groq LLM agents." -ForegroundColor DarkYellow
+}
+
+if ($hasGemini) {
+    Write-Host "      Google Gemini API key found (LLM agents ready: Gemini Flash Lite)." -ForegroundColor Green
+} else {
+    Write-Host "      GEMINI_API_KEY not found. Set it in .env to enable Gemini agents." -ForegroundColor DarkYellow
 }
 
 $ollamaOK = $false
@@ -139,17 +148,29 @@ if ($mode -eq "fullrun") {
         python run_simulation.py --dataset gasoline --mode dqn --rounds 200 --db
         Write-Host "           Done." -ForegroundColor Green
 
+        Write-Host "      [4d] Mixed Oligopoly: 4 Cartel vs 1 Maverick + 50% Price Cap (100 rounds)..." -ForegroundColor Gray
+        python run_simulation.py --dataset gasoline --mode mixed --rounds 100 --policy-cap-frac 0.50 --db
+        Write-Host "           Done." -ForegroundColor Green
+
         if ($hasGroq) {
-            Write-Host "      [4d] LLM agents (50 rounds - Groq Allam 2)..." -ForegroundColor Gray
+            Write-Host "      [4e] Groq LLM agents (50 rounds - Allam 2)..." -ForegroundColor Gray
             python run_simulation.py --dataset gasoline --mode llm --rounds 50 --db
             Write-Host "           Done." -ForegroundColor Green
         } else {
-            Write-Host "      [4d] LLM agents - SKIPPED (GROQ_API_KEY not configured)" -ForegroundColor DarkYellow
+            Write-Host "      [4e] Groq LLM agents - SKIPPED (GROQ_API_KEY not configured)" -ForegroundColor DarkYellow
+        }
+
+        if ($hasGemini) {
+            Write-Host "      [4f] Google Gemini agents (20 rounds - Gemini Flash Lite)..." -ForegroundColor Gray
+            python run_simulation.py --dataset gasoline --mode gemini --rounds 20 --db
+            Write-Host "           Done." -ForegroundColor Green
+        } else {
+            Write-Host "      [4f] Google Gemini agents - SKIPPED (GEMINI_API_KEY not configured)" -ForegroundColor DarkYellow
         }
 
         # Generate Figures from real DB data
         Write-Host ""
-        Write-Host "      [4e] Generating figures from database data..." -ForegroundColor Gray
+        Write-Host "      [4g] Generating figures from database data..." -ForegroundColor Gray
         python -m analysis.plots --all
         Write-Host "           Done." -ForegroundColor Green
     } else {
@@ -160,7 +181,7 @@ if ($mode -eq "fullrun") {
 
     # Generate Figures 8-10 from real empirical data (BLS FRED + Amazon)
     Write-Host ""
-    Write-Host "      [4f] Fetching real market validation data (Figs 8-10)..." -ForegroundColor Gray
+    Write-Host "      [4h] Fetching real market validation data (Figs 8-10)..." -ForegroundColor Gray
     python -m analysis.real_data
     Write-Host "           Done." -ForegroundColor Green
 
