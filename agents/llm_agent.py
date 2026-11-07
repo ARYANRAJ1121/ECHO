@@ -100,7 +100,7 @@ class LLMPricingAgent(PricingAgent):
 
         self.provider = provider.lower()
         if self.provider == "gemini":
-            self.model = model or "gemini-2.5-flash"
+            self.model = model or "gemini-3.5-flash-lite"
             self.client = None
         elif self.provider == "ollama":
             self.model = model or "llama3"
@@ -279,6 +279,12 @@ class LLMPricingAgent(PricingAgent):
             }
         }
         res = requests.post(url, headers=headers, json=payload, timeout=25)
+        if res.status_code == 404 and self.model != "gemini-3.5-flash-lite":
+            # Fallback to current active lite model
+            self.model = "gemini-3.5-flash-lite"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={api_key}"
+            res = requests.post(url, headers=headers, json=payload, timeout=25)
+
         if res.status_code != 200:
             raise RuntimeError(f"Gemini API returned status {res.status_code}: {res.text[:200]}")
         data = res.json()

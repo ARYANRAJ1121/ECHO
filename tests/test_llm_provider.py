@@ -33,7 +33,7 @@ def test_provider_initialization():
     with patch.dict(os.environ, {"GEMINI_API_KEY": "dummy_gemini_key"}):
         agent_gemini = LLMPricingAgent(firm_id=1, provider="gemini")
         assert agent_gemini.provider == "gemini"
-        assert agent_gemini.model == "gemini-2.5-flash"
+        assert agent_gemini.model == "gemini-3.5-flash-lite"
 
     # Custom model Gemini
     with patch.dict(os.environ, {"GEMINI_API_KEY": "dummy_gemini_key"}):
@@ -109,7 +109,7 @@ def test_build_gemini_simulation_wiring():
     for a in engine.agents:
         assert isinstance(a, LLMPricingAgent)
         assert a.provider == "gemini"
-        assert a.model == "gemini-2.5-flash"
+        assert a.model == "gemini-3.5-flash-lite"
 
 
 if __name__ == "__main__":
