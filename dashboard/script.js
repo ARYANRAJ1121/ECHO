@@ -1623,6 +1623,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initFirmTable();
     initScratchpadTabs();
     initAITabs();
+    loadAnalysisPack(); // Pre-load latest run analysis figures if available
 
     document.getElementById('start-btn').addEventListener('click', startSimulation);
     document.getElementById('pause-btn').addEventListener('click', togglePause);
