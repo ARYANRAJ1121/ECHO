@@ -610,6 +610,8 @@ async def simulate_endpoint(websocket: WebSocket):
                     strategy_labels[i] = {
                         "strategy": pred.predicted_strategy,
                         "confidence": round(pred.confidence, 3),
+                        "attributions": pred.attributions,
+                        "explanation": pred.explanation,
                     }
                 payload["strategies"] = strategy_labels
 

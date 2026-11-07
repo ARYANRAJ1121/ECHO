@@ -427,13 +427,39 @@ function updateStrategyLabels(strategies) {
             else if (strat.strategy === 'exploratory') color = '#8b5cf6';
             
             const confPct = Math.round(strat.confidence * 100);
-            
             const firmLabel = (window._firmNames && window._firmNames[i]) ? window._firmNames[i] : `F${i+1}`;
+
+            let xaiHtml = '';
+            if (strat.attributions || strat.explanation) {
+                let attrBadges = '';
+                if (strat.attributions) {
+                    const topAttrs = Object.entries(strat.attributions)
+                        .filter(([k, v]) => Math.abs(v) > 0.02)
+                        .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+                        .slice(0, 3);
+                    attrBadges = topAttrs.map(([k, v]) => {
+                        const signClass = v >= 0 ? 'pos' : 'neg';
+                        const signPrefix = v >= 0 ? '+' : '';
+                        return `<span class="xai-attr-tag ${signClass}">${k}: ${signPrefix}${v}</span>`;
+                    }).join(' ');
+                }
+
+                xaiHtml = `
+                    <div class="xai-details">
+                        ${strat.explanation ? `<div class="xai-text">${strat.explanation}</div>` : ''}
+                        ${attrBadges ? `<div class="xai-tags"><span class="xai-label">SHAP:</span> ${attrBadges}</div>` : ''}
+                    </div>
+                `;
+            }
+
             list.innerHTML += `
-                <div class="strategy-item">
-                    <span class="s-firm"><span class="firm-color-dot" style="background:${COLORS[i]}"></span>${firmLabel}</span>
-                    <span class="s-badge" style="background:${color}20; color:${color}; border: 1px solid ${color}40">${strat.strategy.toUpperCase()}</span>
-                    <span class="s-conf">${confPct}% conf</span>
+                <div class="strategy-card">
+                    <div class="strategy-item">
+                        <span class="s-firm"><span class="firm-color-dot" style="background:${COLORS[i]}"></span>${firmLabel}</span>
+                        <span class="s-badge" style="background:${color}20; color:${color}; border: 1px solid ${color}40">${strat.strategy.toUpperCase()}</span>
+                        <span class="s-conf">${confPct}% conf</span>
+                    </div>
+                    ${xaiHtml}
                 </div>
             `;
         }

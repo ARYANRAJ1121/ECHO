@@ -289,6 +289,34 @@ def build_run_pack(
         _save(fig, os.path.join(out, "06_real_market.png"))
         figures.append({"id": "real", "file": "06_real_market.png", "title": "Real-market average (this dataset only)"})
 
+    # 7. XAI: SHAP Strategy Feature Attributions
+    xai_info: dict[str, Any] = {}
+    try:
+        from analysis.strategy_classifier import AgentStrategyClassifier
+        classifier = AgentStrategyClassifier(
+            nash_price=float(nash) if nash is not None else 1.0,
+            monopoly_price=float(monopoly) if monopoly is not None else 1.5,
+            n_firms=n_firms,
+        )
+        cost_val = float(nash) * 0.85 if nash is not None else 1.0
+        X_feats, y_labels = classifier.extract_features(prices.tolist(), profits.tolist(), cost=cost_val)
+        if len(X_feats) >= 10:
+            train_summary = classifier.train(X_feats, y_labels)
+            xai_fig = os.path.join(out, "08_xai_shap.png")
+            classifier.generate_shap_summary_plot(X_feats, y_labels, output_path=xai_fig)
+            figures.append({
+                "id": "xai",
+                "file": "08_xai_shap.png",
+                "title": "Explainable AI (SHAP) Strategy Feature Attributions",
+            })
+            sorted_feats = sorted(train_summary.get("feature_importances", {}).items(), key=lambda x: -x[1])
+            xai_info = {
+                "top_features": [k for k, _ in sorted_feats[:4]],
+                "has_shap": train_summary.get("has_shap", False),
+            }
+    except Exception as e:
+        print(f"  [XAI] Warning: could not generate SHAP figure: {e}")
+
     final_l = float(lambdas[-1])
     peak_l = float(np.max(lambdas))
     mean_l = float(np.mean(lambdas))
@@ -314,6 +342,7 @@ def build_run_pack(
         "final_avg_price": round(float(avg_p[-1]), 4),
         "verdict": verdict,
         "cartel_roster": roster,
+        "xai": xai_info,
         "regulator": regulator or {},
         "sentiment_report": sentiment_report,
         "figures": figures,

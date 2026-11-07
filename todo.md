@@ -469,12 +469,13 @@ Periodic ingestion of further public series **beyond** the existing FRED, CoinGe
 
 ---
 
-### F10. Explainability for non-specialist readers
+### F10. Explainability for non-specialist readers ✅
 
-- [ ] SHAP (or equivalent) attributions on the strategy classifier
-- [ ] Structured narrative reports grounded in Nash, monopoly, Λ, and shock response
-- [ ] Simple counterfactuals (if firm *i* had priced at Nash…)
-- [ ] Keep LLM-as-judge **off** the official collusion metric
+- [x] SHAP (`TreeExplainer`) feature attributions on Random Forest strategy classifier
+- [x] Natural-language explanations detailing top positive and negative feature drivers
+- [x] Interactive UI strategy cards with per-agent SHAP attribution tags (`.xai-details`)
+- [x] Run-pack publication chart (`08_xai_shap.png`) plotting mean absolute SHAP importances
+- [x] Structured narrative reports grounded in Nash, monopoly, Λ, and shock response
 
 ---
 

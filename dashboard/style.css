@@ -1609,6 +1609,67 @@ input[type="number"] { width: 100px; }
     width: 60px;
 }
 
+/* XAI Attributions & Explanation */
+.strategy-card {
+    background: #FAF6F0;
+    border: 1px solid rgba(43, 38, 32, 0.08);
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.6rem;
+    overflow: hidden;
+}
+
+.strategy-card .strategy-item {
+    background: transparent;
+    margin-bottom: 0;
+    border-radius: 0;
+}
+
+.xai-details {
+    padding: 0.45rem 0.75rem 0.55rem;
+    background: rgba(255, 255, 255, 0.55);
+    border-top: 1px dashed rgba(43, 38, 32, 0.08);
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.xai-text {
+    line-height: 1.35;
+    margin-bottom: 0.3rem;
+}
+
+.xai-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.xai-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+}
+
+.xai-attr-tag {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.63rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 2px;
+}
+
+.xai-attr-tag.pos {
+    background: rgba(193, 122, 78, 0.15);
+    color: #934c20;
+    border: 1px solid rgba(193, 122, 78, 0.3);
+}
+
+.xai-attr-tag.neg {
+    background: rgba(107, 140, 174, 0.15);
+    color: #355f88;
+    border: 1px solid rgba(107, 140, 174, 0.3);
+}
+
 /* Sentiment Bars */
 .sentiment-bar-container {
     margin-bottom: 1.25rem;

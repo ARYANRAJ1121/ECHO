@@ -294,7 +294,37 @@ function generateDemoData(mode, dataset, policy) {
             } else {
                 strategy = 'exploratory'; confidence = 0.6;
             }
-            strategies[i] = { strategy, confidence };
+
+            let attributions = {};
+            let explanation = '';
+            const pDiffNash = parseFloat(((p - NASH) / NASH).toFixed(3));
+            const pDiffAvg = parseFloat(((p - avgPrice) / avgPrice).toFixed(3));
+            if (strategy === 'cooperative') {
+                attributions = {
+                    price_vs_nash: parseFloat((0.35 + pDiffNash * 0.4).toFixed(3)),
+                    price_vs_avg: parseFloat((0.20 + pDiffAvg * 0.3).toFixed(3)),
+                    price_volatility: -0.15,
+                    is_cheapest: -0.25,
+                };
+                explanation = `Cooperative coordination: pricing ${(pDiffNash * 100).toFixed(1)}% vs Nash. Driven by price_vs_nash (+${attributions.price_vs_nash}), price_vs_avg (+${attributions.price_vs_avg}).`;
+            } else if (strategy === 'competitive') {
+                attributions = {
+                    is_cheapest: 0.38,
+                    price_vs_nash: -0.28,
+                    price_vs_avg: -0.22,
+                    price_volatility: 0.12,
+                };
+                explanation = `Competitive undercutting: pricing aggressively near marginal cost. Driven by is_cheapest (+0.38).`;
+            } else {
+                attributions = {
+                    price_volatility: 0.42,
+                    price_change: 0.28,
+                    price_vs_nash: 0.10,
+                };
+                explanation = `Exploratory pricing: searching price band with elevated volatility (+0.42).`;
+            }
+
+            strategies[i] = { strategy, confidence, attributions, explanation };
         });
 
         let sentiment = null;
