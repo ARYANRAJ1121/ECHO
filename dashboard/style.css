@@ -1670,6 +1670,36 @@ input[type="number"] { width: 100px; }
     border: 1px solid rgba(107, 140, 174, 0.3);
 }
 
+/* Network Detection Summary Card */
+.summary-network {
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    background: rgba(193, 122, 78, 0.08);
+    border: 1px solid rgba(193, 122, 78, 0.25);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    text-align: left;
+}
+
+.summary-network-title {
+    font-weight: 700;
+    font-size: 0.76rem;
+    color: #934c20;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.summary-network-body {
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.net-leader {
+    font-weight: 700;
+    color: #b85a5a;
+}
+
 /* Sentiment Bars */
 .sentiment-bar-container {
     margin-bottom: 1.25rem;

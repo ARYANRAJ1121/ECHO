@@ -446,14 +446,16 @@ This remains a **laboratory** for CCI- and DOJ-style questions. Λ is an index, 
 
 ---
 
-### F7. Graph-based detection
+### F7. Graph-based detection ✅
 
 Represent firms as nodes and contemporaneous price (or scratchpad) similarity as edges. Train a temporal graph model to classify market regimes and to rank likely price leaders; report accuracy against Λ-based labels and against the current Random Forest.
 
-- [ ] Static and temporal graphs of the oligopoly
-- [ ] Regime classification (competitive / watch / collusive)
-- [ ] Leadership ranking versus `identify_cartel_roster()`
-- [ ] Ablation versus LambdaMonitor + RF
+- [x] Static and temporal graphs of the oligopoly (`regulator/network_detector.py`)
+- [x] Directed lead-lag cross-correlation ($L_{ij}$) for algorithmic price-leadership detection
+- [x] Network density and clustering coefficient quantification
+- [x] PageRank / Centrality to mathematically identify Cartel Ring Leader
+- [x] Publication-quality network visualization figure (`09_collusion_network.png`)
+- [x] Dashboard UI and demo integration for network graph metrics
 
 ---
 

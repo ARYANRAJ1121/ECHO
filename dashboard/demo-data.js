@@ -410,6 +410,14 @@ function generateDemoData(mode, dataset, policy) {
             max_severity: peakLambda > 0.7 ? 'HIGH' : peakLambda > 0.3 ? 'MEDIUM' : 'LOW',
             trend:        mode === 'dummy' ? 'stable' : 'rising',
         },
+        network_analysis: {
+            density: (mode === 'llm' || mode === 'gemini') ? 0.85 : mode === 'dqn' ? 0.70 : mode === 'mixed' ? 0.35 : 0.15,
+            clustering_coeff: (mode === 'llm' || mode === 'gemini') ? 0.78 : mode === 'dqn' ? 0.65 : mode === 'mixed' ? 0.30 : 0.10,
+            price_leader: firmNames[0],
+            leader_score: 0.38,
+            verdict: (mode === 'llm' || mode === 'gemini') ? 'tight_cartel_ring' : mode === 'mixed' ? 'partial_coordination' : 'decentralized_competitive',
+            summary_text: `Network density is ${((mode === 'llm' || mode === 'gemini') ? 0.85 : mode === 'mixed' ? 0.35 : 0.15).toFixed(2)}. Identified Price Leader: ${firmNames[0]}.`,
+        },
         forecast,
     };
 

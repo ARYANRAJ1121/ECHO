@@ -807,7 +807,7 @@ function addShockAnnotation(round, firmId) {
 // Summary Overlay
 // ══════════════════════════════════════
 
-function showSummary(data, regulator, analysis, roster) {
+function showSummary(data, regulator, analysis, roster, network) {
     const overlay = document.getElementById('summary-overlay');
     const lambda = data.converged_collusion_index || data.final_collusion_index || 0;
     let verdictClass = 'competitive';
@@ -832,6 +832,20 @@ function showSummary(data, regulator, analysis, roster) {
             <div class="summary-roster">
                 <p class="summary-roster-headline">${packRoster.headline}</p>
                 <ul>${rows}</ul>
+            </div>
+        `;
+    }
+
+    const net = (analysis && analysis.network_analysis) || network;
+    let netBlock = '';
+    if (net && net.price_leader) {
+        netBlock = `
+            <div class="summary-network">
+                <div class="summary-network-title">🕸️ Temporal Graph Detection (NetworkX)</div>
+                <div class="summary-network-body">
+                    <div><strong>Cartel Ring Leader:</strong> <span class="net-leader">${net.price_leader}</span> (centrality: ${(net.leader_score * 100).toFixed(1)}%)</div>
+                    <div><strong>Network Density:</strong> ${Number(net.density).toFixed(2)} | <strong>Clustering Coeff:</strong> ${Number(net.clustering_coeff || 0).toFixed(2)}</div>
+                </div>
             </div>
         `;
     }
@@ -879,6 +893,7 @@ function showSummary(data, regulator, analysis, roster) {
             ` : ''}
             <div class="summary-verdict ${verdictClass}">${verdictText}</div>
             ${rosterBlock}
+            ${netBlock}
             <p class="summary-pack-hint">Red bars in Run analysis = cartel ring (named firms). Lab labels from prices vs Nash/monopoly, not a court finding.</p>
             <button class="primary-btn summary-close" onclick="closeSummary()">Close &amp; view charts</button>
         </div>
@@ -1248,7 +1263,7 @@ function handleMessage(msg) {
         const verdict = finalLambda >= 0.7 ? 'collusion' : finalLambda >= 0.3 ? 'suspicious' : 'competitive';
         narratorDone(finalLambda, verdict);
 
-        showSummary(msg.data, msg.regulator, msg.analysis, msg.cartel_roster);
+        showSummary(msg.data, msg.regulator, msg.analysis, msg.cartel_roster, msg.network_analysis);
 
         loadAnalysisPack(msg.analysis);
 

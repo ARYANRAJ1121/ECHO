@@ -317,6 +317,32 @@ def build_run_pack(
     except Exception as e:
         print(f"  [XAI] Warning: could not generate SHAP figure: {e}")
 
+    # 8. Temporal Graph Collusion Detection & Ring Leader (NetworkX)
+    network_info: dict[str, Any] = {}
+    try:
+        from regulator.network_detector import CollusionNetworkDetector
+        net_detector = CollusionNetworkDetector(n_firms=n_firms, firm_names=names)
+        net_result = net_detector.analyze(prices)
+        net_fig = os.path.join(out, "09_collusion_network.png")
+        net_detector.generate_network_plot(net_result, output_path=net_fig)
+        figures.append({
+            "id": "network",
+            "file": "09_collusion_network.png",
+            "title": "Dynamic Collusion & Price-Leadership Network (NetworkX)",
+        })
+        network_info = {
+            "density": net_result.density,
+            "clustering_coeff": net_result.clustering_coeff,
+            "price_leader": net_result.price_leader,
+            "leader_score": net_result.leader_score,
+            "verdict": net_result.verdict,
+            "summary_text": net_result.summary_text,
+            "cliques": net_result.cliques,
+        }
+        print(f"  [Network detector] Ring Leader: {net_result.price_leader} | Density: {net_result.density:.2f}")
+    except Exception as e:
+        print(f"  [Network detector] Warning: could not run graph detection: {e}")
+
     final_l = float(lambdas[-1])
     peak_l = float(np.max(lambdas))
     mean_l = float(np.mean(lambdas))
@@ -343,6 +369,7 @@ def build_run_pack(
         "verdict": verdict,
         "cartel_roster": roster,
         "xai": xai_info,
+        "network_analysis": network_info,
         "regulator": regulator or {},
         "sentiment_report": sentiment_report,
         "figures": figures,
