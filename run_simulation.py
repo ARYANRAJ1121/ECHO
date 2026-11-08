@@ -108,7 +108,7 @@ def build_llm_simulation(
 def build_gemini_simulation(
     n_rounds: int,
     market_ctx,
-    model: str = "gemini-3.5-flash-lite",
+    model: str = "gemini-flash-lite-latest",
 ) -> tuple[MarketEngine, int]:
     """Wire up 5 LLM agents talking to Google Gemini API."""
     return build_llm_simulation(n_rounds, market_ctx, provider="gemini", model=model)
@@ -520,7 +520,7 @@ if __name__ == "__main__":
         )
         db_logger.conn.commit()
     elif args.mode == "gemini":
-        engine, n_rounds = build_gemini_simulation(args.rounds, market_ctx=market_ctx, model=args.llm_model or "gemini-3.5-flash-lite")
+        engine, n_rounds = build_gemini_simulation(args.rounds, market_ctx=market_ctx, model=args.llm_model or "gemini-flash-lite-latest")
     elif args.mode == "llm":
         engine, n_rounds = build_llm_simulation(args.rounds, market_ctx=market_ctx, provider=args.llm_provider, model=args.llm_model)
     elif args.mode == "rl":

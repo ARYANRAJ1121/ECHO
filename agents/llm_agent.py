@@ -100,7 +100,7 @@ class LLMPricingAgent(PricingAgent):
 
         self.provider = provider.lower()
         if self.provider == "gemini":
-            self.model = model or "gemini-3.5-flash-lite"
+            self.model = model or "gemini-flash-lite-latest"
             self.client = None
         elif self.provider == "ollama":
             self.model = model or "llama3"
@@ -260,41 +260,44 @@ class LLMPricingAgent(PricingAgent):
         return chat_completion.choices[0].message.content or ""
 
     def _call_gemini(self, prompt: str) -> str:
-        """Send prompt to Google Gemini API."""
+        """Send prompt to Google Gemini API with automatic fallback across fast lite models."""
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY environment variable is not set in .env")
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={api_key}"
-        headers = {"Content-Type": "application/json"}
-        payload = {
-            "contents": [
-                {
-                    "parts": [{"text": prompt}]
-                }
-            ],
-            "generationConfig": {
-                "temperature": self.temperature,
-                "maxOutputTokens": 300,
-            }
-        }
-        res = requests.post(url, headers=headers, json=payload, timeout=25)
-        if res.status_code == 404 and self.model != "gemini-3.5-flash-lite":
-            # Fallback to current active lite model
-            self.model = "gemini-3.5-flash-lite"
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={api_key}"
-            res = requests.post(url, headers=headers, json=payload, timeout=25)
+        models_to_try = [self.model, "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
+        unique_models = []
+        for m in models_to_try:
+            if m and m not in unique_models:
+                unique_models.append(m)
 
-        if res.status_code != 200:
-            raise RuntimeError(f"Gemini API returned status {res.status_code}: {res.text[:200]}")
-        data = res.json()
-        candidates = data.get("candidates", [])
-        if not candidates:
-            raise RuntimeError(f"No candidates returned by Gemini: {data}")
-        parts = candidates[0].get("content", {}).get("parts", [])
-        if not parts:
-            raise RuntimeError(f"Empty parts returned by Gemini: {data}")
-        return parts[0].get("text", "")
+        last_error = None
+        for m in unique_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": self.temperature,
+                    "maxOutputTokens": 300,
+                }
+            }
+            try:
+                res = requests.post(url, headers=headers, json=payload, timeout=10)
+                if res.status_code == 200:
+                    data = res.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        if parts:
+                            self.model = m  # Keep the fast working model for subsequent calls
+                            return parts[0].get("text", "")
+                else:
+                    last_error = f"Gemini API returned status {res.status_code}: {res.text[:120]}"
+            except requests.exceptions.RequestException as e:
+                last_error = f"Gemini request exception for {m}: {e}"
+
+        raise RuntimeError(last_error or "Gemini API failed on all candidate models")
 
     def _call_ollama(self, prompt: str) -> str:
         """Send prompt to local Ollama server."""
