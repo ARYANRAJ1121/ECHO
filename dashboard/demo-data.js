@@ -106,7 +106,7 @@ const DATASET_CONFIGS = {
     },
 };
 
-function generateDemoData(mode, dataset, policy) {
+function generateDemoData(mode, dataset, policy, macro) {
     const cfg  = DATASET_CONFIGS[dataset] || DATASET_CONFIGS.gasoline;
     const NASH = cfg.nash;
     const MONO = cfg.mono;
@@ -230,6 +230,26 @@ function generateDemoData(mode, dataset, policy) {
         const t      = r / numRounds;
         let target = getTraj(t);
 
+        // Macro dynamic adjustments
+        let macroScale = 1.0;
+        let shockActive = false;
+        let costInflation = 1.0;
+        if (macro === 'seasonal') {
+            macroScale = 1.0 + 0.30 * Math.sin((2 * Math.PI * r) / 24.0);
+            target = target + (macroScale - 1.0) * RANGE * 0.12;
+        } else if (macro === 'recession') {
+            const shockStart = Math.max(10, Math.floor(numRounds * 0.4));
+            const shockEnd = shockStart + 12;
+            if (r >= shockStart && r <= shockEnd) {
+                macroScale = 0.60;
+                shockActive = true;
+                target = Math.max(NASH, target - RANGE * 0.45);
+            }
+        } else if (macro === 'inflation') {
+            costInflation = Math.pow(1.01, r - 1);
+            target = target + (costInflation - 1.0) * NASH * 0.8;
+        }
+
         // Delayed transparency policy disrupts coordination convergence
         if (policy === 'delay_3' || policy === 'remedy') {
             target = target - (rng() * 0.15 * RANGE);
@@ -256,10 +276,11 @@ function generateDemoData(mode, dataset, policy) {
         const lambda = clamp((avgPrice - NASH) / (MONO - NASH), -0.2, 1.25);
 
         // Softmax shares using quality ≈ NASH so utilities stay near zero at competitive prices
+        const currCost = COST * costInflation;
         const utils  = prices.map(p => Math.exp((NASH - p) / MU));
         const sumU   = utils.reduce((a, b) => a + b) + Math.exp(0 / MU);
         const shares  = utils.map(u => u / sumU);
-        const profits = prices.map((p, i) => (p - COST) * shares[i]);
+        const profits = prices.map((p, i) => (p - currCost) * shares[i] * macroScale);
 
         if (lambda > 0.3) watchStreak++; else watchStreak = 0;
         if (lambda > 0.5) warnStreak++;  else warnStreak = 0;
@@ -350,6 +371,13 @@ function generateDemoData(mode, dataset, policy) {
             alerts:    roundAlerts,
             strategies,
             sentiment,
+            macro: {
+                active: macro && macro !== 'none',
+                mode: macro || 'none',
+                scale: parseFloat(macroScale.toFixed(3)),
+                shock_active: shockActive,
+                cost_inflation_factor: parseFloat(costInflation.toFixed(4)),
+            },
         };
 
         if (mode === 'llm' || mode === 'gemini') {

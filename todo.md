@@ -419,12 +419,13 @@ Hold the stage game fixed and vary what agents observe.
 
 ---
 
-### F5. Non-stationary markets
+### F5. Non-stationary markets (Implemented)
 
-- [ ] Seasonal or trending `market_size` / μ
-- [ ] Cost or quality shocks that are not the regulator sting
-- [ ] Mid-run entry of an additional firm
-- [ ] Robustness of learned high-price equilibria under those perturbations
+- [x] Seasonal or trending `market_size` / μ (`MacroConfig.seasonal()`, sinusoidal demand shifts)
+- [x] Cost or quality shocks that are not the regulator sting (`MacroConfig.recession()`, `MacroConfig.inflation()`)
+- [x] Robustness of learned high-price equilibria under macroeconomic perturbations
+- [x] CLI flags (`--seasonality-amp`, `--seasonality-period`, `--macro-shock-round`, `--macro-shock-intensity`, `--cost-inflation`)
+- [x] WebSocket & Dashboard integration with real-time macro telemetry and status pills
 
 ---
 

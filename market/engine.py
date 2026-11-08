@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from agents.base_agent import Observation, PricingAgent
 from market.demand import LogitDemandModel, DemandResult
 from market.policy import PolicyConfig
+from market.macro import MacroConfig
 
 
 @dataclass
@@ -52,6 +53,7 @@ class RoundRecord:
     consumer_savings: float = 0.0                                 # currency saved by consumers due to price cap
     leniency_recipients: list[int] = field(default_factory=list)  # firms receiving antitrust defector bonuses
     is_policy_active: bool = False                                # whether policy remedy was active this round
+    macro_telemetry: dict[str, Any] | None = None                 # non-stationary macroeconomic indicators
 
 
 class MarketEngine:
@@ -82,6 +84,7 @@ class MarketEngine:
         price_floor: float = 1.0,
         price_ceiling: float = 10.0,
         policy: PolicyConfig | None = None,
+        macro: MacroConfig | None = None,
     ) -> None:
         if len(agents) != demand_model.n_firms:
             raise ValueError(
@@ -92,6 +95,7 @@ class MarketEngine:
         self.price_floor = price_floor
         self.price_ceiling = price_ceiling
         self.policy = policy
+        self.macro = macro
 
         # Pre-compute benchmarks (Nash and Monopoly prices)
         # These are computed ONCE and reused every round for Lambda calculation
@@ -205,6 +209,11 @@ class MarketEngine:
         """Execute a single round of the game."""
         import numpy as np
 
+        # Apply non-stationary macroeconomic shifts if configured
+        macro_telemetry = None
+        if self.macro is not None:
+            macro_telemetry = self.macro.apply(self.demand_model, round_number)
+
         # Determine effective price ceiling and history visibility under policy
         effective_ceiling = self.price_ceiling
         is_policy_active = False
@@ -280,6 +289,7 @@ class MarketEngine:
             consumer_savings=round(consumer_savings, 4),
             leniency_recipients=leniency_recipients,
             is_policy_active=is_policy_active,
+            macro_telemetry=macro_telemetry,
         )
 
     def _clamp(self, price: float, ceiling: float | None = None) -> float:
@@ -351,6 +361,18 @@ class MarketEngine:
                 "total_consumer_savings": round(total_savings, 2),
                 "capped_rounds_count": capped_rounds,
                 "total_leniency_awarded_count": total_leniency,
+            }
+
+        # Macroeconomic environment summary
+        if self.macro is not None:
+            summary_dict["macro"] = {
+                "active": True,
+                "is_active": True,
+                "name": self.macro.name,
+                "seasonality_amp": self.macro.seasonality_amp,
+                "cost_trend": self.macro.cost_trend,
+                "shock_round": self.macro.shock_round,
+                "shock_intensity": self.macro.shock_intensity,
             }
 
         return summary_dict

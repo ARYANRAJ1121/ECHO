@@ -446,6 +446,19 @@ async def simulate_endpoint(websocket: WebSocket):
                 active_from_round=int(p_conf.get("active_from_round", 1)),
             )
 
+        # Wire Non-Stationary Macro Environment (F5) if requested
+        macro_conf = config.get("macro")
+        if macro_conf:
+            from market.macro import MacroConfig
+            engine.macro = MacroConfig(
+                name=macro_conf.get("name", "Macro Environment"),
+                seasonality_amp=float(macro_conf.get("seasonality_amp", 0.0)),
+                seasonality_period=int(macro_conf.get("seasonality_period", 20)),
+                cost_trend=float(macro_conf.get("cost_trend", 0.0)),
+                shock_round=macro_conf.get("shock_round"),
+                shock_intensity=float(macro_conf.get("shock_intensity", -0.40)),
+            )
+
         monitor = LambdaMonitor()
         sim_state.monitor = monitor
 
@@ -589,6 +602,7 @@ async def simulate_endpoint(websocket: WebSocket):
                     {"type": a.alert_type.replace("lambda_", ""), "detail": a.detail}
                     for a in alerts
                 ],
+                "macro": getattr(record, "macro_telemetry", None),
             }
 
             # --- AI Analysis: Strategy Classification ---

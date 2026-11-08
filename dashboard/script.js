@@ -1096,6 +1096,11 @@ function resetUI() {
     document.getElementById('forecast-empty').classList.remove('hidden');
     document.getElementById('forecast-wrapper').classList.add('hidden');
 
+    const savBadge = document.getElementById('narrator-savings-badge');
+    if (savBadge) savBadge.style.display = 'none';
+    const macroBadge = document.getElementById('narrator-macro-badge');
+    if (macroBadge) macroBadge.style.display = 'none';
+
     // Status
     const badge = document.getElementById('status-badge');
     badge.className = 'badge running';
@@ -1183,6 +1188,35 @@ function handleMessage(msg) {
                 savVal.textContent = `${window._currency || '$'}${savings.toFixed(2)}`;
             } else {
                 savBadge.style.display = 'none';
+            }
+        }
+
+        // Update Macro Environment badge
+        const macroBadge = document.getElementById('narrator-macro-badge');
+        const macroVal = document.getElementById('narrator-macro-val');
+        if (macroBadge && macroVal) {
+            if (msg.macro && msg.macro.active) {
+                macroBadge.style.display = 'flex';
+                let label = (msg.macro.mode || 'ACTIVE').toUpperCase();
+                if (msg.macro.shock_active) {
+                    label = '⚠️ RECESSION (-40%)';
+                    macroBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+                    macroBadge.style.color = '#ef4444';
+                    macroBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                } else if (msg.macro.scale && Math.abs(msg.macro.scale - 1.0) > 0.01) {
+                    label = `SEASONAL (${(msg.macro.scale * 100).toFixed(0)}% demand)`;
+                    macroBadge.style.background = 'rgba(234, 179, 8, 0.15)';
+                    macroBadge.style.color = '#facc15';
+                    macroBadge.style.borderColor = 'rgba(234, 179, 8, 0.3)';
+                } else if (msg.macro.cost_inflation_factor && msg.macro.cost_inflation_factor > 1.001) {
+                    label = `INFLATION (+${((msg.macro.cost_inflation_factor - 1) * 100).toFixed(1)}% cost)`;
+                    macroBadge.style.background = 'rgba(168, 85, 247, 0.15)';
+                    macroBadge.style.color = '#c084fc';
+                    macroBadge.style.borderColor = 'rgba(168, 85, 247, 0.3)';
+                }
+                macroVal.textContent = label;
+            } else {
+                macroBadge.style.display = 'none';
             }
         }
 
@@ -1389,6 +1423,13 @@ function startSimulation() {
     else if (policy === 'leniency') policyPayload = { name: 'Antitrust Leniency', leniency_bonus: 50.0 };
     else if (policy === 'remedy') policyPayload = { name: 'Combined Remedy', price_cap_fraction: 0.5, transparency_delay: 3, leniency_bonus: 50.0 };
 
+    const macroEl = document.getElementById('macro-select');
+    const macro = macroEl ? macroEl.value : 'none';
+    let macroPayload = null;
+    if (macro === 'seasonal') macroPayload = { name: 'Seasonal Cycles (±30%)', seasonality_amp: 0.3, seasonality_period: 24.0 };
+    else if (macro === 'recession') macroPayload = { name: 'Recession Shock (-40%)', shock_round: Math.max(10, Math.floor(rounds * 0.4)), shock_duration: 12, shock_intensity: -0.4 };
+    else if (macro === 'inflation') macroPayload = { name: 'Cost Inflation (+1%/rd)', cost_inflation_rate: 0.01 };
+
     // Try WebSocket first (for local dev), fallback to demo mode
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${proto}//${window.location.host}/ws/simulate`;
@@ -1404,7 +1445,7 @@ function startSimulation() {
             if (!wsConnected) {
                 ws.close();
                 console.log('[ECHO] Backend not available, switching to demo mode');
-                runDemoMode(mode, document.getElementById('dataset').value, policy);
+                runDemoMode(mode, document.getElementById('dataset').value, policy, macro);
             }
         }, 1500);
         
@@ -1412,7 +1453,7 @@ function startSimulation() {
             wsConnected = true;
             clearTimeout(wsTimeout);
             const dataset = document.getElementById('dataset').value;
-            ws.send(JSON.stringify({ mode, rounds, dataset, delay_ms: currentDelayMs(), policy: policyPayload }));
+            ws.send(JSON.stringify({ mode, rounds, dataset, delay_ms: currentDelayMs(), policy: policyPayload, macro: macroPayload }));
         };
 
         ws.onmessage = (event) => {
@@ -1424,7 +1465,7 @@ function startSimulation() {
             if (!wsConnected) {
                 clearTimeout(wsTimeout);
                 console.log('[ECHO] WebSocket error, switching to demo mode');
-                runDemoMode(mode, document.getElementById('dataset').value, policy);
+                runDemoMode(mode, document.getElementById('dataset').value, policy, macro);
             }
         };
 
@@ -1444,7 +1485,7 @@ function startSimulation() {
     } catch (e) {
         // WebSocket constructor itself failed (e.g., bad URL)
         console.log('[ECHO] WebSocket unavailable, using demo mode');
-        runDemoMode(mode, document.getElementById('dataset').value, policy);
+        runDemoMode(mode, document.getElementById('dataset').value, policy, macro);
     }
 }
 
@@ -1454,7 +1495,7 @@ function startSimulation() {
 
 let demoTimer = null;
 
-function runDemoMode(mode, dataset, policy) {
+function runDemoMode(mode, dataset, policy, macro) {
     if (!window.generateDemoData) {
         alert('Demo data not loaded. Please refresh the page.');
         return;
@@ -1463,6 +1504,10 @@ function runDemoMode(mode, dataset, policy) {
     if (!policy) {
         const polEl = document.getElementById('policy-select');
         policy = polEl ? polEl.value : 'none';
+    }
+    if (!macro) {
+        const macroEl = document.getElementById('macro-select');
+        macro = macroEl ? macroEl.value : 'none';
     }
 
     // The connect timeout and ws.onerror can both fire for one failed
@@ -1474,7 +1519,7 @@ function runDemoMode(mode, dataset, policy) {
         resetUI();
     }
 
-    const demo = window.generateDemoData(mode, dataset || 'gasoline', policy);
+    const demo = window.generateDemoData(mode, dataset || 'gasoline', policy, macro);
     totalRounds = demo.numRounds;
 
     // Update rounds input to match demo data

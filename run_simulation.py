@@ -455,6 +455,18 @@ if __name__ == "__main__":
                         help="Antitrust whistleblower bonus awarded to defectors undercutting cartel")
     parser.add_argument("--policy-start-round", type=int, default=1,
                         help="Round at which regulatory policy begins (enables A/B split comparisons)")
+
+    # Macroeconomic & Non-Stationary Environments (F5)
+    parser.add_argument("--seasonality-amp", type=float, default=0.0,
+                        help="Seasonal demand swing amplitude (e.g., 0.30 for ±30%)")
+    parser.add_argument("--seasonality-period", type=int, default=20,
+                        help="Rounds per seasonal demand cycle (default: 20)")
+    parser.add_argument("--macro-shock-round", type=int, default=None,
+                        help="Round at which an acute recession / demand collapse occurs")
+    parser.add_argument("--macro-shock-intensity", type=float, default=-0.40,
+                        help="Fractional demand shift during macro shock (default: -0.40)")
+    parser.add_argument("--cost-inflation", type=float, default=0.0,
+                        help="Per-round input cost inflation rate (e.g., 0.005 for +0.5%/rd)")
     args = parser.parse_args()
 
     # RAG mode requires database
@@ -550,6 +562,33 @@ if __name__ == "__main__":
         )
         engine.policy = policy
         print(f"\n[Antitrust Policy] Enforcing '{policy_name}' starting at round {args.policy_start_round}")
+
+    # Configure Non-Stationary Macro Environment (F5) if specified
+    from market.macro import MacroConfig
+    macro = None
+    if any([
+        args.seasonality_amp > 0.0,
+        args.macro_shock_round is not None,
+        args.cost_inflation != 0.0,
+    ]):
+        macro_name_parts = []
+        if args.seasonality_amp > 0.0:
+            macro_name_parts.append(f"Seasonal(±{int(args.seasonality_amp*100)}%)")
+        if args.macro_shock_round is not None:
+            macro_name_parts.append(f"Recession(R{args.macro_shock_round})")
+        if args.cost_inflation != 0.0:
+            macro_name_parts.append(f"Inflation(+{args.cost_inflation*100:.1f}%)")
+
+        macro = MacroConfig(
+            name=" + ".join(macro_name_parts),
+            seasonality_amp=args.seasonality_amp,
+            seasonality_period=args.seasonality_period,
+            shock_round=args.macro_shock_round,
+            shock_intensity=args.macro_shock_intensity,
+            cost_trend=args.cost_inflation,
+        )
+        engine.macro = macro
+        print(f"\n[Macro Environment] Active regime: '{macro.name}'")
 
     # Start sim in DB (for non-RAG modes)
     if args.db and sim_id is None:
