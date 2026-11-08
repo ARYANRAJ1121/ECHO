@@ -150,3 +150,4 @@ class MacroConfig:
             "is_shock": is_shock,
             "regime_name": self.name,
         }
+

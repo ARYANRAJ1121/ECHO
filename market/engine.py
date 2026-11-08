@@ -29,6 +29,7 @@ That's this file. It's the "game master."
 
 from __future__ import annotations
 from dataclasses import dataclass, field
+from typing import Any
 from agents.base_agent import Observation, PricingAgent
 from market.demand import LogitDemandModel, DemandResult
 from market.policy import PolicyConfig
