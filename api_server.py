@@ -44,6 +44,14 @@ from analysis.run_pack import PACK_DIR, build_run_pack, load_latest_summary
 # App Setup
 # ──────────────────────────────────────────────
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(BASE_DIR, ".env"))
+except ImportError:
+    pass
+
 # n8n webhook endpoint for collusion alert automation
 N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/echo-alert")
 N8N_COMPLETE_URL = os.getenv("N8N_COMPLETE_URL", "http://localhost:5678/webhook/echo-simulation-complete")
