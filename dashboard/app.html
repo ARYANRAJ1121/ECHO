@@ -410,8 +410,16 @@
             <!-- ──── FULL-WIDTH: latest-run analysis pack (replaced every sim) ──── -->
             <div class="card glass-panel analysis-pack hidden" id="analysis-pack">
                 <div class="card-header">
-                    <h2>Run analysis</h2>
+                    <h2>Run analysis & Regulatory Audit</h2>
                     <span class="badge idle" id="analysis-pack-meta"></span>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:0.6rem; margin: 0.8rem 0;">
+                    <a id="btn-download-dossier" href="/api/simulation/regulatory-dossier" target="_blank" class="secondary-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;">
+                        📄 View Regulatory Compliance Dossier
+                    </a>
+                    <a id="btn-download-manifest" href="/api/simulation/audit-manifest" target="_blank" class="secondary-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;">
+                        🔒 Reproducibility Manifest (JSON)
+                    </a>
                 </div>
                 <p class="analysis-pack-note" id="analysis-pack-note"></p>
                 <div class="analysis-pack-grid" id="analysis-pack-grid"></div>

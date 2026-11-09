@@ -488,11 +488,13 @@ Responsive layout, optional PWA, and tighter mobile chart UX. Secondary to the r
 
 ---
 
-### F12. Reproducibility, evaluation, and observability
+### F12. Reproducibility, evaluation, and observability (Implemented)
 
-- [ ] JSON/YAML experiment manifests and fixed seeds
-- [ ] Welfare / consumer-surplus style supplements to Λ
-- [ ] CI for unit tests on demand, band calibration, and roster logic
+- [x] JSON/YAML experiment manifests with Git SHA, environment, and fixed seeds (`regulator/audit_manifest.py`)
+- [x] Formal welfare economics supplements to Λ: Consumer Welfare Loss ($CWL$), Deadweight Loss ($DWL$), direct overcharge damages, Gini profit inequality
+- [x] Audit-grade Regulatory Compliance Dossier export (`regulatory_dossier.md`) formatted for antitrust authorities
+- [x] GitHub Actions automated CI workflow (`.github/workflows/ci.yml`)
+- [x] REST endpoints (`/api/simulation/audit-manifest`, `/api/simulation/regulatory-dossier`) & dashboard export buttons
 - [ ] Optional **LangSmith or Langfuse** on Groq generations (latency, parse success, cost). Λ remains the economic score.
 
 ---

@@ -22,7 +22,7 @@ import requests as http_requests
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from run_simulation import (
@@ -317,6 +317,37 @@ def set_simulation_policy(req: PolicyRequest):
         "policy": new_policy.to_dict(),
         "applied_at_round": sim_state.current_round,
     }
+
+
+@app.get("/api/simulation/audit-manifest")
+def get_simulation_audit_manifest():
+    """Retrieve full reproducibility manifest and welfare audit metrics (F12)."""
+    if sim_state.engine and sim_state.engine.records:
+        from regulator.audit_manifest import build_experiment_manifest
+        manifest = build_experiment_manifest(sim_state.engine)
+        return manifest.to_dict()
+
+    manifest_file = os.path.join(BASE_DIR, "analysis", "latest_run", "manifest.json")
+    if os.path.isfile(manifest_file):
+        with open(manifest_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return JSONResponse(status_code=404, content={"error": "No simulation manifest available"})
+
+
+@app.get("/api/simulation/regulatory-dossier")
+def get_regulatory_dossier():
+    """Retrieve Markdown regulatory antitrust audit dossier (F12)."""
+    if sim_state.engine and sim_state.engine.records:
+        from regulator.audit_manifest import build_experiment_manifest, generate_regulatory_dossier_markdown
+        manifest = build_experiment_manifest(sim_state.engine)
+        dossier = generate_regulatory_dossier_markdown(manifest)
+        return PlainTextResponse(dossier, media_type="text/markdown")
+
+    dossier_file = os.path.join(BASE_DIR, "analysis", "latest_run", "regulatory_dossier.md")
+    if os.path.isfile(dossier_file):
+        with open(dossier_file, "r", encoding="utf-8") as f:
+            return PlainTextResponse(f.read(), media_type="text/markdown")
+    return JSONResponse(status_code=404, content={"error": "No regulatory dossier available"})
 
 
 # ──────────────────────────────────────────────

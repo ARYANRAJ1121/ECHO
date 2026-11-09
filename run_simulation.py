@@ -685,6 +685,28 @@ if __name__ == "__main__":
         data_source=market_ctx.source,
     )
 
+    # --- Reproducibility Manifest & Regulatory Audit Pack (F12) ---
+    from regulator.audit_manifest import export_audit_pack, compute_welfare_audit
+    welfare_report = compute_welfare_audit(engine)
+    print("\n" + "=" * 80)
+    print("REGULATORY WELFARE AUDIT & REPRODUCIBILITY DOSSIER (F12)")
+    print("=" * 80)
+    print(f"  Consumer Welfare Loss (CWL): {market_ctx.currency} {welfare_report.total_consumer_welfare_loss:,.2f}")
+    print(f"  Direct Overcharge Damages:   {market_ctx.currency} {welfare_report.direct_overcharge_loss:,.2f}")
+    print(f"  Deadweight Loss (DWL):       {market_ctx.currency} {welfare_report.total_deadweight_loss:,.2f}")
+    print(f"  Cartel Persistence (Λ ≥ 0.7):{welfare_report.cartel_persistence_rounds} rounds (Max streak: {welfare_report.max_consecutive_cartel_streak}r)")
+    print(f"  Profit Inequality (Gini):    {welfare_report.profit_gini:.4f}")
+    print(f"  Mean Margin Markup:          +{welfare_report.mean_markup_pct:.1f}%")
+
+    audit_files = export_audit_pack(
+        engine=engine,
+        output_dir="analysis/latest_run",
+        market_ctx=market_ctx,
+        seed=args.seed if hasattr(args, "seed") else 42,
+    )
+    print(f"  [Audit Pack] Wrote {audit_files['manifest_json']} & {audit_files['regulatory_dossier_md']}")
+    print("=" * 80)
+
     # --- Phase 1.5: Empirical Validation ---
     if args.validate:
         from analysis.real_data import run_validation
