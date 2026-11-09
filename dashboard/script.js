@@ -1100,6 +1100,8 @@ function resetUI() {
     if (savBadge) savBadge.style.display = 'none';
     const macroBadge = document.getElementById('narrator-macro-badge');
     if (macroBadge) macroBadge.style.display = 'none';
+    const infoBadge = document.getElementById('narrator-info-badge');
+    if (infoBadge) infoBadge.style.display = 'none';
 
     // Status
     const badge = document.getElementById('status-badge');
@@ -1217,6 +1219,22 @@ function handleMessage(msg) {
                 macroVal.textContent = label;
             } else {
                 macroBadge.style.display = 'none';
+            }
+        }
+
+        // Update Information Structure badge (F4)
+        const infoBadge = document.getElementById('narrator-info-badge');
+        const infoVal = document.getElementById('narrator-info-val');
+        if (infoBadge && infoVal) {
+            if (msg.info_structure && msg.info_structure.protocol && msg.info_structure.protocol !== 'baseline') {
+                infoBadge.style.display = 'flex';
+                let label = msg.info_structure.protocol.toUpperCase().replace('_', ' ');
+                if (msg.info_structure.protocol === 'announcements') label = '📢 SIGNALS';
+                else if (msg.info_structure.protocol === 'private_messages') label = '🔒 BILATERAL';
+                else if (msg.info_structure.protocol === 'shared_scratchpads') label = '🧠 SHARED MINDS';
+                infoVal.textContent = label;
+            } else {
+                infoBadge.style.display = 'none';
             }
         }
 
@@ -1430,6 +1448,9 @@ function startSimulation() {
     else if (macro === 'recession') macroPayload = { name: 'Recession Shock (-40%)', shock_round: Math.max(10, Math.floor(rounds * 0.4)), shock_duration: 12, shock_intensity: -0.4 };
     else if (macro === 'inflation') macroPayload = { name: 'Cost Inflation (+1%/rd)', cost_inflation_rate: 0.01 };
 
+    const infoEl = document.getElementById('info-select');
+    const infoProtocol = infoEl ? infoEl.value : 'baseline';
+
     // Try WebSocket first (for local dev), fallback to demo mode
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${proto}//${window.location.host}/ws/simulate`;
@@ -1445,7 +1466,7 @@ function startSimulation() {
             if (!wsConnected) {
                 ws.close();
                 console.log('[ECHO] Backend not available, switching to demo mode');
-                runDemoMode(mode, document.getElementById('dataset').value, policy, macro);
+                runDemoMode(mode, document.getElementById('dataset').value, policy, macro, infoProtocol);
             }
         }, 1500);
         
@@ -1453,7 +1474,15 @@ function startSimulation() {
             wsConnected = true;
             clearTimeout(wsTimeout);
             const dataset = document.getElementById('dataset').value;
-            ws.send(JSON.stringify({ mode, rounds, dataset, delay_ms: currentDelayMs(), policy: policyPayload, macro: macroPayload }));
+            ws.send(JSON.stringify({
+                mode,
+                rounds,
+                dataset,
+                delay_ms: currentDelayMs(),
+                policy: policyPayload,
+                macro: macroPayload,
+                info_protocol: infoProtocol,
+            }));
         };
 
         ws.onmessage = (event) => {
@@ -1465,7 +1494,7 @@ function startSimulation() {
             if (!wsConnected) {
                 clearTimeout(wsTimeout);
                 console.log('[ECHO] WebSocket error, switching to demo mode');
-                runDemoMode(mode, document.getElementById('dataset').value, policy, macro);
+                runDemoMode(mode, document.getElementById('dataset').value, policy, macro, infoProtocol);
             }
         };
 
@@ -1485,7 +1514,7 @@ function startSimulation() {
     } catch (e) {
         // WebSocket constructor itself failed (e.g., bad URL)
         console.log('[ECHO] WebSocket unavailable, using demo mode');
-        runDemoMode(mode, document.getElementById('dataset').value, policy, macro);
+        runDemoMode(mode, document.getElementById('dataset').value, policy, macro, infoProtocol);
     }
 }
 
@@ -1495,7 +1524,7 @@ function startSimulation() {
 
 let demoTimer = null;
 
-function runDemoMode(mode, dataset, policy, macro) {
+function runDemoMode(mode, dataset, policy, macro, infoProtocol) {
     if (!window.generateDemoData) {
         alert('Demo data not loaded. Please refresh the page.');
         return;
@@ -1509,6 +1538,10 @@ function runDemoMode(mode, dataset, policy, macro) {
         const macroEl = document.getElementById('macro-select');
         macro = macroEl ? macroEl.value : 'none';
     }
+    if (!infoProtocol) {
+        const infoEl = document.getElementById('info-select');
+        infoProtocol = infoEl ? infoEl.value : 'baseline';
+    }
 
     // The connect timeout and ws.onerror can both fire for one failed
     // connection. Without this guard each would start its own interval and
@@ -1519,7 +1552,7 @@ function runDemoMode(mode, dataset, policy, macro) {
         resetUI();
     }
 
-    const demo = window.generateDemoData(mode, dataset || 'gasoline', policy, macro);
+    const demo = window.generateDemoData(mode, dataset || 'gasoline', policy, macro, infoProtocol);
     totalRounds = demo.numRounds;
 
     // Update rounds input to match demo data

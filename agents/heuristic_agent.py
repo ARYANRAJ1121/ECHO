@@ -44,6 +44,9 @@ class SteadyAgent(PricingAgent):
             return self.target_price
         return observation.marginal_cost + self.markup
 
+    def announce_intention(self, observation: Observation) -> float | None:
+        return self.choose_price(observation)
+
 
 class FollowerAgent(PricingAgent):
     """
@@ -77,12 +80,22 @@ class FollowerAgent(PricingAgent):
     def choose_price(self, observation: Observation) -> float:
         base_price = self._base_price(observation)
 
+        # In advance announcement protocols, anchor to pre-play intentions
+        if observation.intended_prices:
+            avg_intended = sum(observation.intended_prices.values()) / len(observation.intended_prices)
+            target_price = max(base_price, avg_intended)
+            current_price = observation.last_own_price if observation.last_own_price is not None else base_price
+            return current_price + self.adjustment_speed * (target_price - current_price)
+
         if observation.last_average_price is None or observation.last_own_price is None:
             return base_price
 
         target_price = max(base_price, observation.last_average_price)
         current_price = observation.last_own_price
         return current_price + self.adjustment_speed * (target_price - current_price)
+
+    def announce_intention(self, observation: Observation) -> float | None:
+        return self._base_price(observation)
 
 
 class UndercutAgent(PricingAgent):

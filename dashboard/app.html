@@ -144,6 +144,15 @@
                     </select>
                 </div>
                 <div class="control-group">
+                    <label for="info-select">Info Set</label>
+                    <select id="info-select">
+                        <option value="baseline">Tacit (Baseline)</option>
+                        <option value="announcements">Public Price Signals</option>
+                        <option value="private_messages">Bilateral Chat</option>
+                        <option value="shared_scratchpads">Shared AI Reasoning</option>
+                    </select>
+                </div>
+                <div class="control-group">
                     <label for="rounds">Rounds</label>
                     <input type="number" id="rounds" value="100" min="10" max="100000">
                 </div>
@@ -186,6 +195,10 @@
             <div class="narrator-macro" id="narrator-macro-badge" style="display:none; align-items:center; gap:0.4rem; padding:0.25rem 0.6rem; border-radius:6px; background:rgba(234,179,8,0.12); border:1px solid rgba(234,179,8,0.3); font-size:0.8rem; color:#facc15;">
                 <span>🌐 Macro:</span>
                 <strong id="narrator-macro-val">Normal</strong>
+            </div>
+            <div class="narrator-info" id="narrator-info-badge" style="display:none; align-items:center; gap:0.4rem; padding:0.25rem 0.6rem; border-radius:6px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); font-size:0.8rem; color:#34d399;">
+                <span>📡 Info:</span>
+                <strong id="narrator-info-val">Tacit</strong>
             </div>
         </div>
 

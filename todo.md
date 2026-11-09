@@ -404,16 +404,22 @@ Extend multinomial logit demand from a single good to a small product portfolio 
 
 ---
 
-### F4. Information structure
+### F4. Information structure (Implemented)
 
 Hold the stage game fixed and vary what agents observe.
 
 | Protocol | Information set |
 |----------|-----------------|
 | Baseline (current) | Posted prices and profits only |
-| Public announcements | Intended next-round prices |
-| Private messages | Bilateral cheap talk |
-| Shared scratchpads | LLM reasoning visible to rivals |
+| Public announcements | Intended next-round prices (`InfoConfig.announcements()`) |
+| Private messages | Bilateral cheap talk between cartel pairs (`InfoConfig.private_messages()`) |
+| Shared scratchpads | LLM reasoning visible to rivals (`InfoConfig.shared_scratchpads()`) |
+
+- [x] Multi-protocol configuration engine (`market/info_structure.py`)
+- [x] Pre-play announcement and bilateral messaging hooks in `Observation` and `PricingAgent`
+- [x] Reasoning transparency transcripts feeding LLM and heuristic agents
+- [x] CLI flags (`--info-protocol`) and Web UI selector with real-time narrator badge
+- [x] Unit tests (`tests/test_info_structure.py`)
 
 **Research question.** How do Λ and time-to-alert change as the information structure moves from tacit to explicit?
 

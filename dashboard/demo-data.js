@@ -106,7 +106,7 @@ const DATASET_CONFIGS = {
     },
 };
 
-function generateDemoData(mode, dataset, policy, macro) {
+function generateDemoData(mode, dataset, policy, macro, infoProtocol) {
     const cfg  = DATASET_CONFIGS[dataset] || DATASET_CONFIGS.gasoline;
     const NASH = cfg.nash;
     const MONO = cfg.mono;
@@ -250,13 +250,23 @@ function generateDemoData(mode, dataset, policy, macro) {
             target = target + (costInflation - 1.0) * NASH * 0.8;
         }
 
+        // Information Structure effects (F4): explicit communication accelerates coordination
+        if (infoProtocol && infoProtocol !== 'baseline') {
+            if (t < 0.35) {
+                target = target + RANGE * 0.16 * (1.0 - t / 0.35);
+            }
+        }
+
         // Delayed transparency policy disrupts coordination convergence
         if (policy === 'delay_3' || policy === 'remedy') {
             target = target - (rng() * 0.15 * RANGE);
         }
 
         const spreadDecay = (mode === 'llm' || mode === 'gemini') ? 0.15 : mode === 'dummy' ? 0.55 : Math.max(0.08, 1 - t * 1.2);
-        const noise = (rng() - 0.5) * RANGE * 0.015;
+        let noiseScale = 1.0;
+        if (infoProtocol === 'shared_scratchpads') noiseScale = 0.25;
+        else if (infoProtocol === 'announcements' || infoProtocol === 'private_messages') noiseScale = 0.50;
+        const noise = (rng() - 0.5) * RANGE * 0.015 * noiseScale;
 
         let effCeiling = cfg.ceiling;
         if (policy === 'cap_50' || policy === 'remedy') {
@@ -377,6 +387,9 @@ function generateDemoData(mode, dataset, policy, macro) {
                 scale: parseFloat(macroScale.toFixed(3)),
                 shock_active: shockActive,
                 cost_inflation_factor: parseFloat(costInflation.toFixed(4)),
+            },
+            info_structure: {
+                protocol: infoProtocol || 'baseline',
             },
         };
 

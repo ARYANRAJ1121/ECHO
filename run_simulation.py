@@ -467,6 +467,11 @@ if __name__ == "__main__":
                         help="Fractional demand shift during macro shock (default: -0.40)")
     parser.add_argument("--cost-inflation", type=float, default=0.0,
                         help="Per-round input cost inflation rate (e.g., 0.005 for +0.5%/rd)")
+    # Information Structure & Market Transparency (F4)
+    parser.add_argument("--info-protocol", type=str,
+                        choices=["baseline", "announcements", "private_messages", "shared_scratchpads"],
+                        default="baseline",
+                        help="Communication protocol: 'baseline' (tacit), 'announcements' (public intentions), 'private_messages', 'shared_scratchpads'")
     args = parser.parse_args()
 
     # RAG mode requires database
@@ -589,6 +594,12 @@ if __name__ == "__main__":
         )
         engine.macro = macro
         print(f"\n[Macro Environment] Active regime: '{macro.name}'")
+
+    # Configure Information Structure (F4)
+    from market.info_structure import InfoConfig
+    if args.info_protocol != "baseline":
+        engine.info_config = InfoConfig(protocol=args.info_protocol)
+        print(f"\n[Info Structure] Active protocol: '{args.info_protocol}'")
 
     # Start sim in DB (for non-RAG modes)
     if args.db and sim_id is None:

@@ -15,6 +15,10 @@ class Observation:
     price_ceiling: float
     price_history: list[list[float]]
     profit_history: list[list[float]]
+    info_protocol: str = "baseline"
+    intended_prices: dict[int, float] | None = None
+    private_messages: dict[int, str] | None = None
+    rival_scratchpads: dict[int, str] | None = None
 
     @property
     def last_round_prices(self) -> list[float] | None:
@@ -56,4 +60,12 @@ class PricingAgent(ABC):
     @abstractmethod
     def choose_price(self, observation: Observation) -> float:
         """Return the price the agent wants to post this round."""
+
+    def announce_intention(self, observation: Observation) -> float | None:
+        """Optional pre-play price intention (cheap talk)."""
+        return None
+
+    def send_private_message(self, observation: Observation, recipient_id: int) -> str | None:
+        """Optional bilateral communication message."""
+        return None
 

@@ -498,6 +498,13 @@ async def simulate_endpoint(websocket: WebSocket):
                 shock_intensity=float(macro_conf.get("shock_intensity", -0.40)),
             )
 
+        # Wire Information Structure (F4) if requested
+        info_conf = config.get("info_structure") or config.get("info_protocol")
+        if info_conf:
+            from market.info_structure import InfoConfig
+            proto = info_conf.get("protocol") if isinstance(info_conf, dict) else str(info_conf)
+            engine.info_config = InfoConfig(protocol=proto)
+
         monitor = LambdaMonitor()
         sim_state.monitor = monitor
 
@@ -642,6 +649,7 @@ async def simulate_endpoint(websocket: WebSocket):
                     for a in alerts
                 ],
                 "macro": getattr(record, "macro_telemetry", None),
+                "info_structure": getattr(record, "info_telemetry", None),
             }
 
             # --- AI Analysis: Strategy Classification ---

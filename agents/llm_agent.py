@@ -155,6 +155,17 @@ class LLMPricingAgent(PricingAgent):
 
         return observation.marginal_cost + 0.5  # should never reach here
 
+    def announce_intention(self, observation: Observation) -> float | None:
+        """Announce non-binding target price for upcoming round."""
+        if observation.last_average_price:
+            return round(observation.last_average_price, 3)
+        return round((observation.price_floor + observation.price_ceiling) / 2.0, 3)
+
+    def send_private_message(self, observation: Observation, recipient_id: int) -> str | None:
+        """Send bilateral message to coordinating partner firm."""
+        target = observation.last_average_price or ((observation.price_floor + observation.price_ceiling) / 2.0)
+        return f"Cooperate: let's sustain prices near {observation.marginal_cost:.2f}+ to avoid price wars."
+
     # ----------------------------------------------------------------
     # Prompt construction
     # ----------------------------------------------------------------
@@ -182,10 +193,26 @@ class LLMPricingAgent(PricingAgent):
         # Market history (last 5 rounds, or fewer if early in game)
         history_text = self._format_history(obs)
 
+        # Pre-play information structure communications (F4)
+        comm_lines = []
+        if obs.intended_prices:
+            intents = ", ".join(f"Firm {fid}: {self.currency}{p:.3f}" for fid, p in obs.intended_prices.items() if fid != self.firm_id)
+            comm_lines.append(f"Advance Price Announcements (Non-binding): {intents}")
+        if obs.private_messages:
+            priv_text = "; ".join(f"Firm {fid}: '{msg}'" for fid, msg in obs.private_messages.items())
+            comm_lines.append(f"Private Bilateral Channel Messages: {priv_text}")
+        if obs.rival_scratchpads:
+            rival_sp = "\n".join(f"  [Firm {fid} Transcript]: {txt[:200]}..." for fid, txt in obs.rival_scratchpads.items() if fid != self.firm_id and txt)
+            if rival_sp:
+                comm_lines.append(f"Rival Internal Reasoning Transcripts (Shared Vendor):\n{rival_sp}")
+
+        comm_section = ("\n\nCommunication & Market Signals:\n" + "\n".join(comm_lines)) if comm_lines else ""
+
         # User message: what to do
         user = (
             f"Round {obs.round_number}.\n\n"
-            f"{history_text}\n\n"
+            f"{history_text}"
+            f"{comm_section}\n\n"
             "Based on the market history above, decide your price for this round.\n\n"
             "You MUST respond in EXACTLY this format:\n"
             "<scratchpad>\n"

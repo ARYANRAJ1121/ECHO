@@ -16,7 +16,7 @@ That's this file. It's the "game master."
 3. Pass prices to LogitDemandModel -> get shares, profits
 4. Compute collusion index (Lambda)
 5. Record everything
-6. Give agents their results so they can learn
+6. Give agents their results  so they can learn
 7. Repeat for N rounds
 
 === KEY DESIGN DECISIONS ===
@@ -34,6 +34,7 @@ from agents.base_agent import Observation, PricingAgent
 from market.demand import LogitDemandModel, DemandResult
 from market.policy import PolicyConfig
 from market.macro import MacroConfig
+from market.info_structure import InfoConfig
 
 
 @dataclass
@@ -55,6 +56,7 @@ class RoundRecord:
     leniency_recipients: list[int] = field(default_factory=list)  # firms receiving antitrust defector bonuses
     is_policy_active: bool = False                                # whether policy remedy was active this round
     macro_telemetry: dict[str, Any] | None = None                 # non-stationary macroeconomic indicators
+    info_telemetry: dict[str, Any] | None = None                  # pre-play signals, intentions, messages (F4)
 
 
 class MarketEngine:
@@ -86,6 +88,7 @@ class MarketEngine:
         price_ceiling: float = 10.0,
         policy: PolicyConfig | None = None,
         macro: MacroConfig | None = None,
+        info_config: InfoConfig | None = None,
     ) -> None:
         if len(agents) != demand_model.n_firms:
             raise ValueError(
@@ -97,6 +100,7 @@ class MarketEngine:
         self.price_ceiling = price_ceiling
         self.policy = policy
         self.macro = macro
+        self.info_config = info_config
 
         # Pre-compute benchmarks (Nash and Monopoly prices)
         # These are computed ONCE and reused every round for Lambda calculation
@@ -230,9 +234,69 @@ class MarketEngine:
             visible_price_history = self.price_history
             visible_profit_history = self.profit_history
 
+        # Step 0: Pre-play communications (F4 Information Structure)
+        intended_prices: dict[int, float] = {}
+        private_messages: dict[int, dict[int, str]] = {}
+        rival_scratchpads: dict[int, str] = {}
+        info_telemetry: dict[str, Any] | None = None
+
+        if self.info_config is not None and not self.info_config.is_tacit():
+            protocol = self.info_config.protocol
+            info_telemetry = {"protocol": protocol}
+
+            # A. Advance price announcements (non-binding intended prices)
+            if self.info_config.has_announcements():
+                for agent in self.agents:
+                    base_obs = Observation(
+                        round_number=round_number,
+                        firm_id=agent.firm_id,
+                        marginal_cost=float(self.demand_model.costs[agent.firm_id]),
+                        price_floor=self.price_floor,
+                        price_ceiling=effective_ceiling,
+                        price_history=visible_price_history,
+                        profit_history=visible_profit_history,
+                        info_protocol=protocol,
+                    )
+                    intent = agent.announce_intention(base_obs)
+                    if intent is not None:
+                        if self.info_config.announcement_noise > 0:
+                            intent += float(np.random.normal(0, self.info_config.announcement_noise))
+                        intended_prices[agent.firm_id] = round(intent, 4)
+                info_telemetry["intended_prices"] = intended_prices
+
+            # B. Private bilateral messaging
+            if self.info_config.has_private_channels():
+                for sender_id, recipient_id in self.info_config.private_pairs:
+                    if sender_id < len(self.agents) and recipient_id < len(self.agents):
+                        sender_agent = self.agents[sender_id]
+                        base_obs = Observation(
+                            round_number=round_number,
+                            firm_id=sender_id,
+                            marginal_cost=float(self.demand_model.costs[sender_id]),
+                            price_floor=self.price_floor,
+                            price_ceiling=effective_ceiling,
+                            price_history=visible_price_history,
+                            profit_history=visible_profit_history,
+                            info_protocol=protocol,
+                        )
+                        msg = sender_agent.send_private_message(base_obs, recipient_id)
+                        if msg:
+                            if recipient_id not in private_messages:
+                                private_messages[recipient_id] = {}
+                            private_messages[recipient_id][sender_id] = msg
+                info_telemetry["private_channels_count"] = len(self.info_config.private_pairs)
+
+            # C. Shared scratchpads (transparency)
+            if self.info_config.has_shared_scratchpads():
+                for agent in self.agents:
+                    if hasattr(agent, "scratchpad_history") and agent.scratchpad_history:
+                        rival_scratchpads[agent.firm_id] = agent.scratchpad_history[-1]
+                info_telemetry["shared_scratchpads_count"] = len(rival_scratchpads)
+
         # Step 1: Collect prices from all agents
         raw_prices = []
         prices = []
+        protocol_str = self.info_config.protocol if self.info_config else "baseline"
         for agent in self.agents:
             obs = Observation(
                 round_number=round_number,
@@ -242,6 +306,10 @@ class MarketEngine:
                 price_ceiling=effective_ceiling,
                 price_history=visible_price_history,
                 profit_history=visible_profit_history,
+                info_protocol=protocol_str,
+                intended_prices=intended_prices if intended_prices else None,
+                private_messages=private_messages.get(agent.firm_id),
+                rival_scratchpads=rival_scratchpads if rival_scratchpads else None,
             )
             raw_p = agent.choose_price(obs)
             raw_prices.append(round(raw_p, 4))
@@ -291,6 +359,7 @@ class MarketEngine:
             leniency_recipients=leniency_recipients,
             is_policy_active=is_policy_active,
             macro_telemetry=macro_telemetry,
+            info_telemetry=info_telemetry,
         )
 
     def _clamp(self, price: float, ceiling: float | None = None) -> float:
@@ -364,7 +433,6 @@ class MarketEngine:
                 "total_leniency_awarded_count": total_leniency,
             }
 
-        # Macroeconomic environment summary
         if self.macro is not None:
             summary_dict["macro"] = {
                 "active": True,
@@ -375,5 +443,9 @@ class MarketEngine:
                 "shock_round": self.macro.shock_round,
                 "shock_intensity": self.macro.shock_intensity,
             }
+
+        # Information structure summary (F4)
+        if self.info_config is not None:
+            summary_dict["info_structure"] = self.info_config.to_dict()
 
         return summary_dict
