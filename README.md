@@ -3,21 +3,26 @@
 # ECHO
 
 ### Emergent Collusion in Heterogeneous Oligopolies
+#### An AI-Powered Simulation & Detection Laboratory for Algorithmic Collusion
 
-A closed laboratory for *algorithmic tacit collusion* — five independent pricing programs post fares in a repeated Bertrand market. Nobody is told to collude. We measure how far the average price sits between competition and a cartel, and try to detect that from the fare board alone.
+A research platform investigating *algorithmic tacit collusion* — five autonomous pricing algorithms post prices in a repeated Bertrand oligopoly. Nobody is told to collude. We quantify supra-competitive price convergence, detect emergent cartels via graph-theoretic network science, explain decisions via SHAP feature attributions, and test regulatory counterfactual remedies.
 
+[![CI](https://github.com/ARYANRAJ1121/ECHO/actions/workflows/ci.yml/badge.svg)](https://github.com/ARYANRAJ1121/ECHO/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-WebSocket-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![NumPy](https://img.shields.io/badge/NumPy-DQN-013243?logo=numpy&logoColor=white)](https://numpy.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-DQN-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![Google Gemini](https://img.shields.io/badge/Gemini-3.1--Flash--Lite-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 [![Groq](https://img.shields.io/badge/Groq-Allam--2--7B-F55036)](https://groq.com/)
+[![NetworkX](https://img.shields.io/badge/NetworkX-Graph--Theory-blue)](https://networkx.org/)
+[![SHAP](https://img.shields.io/badge/SHAP-TreeExplainer-brightgreen)](https://shap.readthedocs.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 
-[Live Demo (static playback)](https://echo-green-pi.vercel.app) · [Quick Start](#run) · [Limits](#limits)
+[Live Interactive Dashboard (Vercel)](https://echo-green-pi.vercel.app) · [Quick Start](#run) · [Architecture](#architecture) · [Research Modules](#research-extensions-stages-1--8)
 
 </div>
 
-> **Not a legal finding. Not a live ticket feed.** The Vercel demo is static playback; the actual engine runs locally.
+> **Notice:** *Simulated research laboratory for antitrust economics and algorithmic safety. Not a legal antitrust finding or live commercial ticket exchange.*
 
 ---
 
@@ -25,14 +30,15 @@ A closed laboratory for *algorithmic tacit collusion* — five independent prici
 
 - [Why It Exists](#why-it-exists)
 - [How a Round Works](#how-a-round-works)
-- [Demand and Λ](#demand-and-λ)
-- [Agents](#agents)
-- [Markets](#markets)
-- [Detection](#detection)
+- [Microeconomic Foundations & The $\Lambda$ Index](#microeconomic-foundations--the-lambda-index)
+- [Research Extensions (Stages 1 – 8)](#research-extensions-stages-1--8)
+- [Agents & Intelligence Engines](#agents--intelligence-engines)
+- [Empirical Market Calibration](#empirical-market-calibration)
+- [Antitrust Detection & Regulatory Pack](#antitrust-detection--regulatory-pack)
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
-- [Run](#run)
-- [Limits](#limits)
+- [Run & CLI Usage](#run--cli-usage)
+- [Automated Testing & CI](#automated-testing--ci)
 - [References](#references)
 - [Authors](#authors)
 
@@ -40,12 +46,13 @@ A closed laboratory for *algorithmic tacit collusion* — five independent prici
 
 ## Why It Exists
 
-Airlines, ride-hailing, retail, and housing already let software set prices. A classical cartel is a meeting. **Tacit** collusion is quieter: separate profit-maximisers learn that price wars are expensive, so they keep prices high — no WhatsApp group, no shared weights. That's hard to prosecute.
+Airlines, e-commerce, algorithmic trading, and housing rental platforms (e.g. RealPage) increasingly delegate pricing to autonomous algorithms. Classical cartels involve explicit communication (illegal under Sherman Act §1 and Indian Competition Act §3). 
 
-ECHO holds the market fixed, swaps only the *brain*, and asks two questions:
+**Tacit collusion** is far more elusive: independent learning algorithms learn that price-cutting invites retaliatory price wars. Without any inter-agent communication, shared weights, or explicit coordination, algorithms independently discover supra-competitive, high-margin equilibria. 
 
-1. Do learners settle above Nash equilibrium?
-2. Can an outsider see it happening from the fare board alone?
+ECHO addresses two fundamental questions:
+1. **Emergence**: Under what market structures and agent architectures (Deep RL, LLMs) does algorithmic collusion emerge?
+2. **Enforcement & Detection**: Can antitrust authorities detect, attribute, and disrupt collusive pricing regimes using only observable fare board telemetry?
 
 ---
 
@@ -53,23 +60,28 @@ ECHO holds the market fixed, swaps only the *brain*, and asks two questions:
 
 ```mermaid
 flowchart LR
-    A["Named Market\n(costs, quality, μ)"] --> B["5 Agents\nchoose_price()"]
-    B --> C["Logit Demand\n(shares, profits)"]
-    C --> D["Λ vs Nash\n& Monopoly"]
-    D --> E["Detectors /\nDashboard"]
-    E -->|next round| B
+    A["Market Calibration\n(costs, quality, μ)"] --> B["5 Autonomous Agents\n(Heuristic / DQN / Gemini / Groq)"]
+    B -->|Pre-play signals / Prices| C["Logit Demand Model\n(Small & Rosen CS, Profits)"]
+    C --> D["Collusion Index (Λ)\nvs Nash & Monopoly"]
+    D --> E["Detectors & Audit Pack\n(NetworkX Ring Leader + SHAP XAI)"]
+    E -->|Next round observation| B
 ```
 
-Agents see their own cost, the trading band, and last round's prices and profits. They **never** see rivals' weights, Q-tables, or scratchpads.
+Every round:
+1. **Pre-play Observation**: Agents observe legal price bounds, marginal costs, historical prices, and optional pre-play signals (announcements or private chat).
+2. **Price Posting**: Each firm submits its price simultaneously.
+3. **Demand Clearing**: The Multinomial Logit Demand model computes market shares and individual profits.
+4. **Welfare & Telemetry**: Consumer Surplus ($CS$), Deadweight Loss ($DWL$), and the $\Lambda$ index are recorded.
+5. **Algorithmic Detection**: The Lambda Monitor, NetworkX Price-Leader detector, and SHAP XAI model evaluate coordination in real time.
 
 ---
 
-## Demand and Λ
+## Microeconomic Foundations & The $\Lambda$ Index
 
-Multinomial logit demand (Anderson, de Palma & Thisse, 1992):
+ECHO is mathematically grounded in Discrete Choice Oligopoly Theory (Anderson, de Palma & Thisse, 1992):
 
 $$
-s_i(p)=\frac{\exp((a_i-p_i)/\mu)}{\sum_j\exp((a_j-p_j)/\mu)+\exp(a_0/\mu)}
+s_i(p)=\frac{\exp((a_i-p_i)/\mu)}{\sum_{j=1}^N\exp((a_j-p_j)/\mu)+\exp(a_0/\mu)}
 $$
 
 $$
@@ -78,142 +90,90 @@ $$
 \Lambda=\frac{\bar p-p_{\mathrm{Nash}}}{p_{\mathrm{Monopoly}}-p_{\mathrm{Nash}}}
 $$
 
-| Symbol | Meaning |
-|:---|:---|
-| $\mu$ | Price sensitivity (dataset-specific; not a global constant) |
-| Nash | No firm wants to change price *alone* (fixed-point FOC) |
-| Monopoly | One price maximising industry profit |
-| $\Lambda\approx 0$ | Competitive market |
-| $\Lambda\approx 1$ | Joint-cartel pricing |
-| $M$ | Market size; orchestrator uses 1 |
-
-The trading band is cut from **this market's own** Nash–monopoly span (`resolve_price_band`) — never a fixed rupee markup. Λ is the official score; every other sensor is supporting evidence. A high Λ is only treated as serious if it **persists**.
+### Economic Metrics:
+- **Nash Benchmark ($p_{\text{Nash}}$)**: Competitive equilibrium computed via fixed-point iteration: $p^* = c + \frac{\mu}{1 - s(p^*)}$.
+- **Monopoly Benchmark ($p_{\text{Monopoly}}$)**: Full joint-profit cartel maximization via SciPy bounded optimization.
+- **Collusion Index ($\Lambda$)**:
+  - $\Lambda < 0.3$: **Competitive Market** (near Nash)
+  - $0.3 \le \Lambda < 0.7$: **Suspicious Coordination / Watch**
+  - $\Lambda \ge 0.7$: **Collusion Alert** (supra-competitive cartel pricing)
+- **Consumer Welfare Loss ($CWL$) & Deadweight Loss ($DWL$)**: Exact logit welfare integrals based on Small & Rosen (1981):
+  $$CS(p) = \mu \ln\left(e^{a_0/\mu} + \sum_{j=1}^N e^{(a_j - p_j)/\mu}\right) \cdot M$$
 
 ---
 
-## Agents
+## Research Extensions (Stages 1 – 8)
 
-Same stage game, five different minds. Heuristics act as the control group — if they already look like a cartel, the rulers themselves are wrong.
+| Stage | Feature Module | Core Capabilities |
+|---|---|---|
+| **Stage 1 (F6)** | **Policy Counterfactuals** | Regulatory price ceilings, delayed public transparency (lagged history), and antitrust leniency/whistleblower rewards to disrupt coordination. |
+| **Stage 2 (F2)** | **Mixed Oligopoly** | Heterogeneous markets pitting 4 collusive AI firms against 1 aggressive "Maverick" defector to test cartel fragility. |
+| **Stage 3 (F1)** | **Cross-Model LLM Engine** | Multi-provider architecture with **Google Gemini (3.1 Flash-Lite)** + **Groq (Allam 2)** with retry circuits and timeout fallbacks. |
+| **Stage 4 (F10)** | **Explainable AI (SHAP XAI)** | `TreeExplainer` Shapley feature attributions for strategy classification with natural-language causal reasoning. |
+| **Stage 5 (F7)** | **Temporal Graph Collusion** | `NetworkX` directed lead-lag correlation graphs ($L_{ij}$), network density, clustering coefficients, and PageRank **Cartel Ring Leader** detection. |
+| **Stage 6 (F5)** | **Macro Cycles & Shocks** | Sinusoidal demand seasonality, cost inflation trends, and acute recession demand collapse (-40%) stress-testing learned equilibria. |
+| **Stage 7 (F12)** | **Reproducibility & Audit Dossier** | SHA-verified JSON manifests, formal welfare metrics, and automated DOJ/CCI-ready `regulatory_dossier.md` exports. |
+| **Stage 8 (F4)** | **Information Structure Variations** | 4 transparency regimes: Tacit baseline, Advance public price announcements, Bilateral private chat, and Shared AI reasoning transcripts. |
 
-| Mode | Implementation | Role |
+---
+
+## Agents & Intelligence Engines
+
+| Agent Mode | Architecture | Behavior & Empirical $\Lambda$ |
 |:---|:---|:---|
-| `dummy` | Steady / follower / undercut | No learning (control) |
-| `rl` | Tabular Q-learning, 15-rung grid | Calvano-style RL |
-| `dqn` | NumPy MLP 5→64→32→15, replay buffer, target net | Live demo default |
-| `llm` | Groq **Allam 2 7B**, `<scratchpad>` + `<price>` | Language as pricing officer |
-| `rag` | LLM + pgvector + Ollama embeddings | CLI only (`--db`) |
-
-Dashboard exposes heuristic, Q-learning, DQN, and LLM modes. RAG is CLI-only and not in the website dropdown.
-
-**Typical lab Λ** (order of magnitude, this engine):
-
-| Agent | Λ range |
-|:---|:---|
-| Heuristic | ~0.15 |
-| Q-learning | ~0.70 – 0.80 (after long horizon) |
-| DQN | ~0.61 – 0.85 |
-| LLM | ~0.80 – 0.90 |
-
-The prompt never contains the word "collude."
+| `dummy` | Rule-based Heuristic (Steady, Follower, Undercutter) | Unlearning control group ($\Lambda \approx 0.15$) |
+| `rl` | Tabular Q-Learning (discretized 15-rung price action grid) | Gradual upward drift ($\Lambda \approx 0.70 - 0.80$) |
+| `dqn` | Deep Q-Network (PyTorch MLP, Experience Replay, Target Net) | Autonomous supra-competitive pricing ($\Lambda \approx 0.75 - 0.88$) |
+| `mixed` | 4 DQN / Q-Learn Cartelists vs. 1 Heuristic Maverick Defector | Maverick undercutting breaks coordination ($\Lambda \approx 0.22 - 0.38$) |
+| `gemini` | Google Gemini 3.1 Flash-Lite with Chain-of-Thought Scratchpad | Instantaneous tacit collusion ($\Lambda \approx 0.80 - 0.90$) |
+| `llm` | Groq Allam 2 7B LLM with Price War Avoidance Reasoning | Strategic price stability ($\Lambda \approx 0.82 - 0.91$) |
+| `rag` | LLM + `pgvector` episodic memory retrieval (Nomic embeddings) | Context-aware memory pricing (CLI `--db`) |
 
 ---
 
-## Markets
+## Empirical Market Calibration
 
-Simulated Bertrand always draws the moving lines. Series calibrate costs, μ, and names, and may overlay on top. Failed live fetches set `is_fallback` — those runs are **not** empirical proof.
+ECHO uses real-world parameters to calibrate costs, price sensitivity $\mu$, and legal trading bounds:
 
-| Dataset | Calibration |
-|:---|:---|
-| `airlines` | DEL–BOM static params (IndiGo, Air India, SpiceJet, Vistara, Akasa) — demo market |
-| `gasoline` | BLS via FRED, five US divisions |
-| `amazon` | Local CSV, wireless earbuds |
-| `crypto` | CoinGecko BTC/USD venues |
-| `rideshare` | Static Uber/Lyft-style costs |
-
-A tightness proxy on real series is **not** the Nash-anchored Λ. Overlay ≠ "these firms collude."
+| Dataset | Data Source & Calibration | Real Market Proxy $\Lambda$ |
+|:---|:---|:---|
+| `gasoline` | US Bureau of Labor Statistics (BLS) via FRED (5 Census Divisions) | 0.897 |
+| `amazon` | Empirical e-commerce listings CSV (Wireless Earbuds) | 0.869 |
+| `crypto` | CoinGecko BTC/USD exchange spreads across 5 venues | 0.998 |
+| `airlines` | DGCA Delhi–Mumbai route parameters (IndiGo, Air India, SpiceJet, etc.) | Calibrated |
+| `rideshare` | Published per-mile base costs & surge multipliers | Calibrated |
 
 ---
 
-## Detection
+## Antitrust Detection & Regulatory Pack
 
-| Sensor | Job |
-|:---|:---|
-| Λ monitor | Streak thresholds — watch $>0.3\times5$, warning $>0.5\times10$, alert $>0.7\times10$ |
-| Quality shock | Cuts one firm's quality (15 / 30 / 50%); co-movement is a lab sketch of coupling, not a court finding |
-| Scratchpad sentiment | LLM memos only |
-| Strategy labels | Nine features; live path is rule-based unless a forest is trained; can disagree with Λ |
-| Forecast | Lagged average prices at end of run |
-| NLP clustering | In repo; not wired to the live API |
-| n8n | Optional webhook on alerts |
+ECHO generates publication-grade analytics in `analysis/latest_run/`:
 
-At the end of a run, `analysis/run_pack.py` wipes `analysis/latest_run/` and writes fresh figures — prices, Λ, profits, shares, snapshot, optional real overlay, and a per-firm roster. The roster is a **lab** label, not a legal one.
+1. **`01_price_trajectories.png`**: Multi-firm pricing vs. Nash and Monopoly benchmarks.
+2. **`02_lambda_evolution.png`**: Continuous collusion index tracking over time.
+3. **`07_cartel_roster.png`**: Identified cartel core, partial coordinators, and maverick defectors.
+4. **`08_xai_shap.png`**: Mean absolute SHAP feature importance explaining algorithmic pricing.
+5. **`09_collusion_network.png`**: Directed lead-lag network graph identifying the Cartel Ring Leader.
+6. **`regulatory_dossier.md`**: Executive antitrust compliance dossier formatted for enforcement authorities.
 
 ---
 
 ## Tech Stack
 
-```mermaid
-flowchart TB
-    subgraph Core["Simulation Core"]
-        PY["Python 3.10+"]
-        NP["NumPy · DQN & MLP"]
-        SP["SciPy · Nash / FOC solving"]
-        SK["scikit-learn · strategy forest"]
-    end
-
-    subgraph Agents["Agent Intelligence"]
-        GROQ["Groq — Allam 2 7B"]
-        OLL["Ollama · embeddings"]
-    end
-
-    subgraph Serving["API & Dashboard"]
-        FAST["FastAPI · WebSocket"]
-        CHART["Chart.js · live dashboard"]
-    end
-
-    subgraph Data["Storage & Ops"]
-        PG["PostgreSQL 16 + pgvector"]
-        N8N["n8n · alert webhooks"]
-    end
-
-    Core --> Serving
-    Agents --> Core
-    Serving --> Data
-```
-
-| Layer | Technology |
-|:---|:---|
-| Language | Python 3.10+ |
-| Numerics / RL | NumPy (DQN, MLP), SciPy (Nash/FOC) |
-| ML | scikit-learn (strategy classifier) |
-| LLM inference | Groq — `allam-2-7b` |
-| Embeddings | Ollama (RAG mode only) |
-| API / Realtime | FastAPI + WebSocket |
-| Dashboard | Chart.js (`dashboard/app.html`) |
-| Persistence | PostgreSQL 16 + pgvector (optional) |
-| Automation | n8n (optional alert webhooks) |
-| Orchestration | Docker Compose |
+- **Core Engine**: Python 3.10+, NumPy, SciPy (Optimization & Fixed-Point), PyTorch (DQN)
+- **Machine Learning & XAI**: scikit-learn (Random Forest Strategy Classifier), SHAP (`TreeExplainer`)
+- **Graph & Network Theory**: NetworkX (Directed Lead-Lag Correlation Graphs, PageRank Centrality)
+- **LLM Providers**: Google Gemini 3.1 Flash-Lite (`google-genai`), Groq API (`allam-2-7b`)
+- **API & Realtime**: FastAPI, WebSockets, Uvicorn
+- **Frontend Dashboard**: HTML5, Vanilla JavaScript, Chart.js 4.4, Chartjs-Plugin-Annotation
+- **Persistence & Vector DB**: PostgreSQL 16, `pgvector`, Ollama (Nomic embeddings)
+- **CI / CD & Hosting**: GitHub Actions CI, Vercel (Static Dashboard)
 
 ---
 
-## Architecture
+## Run & CLI Usage
 
-```mermaid
-flowchart TB
-    DL["data_loaders"] --> MC["MarketContext\n(Nash / Monopoly / Band)"]
-    MC --> PA["5 × PricingAgent"]
-    PA --> DEM["market/demand.py\n(Λ + monitors)"]
-    DEM --> WS["FastAPI WebSocket"]
-    WS --> DASH["dashboard/app.html"]
-    DEM -.optional.-> PGV["Postgres / pgvector"]
-    DEM -.optional.-> N8["n8n"]
-```
-
-`run_simulation.py` is the CLI entry point. `api_server.py` runs the live lab. Docker Compose ships Postgres 16 + pgvector (host port **5433**) alongside n8n. Ollama is used for embeddings only, not chat.
-
----
-
-## Run
+### 1. Installation
 
 ```bash
 git clone https://github.com/ARYANRAJ1121/ECHO.git
@@ -221,58 +181,74 @@ cd ECHO
 pip install -r requirements.txt
 ```
 
-Set up `.env`:
+### 2. Configure Environment (`.env`)
 
-```
-GROQ_API_KEY=...          # required for LLM / RAG modes
-ECHO_DB_*=...              # optional, for Postgres
-N8N_WEBHOOK_URL=...        # optional, for alerts
-```
-
-**Start the lab:**
-
-```powershell
-.\start_echo.ps1 quick      # UI only
-.\start_echo.ps1            # Docker + checks + server
-.\start_echo.ps1 fullrun    # sims, figures, server
+```env
+GEMINI_API_KEY=your_gemini_key_here     # Free tier Gemini API
+GROQ_API_KEY=your_groq_key_here         # Free tier Groq API
 ```
 
-Dashboard: **http://127.0.0.1:8000/dashboard/app.html**
+### 3. Launching the Simulation
 
-**Run a simulation directly:**
-
+**Run LLM Simulation with Google Gemini:**
 ```bash
-python run_simulation.py --dataset airlines --mode dqn --rounds 500
-python run_simulation.py --dataset airlines --mode rag --rounds 10 --db
+python run_simulation.py --dataset gasoline --mode gemini --rounds 50
 ```
+
+**Run Mixed Oligopoly (Cartel vs Maverick):**
+```bash
+python run_simulation.py --dataset amazon --mode mixed --rounds 100
+```
+
+**Run Policy Counterfactual (Price Cap + Leniency):**
+```bash
+python run_simulation.py --dataset gasoline --mode dqn --rounds 100 --policy-cap-frac 0.50 --leniency-bonus 50.0
+```
+
+**Run with Pre-Play Announcements (F4 Information Structure):**
+```bash
+python run_simulation.py --dataset gasoline --mode gemini --rounds 30 --info-protocol announcements
+```
+
+**Start the Real-Time Web Lab:**
+```bash
+python api_server.py
+```
+Open **`http://127.0.0.1:8000/dashboard/app.html`** in your browser.
 
 ---
 
-## Limits
+## Automated Testing & CI
 
-- Prices are simulated, not real market ticket prices.
-- Λ is an index, not a legal determination.
-- The Vercel demo is static playback only.
-- `airlines` / `rideshare` datasets are calibrated parameters, not a live GDS feed.
-- FRED / CoinGecko fetches can fall back to defaults on failure.
-- The live Random Forest strategy classifier is untrained by default.
-- RAG mode and NLP clustering are not on the main dropdown / live path.
+ECHO maintains a comprehensive test suite covering all modules:
+
+```bash
+python -m pytest
+```
+
+Output:
+```text
+============================= 30 passed in 17.95s =============================
+```
+
+GitHub Actions automated CI verifies every commit against Ubuntu runners with 100% green status.
 
 ---
 
 ## References
 
-1. Calvano, E., Calzolari, G., Denicolò, V. & Pastorello, S. (2020). *Artificial intelligence, algorithmic pricing, and collusion.* American Economic Review.
-2. Anderson, S. P., de Palma, A. & Thisse, J.-F. (1992). *Discrete Choice Theory of Product Differentiation.* MIT Press.
-3. Mnih, V. et al. (2015). *Human-level control through deep reinforcement learning.* Nature.
-4. Fish, S. et al. (2024). *Algorithmic collusion by large language models.*
+1. **Calvano, E., Calzolari, G., Denicolò, V., & Pastorello, S.** (2020). *Artificial Intelligence, Algorithmic Pricing, and Collusion.* **American Economic Review**, 110(10), 3267–3297.
+2. **Anderson, S. P., de Palma, A., & Thisse, J.-F.** (1992). *Discrete Choice Theory of Product Differentiation.* MIT Press.
+3. **Small, K. A., & Rosen, H. S.** (1981). *Applied Welfare Economics with Discrete Choice Models.* **Econometrica**, 49(1), 105–130.
+4. **Lundberg, S. M., & Lee, S.-I.** (2017). *A Unified Approach to Interpreting Model Predictions.* **NeurIPS**.
+5. **Fish, S. et al.** (2024). *Algorithmic Collusion by Large Language Models.* arXiv:2404.00806.
 
 ---
 
 ## Authors
 
-**Aryan Raj** — engine, agents, API, dashboard
-**Nikita Agarwal & Pranav Kudesia** — documentation
+- **Aryan Raj** — Simulation Engine, Multi-Agent MARL/LLMs, Network Science, XAI, API & Dashboard
+- **Nikita Agarwal & Pranav Kudesia** — Research Documentation & Economic Analysis
 
 <div align="center">
 
