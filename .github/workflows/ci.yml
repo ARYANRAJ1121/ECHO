@@ -26,5 +26,8 @@ jobs:
           pip install pytest pytest-cov
 
       - name: Run automated test suite
+        env:
+          PYTHONPATH: .
         run: |
-          python -m pytest -v --ignore=tests/test_llm_provider.py || python -m pytest -v tests/test_policy.py tests/test_mixed.py tests/test_network_detector.py tests/test_xai_shap.py tests/test_macro.py tests/test_audit_manifest.py
+          python -m pytest -v
+
