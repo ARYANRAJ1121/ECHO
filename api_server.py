@@ -489,13 +489,19 @@ async def simulate_endpoint(websocket: WebSocket):
         macro_conf = config.get("macro")
         if macro_conf:
             from market.macro import MacroConfig
+            # Resolve cost inflation: frontend may send 'cost_inflation_rate' or 'cost_trend'
+            cost_trend = float(
+                macro_conf.get("cost_trend",
+                               macro_conf.get("cost_inflation_rate", 0.0))
+            )
             engine.macro = MacroConfig(
                 name=macro_conf.get("name", "Macro Environment"),
                 seasonality_amp=float(macro_conf.get("seasonality_amp", 0.0)),
                 seasonality_period=int(macro_conf.get("seasonality_period", 20)),
-                cost_trend=float(macro_conf.get("cost_trend", 0.0)),
+                cost_trend=cost_trend,
                 shock_round=macro_conf.get("shock_round"),
                 shock_intensity=float(macro_conf.get("shock_intensity", -0.40)),
+                shock_duration=int(macro_conf.get("shock_duration", 6)),
             )
 
         # Wire Information Structure (F4) if requested
