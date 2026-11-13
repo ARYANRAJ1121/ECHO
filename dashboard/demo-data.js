@@ -236,14 +236,28 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol) {
         let costInflation = 1.0;
         if (macro === 'seasonal') {
             macroScale = 1.0 + 0.30 * Math.sin((2 * Math.PI * r) / 24.0);
-            target = target + (macroScale - 1.0) * RANGE * 0.12;
+            if (dataset === 'amazon') {
+                // High seasonal demand allows Amazon algorithmic sellers to sustain collusive margins
+                const seasonalLift = 0.45 + (r / numRounds) * 0.45 + Math.max(0, macroScale - 1.0) * 0.40;
+                target = Math.max(target, NASH + RANGE * Math.min(0.92, seasonalLift));
+            } else {
+                target = target + (macroScale - 1.0) * RANGE * 0.12;
+            }
         } else if (macro === 'recession') {
             const shockStart = Math.max(10, Math.floor(numRounds * 0.4));
             const shockEnd = shockStart + 12;
             if (r >= shockStart && r <= shockEnd) {
                 macroScale = 0.60;
                 shockActive = true;
-                target = Math.max(NASH, target - RANGE * 0.45);
+                if (dataset === 'amazon') {
+                    // Severe inventory dumping and price war panic during recession
+                    target = Math.max(COST + 0.15, NASH - RANGE * 0.15);
+                } else {
+                    target = Math.max(NASH, target - RANGE * 0.45);
+                }
+            } else if (r > shockEnd && dataset === 'amazon') {
+                const recProgress = Math.min(1.0, (r - shockEnd) / 10.0);
+                target = NASH + RANGE * 0.45 * recProgress;
             }
         } else if (macro === 'inflation') {
             costInflation = Math.pow(1.01, r - 1);

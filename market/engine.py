@@ -316,6 +316,20 @@ class MarketEngine:
             clamped = self._clamp(raw_p, effective_ceiling)
             prices.append(clamped)
 
+        # Macroeconomic shock & seasonal demand dynamics
+        if macro_telemetry and macro_telemetry.get("is_shock"):
+            # Acute recession shock causes price wars / liquidation discounting
+            prices = [
+                self._clamp(max(self.price_floor, p - (p - self.price_floor) * 0.45), effective_ceiling)
+                for p in prices
+            ]
+        elif macro_telemetry and macro_telemetry.get("demand_multiplier", 1.0) >= 1.15:
+            # High seasonal demand peaks foster collusive margin expansion
+            prices = [
+                self._clamp(min(effective_ceiling, p + (effective_ceiling - p) * 0.35), effective_ceiling)
+                for p in prices
+            ]
+
         # Compute consumer savings from regulatory price cap
         raw_avg = float(np.mean(raw_prices))
         clamped_avg = float(np.mean(prices))
