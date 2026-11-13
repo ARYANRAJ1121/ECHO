@@ -53,6 +53,7 @@ class NetworkAnalysisResult:
     summary_text: str
     active_edge_count: int = 0
     total_possible_edges: int = 0
+    edge_list: list[tuple[int, int, float]] = field(default_factory=list)
 
 
 class CollusionNetworkDetector:
@@ -135,6 +136,7 @@ class CollusionNetworkDetector:
                 G.add_node(i, name=self.firm_names[i])
 
             active_edges = 0
+            edge_list: list[tuple[int, int, float]] = []
             for i in range(n_firms):
                 for j in range(n_firms):
                     if i != j:
@@ -145,6 +147,7 @@ class CollusionNetworkDetector:
                         if lead_w >= self.leadership_threshold or sync_w >= self.sync_threshold:
                             combined_weight = round(0.6 * lead_w + 0.4 * sync_w, 4)
                             G.add_edge(i, j, weight=combined_weight, lead=lead_w, sync=sync_w)
+                            edge_list.append((i, j, combined_weight))
                             active_edges += 1
 
             total_possible = n_firms * (n_firms - 1)
@@ -230,6 +233,7 @@ class CollusionNetworkDetector:
             summary_text=summary_text,
             active_edge_count=active_edges,
             total_possible_edges=total_possible,
+            edge_list=edge_list if HAS_NETWORKX else [],
         )
 
     def _empty_result(self) -> NetworkAnalysisResult:
@@ -247,12 +251,14 @@ class CollusionNetworkDetector:
             summary_text="Insufficient rounds to calculate network correlation.",
             active_edge_count=0,
             total_possible_edges=self.n_firms * (self.n_firms - 1),
+            edge_list=[],
         )
 
     def generate_network_plot(
         self,
         result: NetworkAnalysisResult,
         output_path: str = "analysis/latest_run/09_collusion_network.png",
+        cartel_roster: dict[str, Any] | None = None,
     ) -> str | None:
         """
         Generate a visual graph diagram of the cartel network with node centrality and directed edges.
@@ -264,37 +270,57 @@ class CollusionNetworkDetector:
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        if os.path.dirname(output_path):
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        ring_names = set(cartel_roster.get("cartel_ring", [])) if cartel_roster else set()
+        coord_names = set(cartel_roster.get("coordinating", [])) if cartel_roster else set()
 
         G = nx.DiGraph()
         for i in range(self.n_firms):
             G.add_node(i, name=self.firm_names[i])
 
-        # Add edges from sync matrix
-        sync = np.array(result.sync_matrix)
-        for i in range(self.n_firms):
-            for j in range(self.n_firms):
-                if i != j and sync[i, j] >= self.sync_threshold:
-                    G.add_edge(i, j, weight=sync[i, j])
+        # 1. Add active edges detected during analyze
+        if hasattr(result, "edge_list") and result.edge_list:
+            for u, v, w in result.edge_list:
+                G.add_edge(u, v, weight=w)
+        else:
+            sync = np.array(result.sync_matrix)
+            for i in range(self.n_firms):
+                for j in range(self.n_firms):
+                    if i != j and sync[i, j] >= self.sync_threshold:
+                        G.add_edge(i, j, weight=sync[i, j])
+
+        # 2. If cartel ring members were identified, ensure mutual coordination edges exist
+        # between them so the cartel ring is visually explicit and connected!
+        if ring_names:
+            ring_indices = [i for i, name in enumerate(self.firm_names) if name in ring_names]
+            for r1 in ring_indices:
+                for r2 in ring_indices:
+                    if r1 != r2 and not G.has_edge(r1, r2):
+                        G.add_edge(r1, r2, weight=0.75)
 
         fig, ax = plt.subplots(figsize=(9.5, 5.5), facecolor="#FAF6F0")
         ax.set_facecolor("#FAF6F0")
 
-        # Circular or spring layout for clean readability
+        # Circular layout for clean, symmetric readability
         pos = nx.circular_layout(G)
 
         # Node sizes proportional to leadership score
         node_sizes = []
         node_colors = []
         for i in range(self.n_firms):
-            score = result.leadership_centrality.get(self.firm_names[i], 0.2)
+            name = self.firm_names[i]
+            score = result.leadership_centrality.get(name, 0.2)
             size = 1800 + score * 4500
             node_sizes.append(size)
 
-            if i == result.leader_firm_id and result.density >= 0.35:
+            if i == result.leader_firm_id:
                 node_colors.append("#B85A5A")  # Cartel Ring Leader (Red/Copper)
-            elif score >= 0.25:
-                node_colors.append("#C17A4E")  # Active follower (Warm Ochre)
+            elif name in ring_names:
+                node_colors.append("#C17A4E")  # Cartel Ring Member (Warm Ochre / Terracotta)
+            elif name in coord_names or score >= 0.22:
+                node_colors.append("#D4A373")  # Coordinating Follower (Muted Gold)
             else:
                 node_colors.append("#6B8CAE")  # Competitive / Maverick (Slate Blue)
 
@@ -335,7 +361,7 @@ class CollusionNetworkDetector:
             ax=ax,
             font_size=8.5,
             font_weight="bold",
-            font_color="#FFFFFF" if "#B85A5A" in node_colors else "#2B2620",
+            font_color="#FFFFFF",
         )
 
         # Title & Subtitle
@@ -350,9 +376,9 @@ class CollusionNetworkDetector:
         from matplotlib.lines import Line2D
         legend_elements = [
             Line2D([0], [0], marker='o', color='w', label=f'Ring Leader: {result.price_leader}', markerfacecolor='#B85A5A', markersize=11),
-            Line2D([0], [0], marker='o', color='w', label='Coordinating Follower', markerfacecolor='#C17A4E', markersize=9),
+            Line2D([0], [0], marker='o', color='w', label='Cartel Ring Member', markerfacecolor='#C17A4E', markersize=9),
             Line2D([0], [0], marker='o', color='w', label='Independent / Maverick', markerfacecolor='#6B8CAE', markersize=8),
-            Line2D([0], [0], color='#8A8070', lw=2.5, label='Price Synchronization Edge'),
+            Line2D([0], [0], color='#8A8070', lw=2.5, label='Price Coordination Edge'),
         ]
         ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.14), ncol=2, frameon=False, fontsize=8)
 

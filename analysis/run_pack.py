@@ -324,7 +324,7 @@ def build_run_pack(
         net_detector = CollusionNetworkDetector(n_firms=n_firms, firm_names=names)
         net_result = net_detector.analyze(prices)
         net_fig = os.path.join(out, "09_collusion_network.png")
-        net_detector.generate_network_plot(net_result, output_path=net_fig)
+        net_detector.generate_network_plot(net_result, output_path=net_fig, cartel_roster=roster)
         figures.append({
             "id": "network",
             "file": "09_collusion_network.png",
