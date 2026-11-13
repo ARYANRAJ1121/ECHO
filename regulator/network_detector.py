@@ -68,7 +68,7 @@ class CollusionNetworkDetector:
         self,
         n_firms: int = 5,
         firm_names: list[str] | None = None,
-        sync_threshold: float = 0.50,
+        sync_threshold: float = 0.35,
         leadership_threshold: float = 0.20,
     ) -> None:
         self.n_firms = n_firms
@@ -364,10 +364,21 @@ class CollusionNetworkDetector:
             font_color="#FFFFFF",
         )
 
+        # Compute actual density and clustering for the plotted coordination network
+        G_undir = G.to_undirected()
+        try:
+            plot_clustering = round(float(nx.average_clustering(G_undir, weight="weight")), 2)
+            if plot_clustering == 0.0 and G_undir.number_of_edges() > 0:
+                plot_clustering = round(float(nx.average_clustering(G_undir)), 2)
+        except Exception:
+            plot_clustering = result.clustering_coeff
+
+        plot_density = round(G.number_of_edges() / max(1, self.n_firms * (self.n_firms - 1)), 2)
+
         # Title & Subtitle
         title = "Dynamic Collusion & Price-Leadership Network (NetworkX)"
         subtitle = (
-            f"Density: {result.density:.2f}  |  Clustering: {result.clustering_coeff:.2f}  |  "
+            f"Density: {plot_density:.2f}  |  Clustering: {plot_clustering:.2f}  |  "
             f"Ring Leader: {result.price_leader} ({result.leader_score * 100:.1f}%)"
         )
         ax.set_title(f"{title}\n{subtitle}", fontsize=11, fontweight="bold", pad=14, color="#2B2620")
