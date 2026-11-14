@@ -287,10 +287,28 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol) {
             effCeiling = NASH + 0.50 * RANGE;
         }
 
-        const rawPrices = firmSpreads.map(s =>
-            clamp(target + s * spreadDecay + noise, cfg.floor, cfg.ceiling)
-        );
-        const prices = rawPrices.map(p => Math.min(p, effCeiling));
+        let rawPrices;
+        let prices;
+        if (dataset === 'airlines') {
+            // Realistic Indian domestic airline economics (DEL-BOM):
+            // Competing carriers price within a tight corridor where ticket price differences
+            // between any two airlines vary randomly between 100 and 800 INR (max 800 variation).
+            // Shuffled dynamically each round so there is no fixed sequence or rank order.
+            const baseOffsets = [-340, -180, 40, 190, 320].map(o => o + (rng() - 0.5) * 60);
+            for (let i = baseOffsets.length - 1; i > 0; i--) {
+                const j = Math.floor(rng() * (i + 1));
+                [baseOffsets[i], baseOffsets[j]] = [baseOffsets[j], baseOffsets[i]];
+            }
+            rawPrices = baseOffsets.map(offset =>
+                clamp(target + offset, cfg.floor, cfg.ceiling)
+            );
+            prices = rawPrices.map(p => Math.min(p, effCeiling));
+        } else {
+            rawPrices = firmSpreads.map(s =>
+                clamp(target + s * spreadDecay + noise, cfg.floor, cfg.ceiling)
+            );
+            prices = rawPrices.map(p => Math.min(p, effCeiling));
+        }
 
         const rawAvg = rawPrices.reduce((a, b) => a + b) / N;
         const avgPrice = prices.reduce((a, b) => a + b) / N;

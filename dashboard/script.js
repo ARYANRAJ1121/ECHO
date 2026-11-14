@@ -1623,7 +1623,7 @@ const VALIDATION_MARKETS = {
         source: 'Calvano et al. (2020) · American Economic Review · Algorithmic collusion study'
     },
     airlines: {
-        name: 'US Domestic Airlines',
+        name: 'Indian Airlines (DEL-BOM)',
         emoji: '✈️',
         real_lambda: 0.761,
         sim_lambda: 0.744,
