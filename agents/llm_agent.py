@@ -164,7 +164,7 @@ class LLMPricingAgent(PricingAgent):
     def send_private_message(self, observation: Observation, recipient_id: int) -> str | None:
         """Send bilateral message to coordinating partner firm."""
         target = observation.last_average_price or ((observation.price_floor + observation.price_ceiling) / 2.0)
-        return f"Cooperate: let's sustain prices near {observation.marginal_cost:.2f}+ to avoid price wars."
+        return f"Proposed target price: {target:.4f}; let's avoid a price war."
 
     # ----------------------------------------------------------------
     # Prompt construction

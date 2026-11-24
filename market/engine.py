@@ -291,6 +291,18 @@ class MarketEngine:
                 for agent in self.agents:
                     if hasattr(agent, "scratchpad_history") and agent.scratchpad_history:
                         rival_scratchpads[agent.firm_id] = agent.scratchpad_history[-1]
+                    elif hasattr(agent, "shared_reasoning"):
+                        trace_obs = Observation(
+                            round_number=round_number,
+                            firm_id=agent.firm_id,
+                            marginal_cost=float(self.demand_model.costs[agent.firm_id]),
+                            price_floor=self.price_floor,
+                            price_ceiling=effective_ceiling,
+                            price_history=visible_price_history,
+                            profit_history=visible_profit_history,
+                            info_protocol=protocol,
+                        )
+                        rival_scratchpads[agent.firm_id] = agent.shared_reasoning(trace_obs)
                 info_telemetry["shared_scratchpads_count"] = len(rival_scratchpads)
 
         # Step 1: Collect prices from all agents
@@ -315,6 +327,10 @@ class MarketEngine:
             raw_prices.append(round(raw_p, 4))
             clamped = self._clamp(raw_p, effective_ceiling)
             prices.append(clamped)
+
+        # Preserve the post-policy, pre-macro prices so consumer savings do not
+        # incorrectly attribute a recession or seasonal movement to the cap.
+        policy_prices = prices.copy()
 
         # Macroeconomic shock & seasonal demand dynamics
         if macro_telemetry and macro_telemetry.get("is_shock"):
@@ -355,12 +371,15 @@ class MarketEngine:
                 self._clamp(base_p + jittered[i], self.price_ceiling)
                 for i in range(len(prices))
             ]
+            policy_prices = prices.copy()
 
         # Compute consumer savings from regulatory price cap
         raw_avg = float(np.mean(raw_prices))
         clamped_avg = float(np.mean(prices))
-        consumer_savings = max(
-            0.0, (raw_avg - clamped_avg) * float(self.demand_model.market_size)
+        policy_avg = float(np.mean(policy_prices))
+        consumer_savings = (
+            max(0.0, (raw_avg - policy_avg) * float(self.demand_model.market_size))
+            if is_policy_active else 0.0
         )
 
         # Step 2: Feed prices into demand model

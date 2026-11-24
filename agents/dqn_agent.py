@@ -54,6 +54,7 @@ from __future__ import annotations
 import numpy as np
 from collections import deque
 import random
+import re
 
 from agents.base_agent import PricingAgent, Observation
 
@@ -330,7 +331,50 @@ class DQNPricingAgent(PricingAgent):
         self.action_history.append(action)
         self.epsilon_history.append(self.epsilon)
 
-        return float(self.price_grid[action])
+        chosen_price = float(self.price_grid[action])
+        communicated_targets = []
+        if observation.intended_prices:
+            communicated_targets.extend(
+                float(price) for firm_id, price in observation.intended_prices.items()
+                if firm_id != self.firm_id
+            )
+        if observation.private_messages:
+            for message in observation.private_messages.values():
+                match = re.search(r"target price\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)", message, re.I)
+                if match:
+                    communicated_targets.append(float(match.group(1)))
+        if observation.rival_scratchpads:
+            for firm_id, trace in observation.rival_scratchpads.items():
+                if firm_id == self.firm_id:
+                    continue
+                match = re.search(r"planned price\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)", trace, re.I)
+                if match:
+                    communicated_targets.append(float(match.group(1)))
+        if communicated_targets:
+            # Communication is a signal, not a binding instruction: the DQN
+            # keeps most of its selected action while partially responding.
+            signal = float(np.mean(communicated_targets))
+            chosen_price = 0.75 * chosen_price + 0.25 * signal
+
+        # Leave the legal ceiling enforcement to MarketEngine so it can retain
+        # the unconstrained action for policy impact accounting.
+        return float(max(observation.price_floor, chosen_price))
+
+    def _planned_price(self, observation: Observation) -> float:
+        """Greedy pre-play signal; does not consume exploration or learning state."""
+        state = self._state_from_observation(observation)
+        action = int(np.argmax(self.policy_net.forward(state.reshape(1, -1))[0]))
+        return float(np.clip(self.price_grid[action], observation.price_floor, observation.price_ceiling))
+
+    def announce_intention(self, observation: Observation) -> float:
+        return self._planned_price(observation)
+
+    def send_private_message(self, observation: Observation, recipient_id: int) -> str:
+        return f"Proposed target price: {self._planned_price(observation):.4f}; non-binding signal."
+
+    def shared_reasoning(self, observation: Observation) -> str:
+        planned = self._planned_price(observation)
+        return f"DQN planned price: {planned:.4f} based on its current highest-value action."
 
     def _train_step(self) -> float:
         """

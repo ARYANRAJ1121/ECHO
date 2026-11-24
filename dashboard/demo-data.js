@@ -106,7 +106,7 @@ const DATASET_CONFIGS = {
     },
 };
 
-function generateDemoData(mode, dataset, policy, macro, infoProtocol) {
+function generateDemoData(mode, dataset, policy, macro, infoProtocol, macroStartRound = 1) {
     const cfg  = DATASET_CONFIGS[dataset] || DATASET_CONFIGS.gasoline;
     const NASH = cfg.nash;
     const MONO = cfg.mono;
@@ -244,7 +244,7 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol) {
                 target = target + (macroScale - 1.0) * RANGE * 0.12;
             }
         } else if (macro === 'recession') {
-            const shockStart = Math.max(10, Math.floor(numRounds * 0.4));
+            const shockStart = Math.max(10, Math.floor(numRounds * 0.4), macroStartRound);
             const shockEnd = shockStart + 12;
             if (r >= shockStart && r <= shockEnd) {
                 macroScale = 0.60;
@@ -260,7 +260,7 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol) {
                 target = NASH + RANGE * 0.45 * recProgress;
             }
         } else if (macro === 'inflation') {
-            costInflation = Math.pow(1.01, r - 1);
+            costInflation = Math.pow(1.01, Math.max(0, r - macroStartRound));
             target = target + (costInflation - 1.0) * NASH * 0.8;
         }
 

@@ -12,6 +12,7 @@ let isPaused = false;
 let demoPaused = false;
 let totalRounds = 100;
 let currentRound = 0;
+let cumulativePolicySavings = 0;
 let alertCount = 0;
 let prevProfits = null;
 let activeScratchpadFirm = 0;
@@ -1037,6 +1038,7 @@ function realSeriesValueForRound(round) {
 
 function resetUI() {
     currentRound = 0;
+    cumulativePolicySavings = 0;
     alertCount = 0;
     prevProfits = null;
     scratchpadData = {};
@@ -1184,10 +1186,17 @@ function handleMessage(msg) {
         const savBadge = document.getElementById('narrator-savings-badge');
         const savVal = document.getElementById('narrator-savings-val');
         if (savBadge && savVal) {
-            const savings = msg.cumulative_savings !== undefined ? msg.cumulative_savings : (msg.consumer_savings || 0);
+            if (msg.cumulative_savings !== undefined) {
+                cumulativePolicySavings = msg.cumulative_savings;
+            } else if (msg.policy_active) {
+                cumulativePolicySavings += msg.consumer_savings || 0;
+            }
+            const savings = cumulativePolicySavings;
             if (savings > 0 || msg.policy_active) {
                 savBadge.style.display = 'flex';
-                savVal.textContent = `${window._currency || '$'}${savings.toFixed(2)}`;
+                savVal.textContent = savings > 0
+                    ? `${window._currency || '$'}${savings.toFixed(2)}`
+                    : (msg.policy_active ? 'ACTIVE' : `${window._currency || '$'}0.00`);
             } else {
                 savBadge.style.display = 'none';
             }
@@ -1197,21 +1206,24 @@ function handleMessage(msg) {
         const macroBadge = document.getElementById('narrator-macro-badge');
         const macroVal = document.getElementById('narrator-macro-val');
         if (macroBadge && macroVal) {
-            if (msg.macro && msg.macro.active) {
+            if (msg.macro && (msg.macro.active || msg.macro.regime_name)) {
                 macroBadge.style.display = 'flex';
-                let label = (msg.macro.mode || 'ACTIVE').toUpperCase();
-                if (msg.macro.shock_active) {
-                    label = '⚠️ RECESSION (-40%)';
+                let label = (msg.macro.mode || msg.macro.regime_name || 'ACTIVE').toUpperCase();
+                const shockActive = msg.macro.shock_active || msg.macro.is_shock;
+                const demandScale = msg.macro.scale ?? msg.macro.demand_multiplier;
+                const costScale = msg.macro.cost_inflation_factor ?? msg.macro.cost_multiplier;
+                if (shockActive) {
+                    label = `⚠️ SHOCK (DEMAND ×${Number(demandScale || 1).toFixed(2)})`;
                     macroBadge.style.background = 'rgba(239, 68, 68, 0.2)';
                     macroBadge.style.color = '#ef4444';
                     macroBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-                } else if (msg.macro.scale && Math.abs(msg.macro.scale - 1.0) > 0.01) {
-                    label = `SEASONAL (${(msg.macro.scale * 100).toFixed(0)}% demand)`;
+                } else if (demandScale && Math.abs(demandScale - 1.0) > 0.01) {
+                    label = `SEASONAL (DEMAND ×${Number(demandScale).toFixed(2)})`;
                     macroBadge.style.background = 'rgba(234, 179, 8, 0.15)';
                     macroBadge.style.color = '#facc15';
                     macroBadge.style.borderColor = 'rgba(234, 179, 8, 0.3)';
-                } else if (msg.macro.cost_inflation_factor && msg.macro.cost_inflation_factor > 1.001) {
-                    label = `INFLATION (+${((msg.macro.cost_inflation_factor - 1) * 100).toFixed(1)}% cost)`;
+                } else if (costScale && costScale > 1.001) {
+                    label = `INFLATION (COST ×${Number(costScale).toFixed(3)})`;
                     macroBadge.style.background = 'rgba(168, 85, 247, 0.15)';
                     macroBadge.style.color = '#c084fc';
                     macroBadge.style.borderColor = 'rgba(168, 85, 247, 0.3)';
@@ -1433,24 +1445,6 @@ function startSimulation() {
 
     resetUI();
 
-    const polEl = document.getElementById('policy-select');
-    const policy = polEl ? polEl.value : 'none';
-    let policyPayload = null;
-    if (policy === 'cap_50') policyPayload = { name: 'Price Cap (50%)', price_cap_fraction: 0.5 };
-    else if (policy === 'delay_3') policyPayload = { name: 'Delayed Transparency (3r)', transparency_delay: 3 };
-    else if (policy === 'leniency') policyPayload = { name: 'Antitrust Leniency', leniency_bonus: 50.0 };
-    else if (policy === 'remedy') policyPayload = { name: 'Combined Remedy', price_cap_fraction: 0.5, transparency_delay: 3, leniency_bonus: 50.0 };
-
-    const macroEl = document.getElementById('macro-select');
-    const macro = macroEl ? macroEl.value : 'none';
-    let macroPayload = null;
-    if (macro === 'seasonal') macroPayload = { name: 'Seasonal Cycles (±30%)', seasonality_amp: 0.3, seasonality_period: 24.0 };
-    else if (macro === 'recession') macroPayload = { name: 'Recession Shock (-40%)', shock_round: Math.max(10, Math.floor(rounds * 0.4)), shock_duration: 12, shock_intensity: -0.4 };
-    else if (macro === 'inflation') macroPayload = { name: 'Cost Inflation (+1%/rd)', cost_inflation_rate: 0.01 };
-
-    const infoEl = document.getElementById('info-select');
-    const infoProtocol = infoEl ? infoEl.value : 'baseline';
-
     // Try WebSocket first (for local dev), fallback to demo mode
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${proto}//${window.location.host}/ws/simulate`;
@@ -1466,7 +1460,10 @@ function startSimulation() {
             if (!wsConnected) {
                 ws.close();
                 console.log('[ECHO] Backend not available, switching to demo mode');
-                runDemoMode(mode, document.getElementById('dataset').value, policy, macro, infoProtocol);
+                runDemoMode(mode, document.getElementById('dataset').value,
+                    document.getElementById('policy-select').value,
+                    document.getElementById('macro-select').value,
+                    document.getElementById('info-select').value);
             }
         }, 1500);
         
@@ -1474,14 +1471,15 @@ function startSimulation() {
             wsConnected = true;
             clearTimeout(wsTimeout);
             const dataset = document.getElementById('dataset').value;
+            const currentInfo = document.getElementById('info-select').value;
             ws.send(JSON.stringify({
                 mode,
                 rounds,
                 dataset,
                 delay_ms: currentDelayMs(),
-                policy: policyPayload,
-                macro: macroPayload,
-                info_protocol: infoProtocol,
+                policy: selectedPolicyPayload(),
+                macro: selectedMacroPayload(),
+                info_protocol: currentInfo,
             }));
         };
 
@@ -1494,7 +1492,10 @@ function startSimulation() {
             if (!wsConnected) {
                 clearTimeout(wsTimeout);
                 console.log('[ECHO] WebSocket error, switching to demo mode');
-                runDemoMode(mode, document.getElementById('dataset').value, policy, macro, infoProtocol);
+                runDemoMode(mode, document.getElementById('dataset').value,
+                    document.getElementById('policy-select').value,
+                    document.getElementById('macro-select').value,
+                    document.getElementById('info-select').value);
             }
         };
 
@@ -1514,7 +1515,10 @@ function startSimulation() {
     } catch (e) {
         // WebSocket constructor itself failed (e.g., bad URL)
         console.log('[ECHO] WebSocket unavailable, using demo mode');
-        runDemoMode(mode, document.getElementById('dataset').value, policy, macro, infoProtocol);
+        runDemoMode(mode, document.getElementById('dataset').value,
+            document.getElementById('policy-select').value,
+            document.getElementById('macro-select').value,
+            document.getElementById('info-select').value);
     }
 }
 
@@ -1523,6 +1527,94 @@ function startSimulation() {
 // ══════════════════════════════════════
 
 let demoTimer = null;
+let demoRuntime = null;
+let settingsUpdateChain = Promise.resolve();
+
+function selectedPolicyPayload() {
+    const value = document.getElementById('policy-select')?.value || 'none';
+    if (value === 'cap_50') return { name: 'Price Cap (50%)', price_cap_fraction: 0.5 };
+    if (value === 'delay_3') return { name: 'Delayed Transparency (3r)', transparency_delay: 3 };
+    if (value === 'leniency') return { name: 'Antitrust Leniency', leniency_bonus: 50.0 };
+    if (value === 'remedy') return { name: 'Combined Remedy', price_cap_fraction: 0.5, transparency_delay: 3, leniency_bonus: 50.0 };
+    return null;
+}
+
+function selectedMacroPayload() {
+    const value = document.getElementById('macro-select')?.value || 'none';
+    const rounds = Math.max(1, parseInt(document.getElementById('rounds')?.value, 10) || 100);
+    if (value === 'seasonal') return { name: 'Seasonal Cycles (±30%)', seasonality_amp: 0.3, seasonality_period: 24 };
+    if (value === 'recession') return { name: 'Recession Shock (-40%)', shock_round: Math.max(10, Math.floor(rounds * 0.4), isRunning ? currentRound + 1 : 1), shock_duration: 12, shock_intensity: -0.4 };
+    if (value === 'inflation') return { name: 'Cost Inflation (+1%/rd)', cost_inflation_rate: 0.01 };
+    return null;
+}
+
+function applyDemoSettingsAtNextRound() {
+    if (!demoRuntime) return;
+    const replacement = window.generateDemoData(
+        demoRuntime.mode,
+        demoRuntime.dataset,
+        document.getElementById('policy-select').value,
+        document.getElementById('macro-select').value,
+        document.getElementById('info-select').value,
+        demoRuntime.index + 1,
+    );
+    // Preserve completed rounds; the replacement configuration supplies the
+    // first not-yet-played round onward.
+    const completed = demoRuntime.played;
+    const nextRounds = replacement.rounds.slice(demoRuntime.index);
+    const priorSavings = completed.length ? completed[completed.length - 1].cumulative_savings || 0 : 0;
+    const replacementPriorSavings = demoRuntime.index > 0
+        ? replacement.rounds[demoRuntime.index - 1].cumulative_savings || 0 : 0;
+    const savingsOffset = priorSavings - replacementPriorSavings;
+    nextRounds.forEach((round) => {
+        round.cumulative_savings = Math.max(0, (round.cumulative_savings || 0) + savingsOffset);
+    });
+    demoRuntime.rounds = completed.concat(nextRounds);
+    const all = demoRuntime.rounds;
+    const lambdas = all.map((round) => round.lambda);
+    demoRuntime.summary = JSON.parse(JSON.stringify(replacement.summary));
+    demoRuntime.summary.data.rounds_completed = all.length;
+    demoRuntime.summary.data.final_collusion_index = lambdas[lambdas.length - 1];
+    demoRuntime.summary.data.converged_collusion_index = lambdas.reduce((sum, value) => sum + value, 0) / lambdas.length;
+    demoRuntime.summary.data.peak_collusion_index = Math.max(...lambdas);
+    demoRuntime.summary.data.final_avg_price = all[all.length - 1].avg_price;
+    demoRuntime.summary.data.avg_profit = all.reduce((sum, round) =>
+        sum + round.profits.reduce((firmSum, profit) => firmSum + profit, 0) / round.profits.length, 0) / all.length;
+    const convergenceIndex = lambdas.findIndex((value) => value > 0.7);
+    demoRuntime.summary.data.convergence_round = convergenceIndex >= 0 ? convergenceIndex + 1 : null;
+    demoRuntime.summary.regulator.total_alerts = all.reduce((count, round) => count + round.alerts.length, 0);
+    demoRuntime.summary.regulator.max_severity = Math.max(...lambdas) > 0.7 ? 'HIGH' : Math.max(...lambdas) > 0.3 ? 'MEDIUM' : 'LOW';
+}
+
+async function applyLiveSettings(event) {
+    if (!isRunning) return;
+    const protocol = document.getElementById('info-select')?.value || 'baseline';
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        applyDemoSettingsAtNextRound();
+        return;
+    }
+    const changedSetting = {
+        'policy-select': { policy: selectedPolicyPayload() },
+        'macro-select': { macro: selectedMacroPayload() },
+        'info-select': { info_protocol: protocol },
+    }[event?.target?.id] || {
+        policy: selectedPolicyPayload(), macro: selectedMacroPayload(), info_protocol: protocol,
+    };
+    const body = JSON.stringify(changedSetting);
+    settingsUpdateChain = settingsUpdateChain.then(async () => {
+        const response = await fetch('/api/simulation/settings', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Settings update failed');
+        const narrator = document.getElementById('narrator-text');
+        if (narrator) narrator.innerHTML = `Settings queued for <strong>round ${result.applied_at_round}</strong>. Policy, macro environment, and information protocol will update at the next round boundary.`;
+    }).catch((error) => {
+        const narrator = document.getElementById('narrator-text');
+        if (narrator) narrator.textContent = `Could not apply live settings: ${error.message}`;
+    });
+    await settingsUpdateChain;
+}
 
 function runDemoMode(mode, dataset, policy, macro, infoProtocol) {
     if (!window.generateDemoData) {
@@ -1553,6 +1645,7 @@ function runDemoMode(mode, dataset, policy, macro, infoProtocol) {
     }
 
     const demo = window.generateDemoData(mode, dataset || 'gasoline', policy, macro, infoProtocol);
+    demoRuntime = { mode, dataset: dataset || 'gasoline', rounds: demo.rounds, summary: demo.summary, index: 0, played: [] };
     totalRounds = demo.numRounds;
 
     // Update rounds input to match demo data
@@ -1567,17 +1660,18 @@ function runDemoMode(mode, dataset, policy, macro, infoProtocol) {
 
     demoTimer = setInterval(() => {
         if (demoPaused) return;
-        if (idx >= demo.rounds.length) {
+        if (idx >= demoRuntime.rounds.length) {
             clearInterval(demoTimer);
             demoTimer = null;
 
             // Send summary
-            handleMessage(demo.summary);
+            handleMessage(demoRuntime.summary);
             return;
         }
 
-        const roundData = demo.rounds[idx];
+        const roundData = demoRuntime.rounds[idx];
         handleMessage(roundData);
+        demoRuntime.played.push(roundData);
 
         // Handle scratchpads for LLM mode
         if (roundData.scratchpads) {
@@ -1588,6 +1682,7 @@ function runDemoMode(mode, dataset, policy, macro, infoProtocol) {
         }
 
         idx++;
+        demoRuntime.index = idx;
     }, speed);
 }
 
@@ -1755,6 +1850,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Restart demo clock at the new cadence on next interval tick is enough;
             // live WS reads delay_ms each round.
         }
+    });
+    ['policy-select', 'macro-select', 'info-select'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('change', applyLiveSettings);
     });
 
     // Hide scratchpad panel initially

@@ -15,6 +15,7 @@ import asyncio
 import json
 import os
 import time
+import threading
 from typing import Any
 
 import requests as http_requests
@@ -95,6 +96,9 @@ class SimulationState:
         self.paused: bool = False
         self.stop_requested: bool = False
         self.delay_ms: int = 50
+        self.pending_settings: dict[str, Any] = {}
+        self.settings_lock = threading.Lock()
+        self.base_market_parameters: dict[str, Any] | None = None
 
 
 sim_state = SimulationState()
@@ -286,6 +290,13 @@ class PolicyRequest(BaseModel):
     active_from_round: int = 1
 
 
+class SimulationSettingsRequest(BaseModel):
+    """Complete live settings snapshot; omitted fields remain unchanged."""
+    policy: dict[str, Any] | None = None
+    macro: dict[str, Any] | None = None
+    info_protocol: str | None = None
+
+
 @app.get("/api/simulation/policy")
 def get_simulation_policy():
     """Retrieve active antitrust policy and cumulative counterfactual metrics."""
@@ -319,12 +330,69 @@ def set_simulation_policy(req: PolicyRequest):
         leniency_bonus=req.leniency_bonus,
         active_from_round=req.active_from_round,
     )
-    sim_state.engine.policy = new_policy
+    if sim_state.running:
+        with sim_state.settings_lock:
+            sim_state.pending_settings["policy"] = new_policy
+        applied_at_round = sim_state.current_round + 1
+    else:
+        sim_state.engine.policy = new_policy
+        applied_at_round = sim_state.current_round
     return {
         "status": "ok",
         "policy": new_policy.to_dict(),
-        "applied_at_round": sim_state.current_round,
+        "applied_at_round": applied_at_round,
     }
+
+
+@app.post("/api/simulation/settings")
+def update_simulation_settings(req: SimulationSettingsRequest):
+    """Queue policy, macro and information-set changes for the next round."""
+    from market.policy import PolicyConfig
+    if not sim_state.running or sim_state.engine is None:
+        return JSONResponse(status_code=400, content={"error": "No simulation is running."})
+
+    changes = req.dict(exclude_unset=True)
+    if not changes:
+        return JSONResponse(status_code=400, content={"error": "No settings supplied."})
+    if "info_protocol" in changes and changes["info_protocol"] not in {
+        "baseline", "announcements", "private_messages", "shared_scratchpads"
+    }:
+        return JSONResponse(status_code=422, content={"error": "Unsupported information protocol."})
+
+    # Convert payloads now so invalid configurations fail at the request,
+    # instead of breaking an active websocket simulation on its next round.
+    if "policy" in changes:
+        raw = changes["policy"]
+        if raw is None:
+            changes["policy"] = None
+        else:
+            changes["policy"] = PolicyConfig(
+                name=raw.get("name", "Antitrust Remedy"),
+                price_cap_fraction=raw.get("price_cap_fraction"),
+                fixed_price_cap=raw.get("fixed_price_cap"),
+                transparency_delay=int(raw.get("transparency_delay", 0)),
+                leniency_bonus=float(raw.get("leniency_bonus", 0.0)),
+                active_from_round=sim_state.current_round + 1,
+            )
+    if "macro" in changes:
+        raw = changes["macro"]
+        if raw is None:
+            changes["macro"] = None
+        else:
+            from market.macro import MacroConfig
+            changes["macro"] = MacroConfig(
+                name=raw.get("name", "Macro Environment"),
+                seasonality_amp=float(raw.get("seasonality_amp", 0.0)),
+                seasonality_period=max(1, int(raw.get("seasonality_period", 20))),
+                cost_trend=float(raw.get("cost_trend", raw.get("cost_inflation_rate", 0.0))),
+                shock_round=raw.get("shock_round"),
+                shock_intensity=float(raw.get("shock_intensity", -0.40)),
+                shock_duration=max(1, int(raw.get("shock_duration", 6))),
+            )
+
+    with sim_state.settings_lock:
+        sim_state.pending_settings.update(changes)
+    return {"status": "queued", "applied_at_round": sim_state.current_round + 1}
 
 
 @app.get("/api/simulation/audit-manifest")
@@ -471,6 +539,11 @@ async def simulate_endpoint(websocket: WebSocket):
             engine, _ = build_dummy_simulation(n_rounds, market_ctx)
 
         sim_state.engine = engine
+        sim_state.base_market_parameters = {
+            "market_size": float(engine.demand_model.market_size),
+            "mu": float(engine.demand_model.mu),
+            "costs": engine.demand_model.costs.copy(),
+        }
 
         # Configure policy if provided in client config
         if config.get("policy"):
@@ -583,6 +656,25 @@ async def simulate_endpoint(websocket: WebSocket):
                 break
 
             sim_state.current_round = round_num
+
+            # Settings submitted through REST are committed at a round boundary,
+            # so every round uses one consistent market configuration.
+            with sim_state.settings_lock:
+                pending_settings = sim_state.pending_settings
+                sim_state.pending_settings = {}
+            if pending_settings:
+                if "policy" in pending_settings:
+                    engine.policy = pending_settings["policy"]
+                if "macro" in pending_settings:
+                    base = sim_state.base_market_parameters
+                    if base is not None:
+                        engine.demand_model.market_size = base["market_size"]
+                        engine.demand_model.mu = base["mu"]
+                        engine.demand_model.costs = base["costs"].copy()
+                    engine.macro = pending_settings["macro"]
+                if "info_protocol" in pending_settings:
+                    from market.info_structure import InfoConfig
+                    engine.info_config = InfoConfig(protocol=pending_settings["info_protocol"])
 
             record = engine._run_one_round(round_num)
             engine.records.append(record)
