@@ -1,5 +1,5 @@
 """
-regulator/network_detector.py -- Temporal Graph-Based Collusion Detection & Ring Leader Identification (F7)
+regulator/network_detector.py -- Temporal Price-Response Network Analysis (F7)
 
 === WHAT IS THIS? ===
 
@@ -15,12 +15,12 @@ Edges represent two complementary economic relationships:
 
 === KEY ANTITRUST METRICS ===
 
-- Price Leader (Cartel Ring Leader): Firm with the highest Out-Degree / PageRank
-  centrality in the directed leadership graph (the pacemaker).
-- Network Density: Ratio of observed coordination edges to all possible pairs.
-  0.0-0.2 -> decentralized competitive; 0.7-1.0 -> tightly coupled cartel.
-- Clustering Coefficient: Degree to which firms form mutual collusive rings.
-- Cartel Cliques: Maximal subgraphs of mutual supra-competitive coordination.
+- Price Leader: Firm with the highest observed Out-Degree centrality. Leadership
+  by itself is not evidence of collusion.
+- Price-Response Density: Ratio of observed co-movement / lead-lag edges to all possible directed pairs.
+- Clustering Coefficient: Degree to which firms form connected response neighborhoods.
+- A cartel-ring signal requires supra-competitive market Lambda as well as a
+  sufficiently connected price-response graph. Correlation alone is insufficient.
 """
 
 from __future__ import annotations
@@ -54,14 +54,17 @@ class NetworkAnalysisResult:
     active_edge_count: int = 0
     total_possible_edges: int = 0
     edge_list: list[tuple[int, int, float]] = field(default_factory=list)
+    market_lambda: float | None = None
+    cartel_detected: bool = False
 
 
 class CollusionNetworkDetector:
     """
-    Temporal Graph-Based Collusion & Price-Leadership Detector.
+    Temporal Price-Response Network Detector.
 
-    Builds dynamic interaction graphs from price histories to detect
-    tacit cartel rings and pinpoint ring leaders.
+    Builds dynamic price-response graphs. With benchmark inputs, it flags a
+    potential cartel ring only when supra-competitive market prices and network
+    evidence are both present; price leadership alone is descriptive.
     """
 
     def __init__(
@@ -84,6 +87,8 @@ class CollusionNetworkDetector:
         self,
         price_history: list[list[float]] | np.ndarray,
         window_size: int = 40,
+        nash_price: float | None = None,
+        monopoly_price: float | None = None,
     ) -> NetworkAnalysisResult:
         """
         Analyze price history time-series to construct coordination graph and extract metrics.
@@ -96,6 +101,17 @@ class CollusionNetworkDetector:
         # Take trailing window
         w = prices[-min(window_size, len(prices)):]
         n_obs, n_firms = w.shape
+        market_lambda = None
+        high_price_firms: list[str] = []
+        if nash_price is not None and monopoly_price is not None:
+            price_span = float(monopoly_price) - float(nash_price)
+            if price_span > 1e-9:
+                firm_lambdas = (np.mean(w, axis=0) - float(nash_price)) / price_span
+                market_lambda = float(np.mean(firm_lambdas))
+                high_price_firms = [
+                    self.firm_names[i] for i, value in enumerate(firm_lambdas)
+                    if value >= 0.7
+                ]
 
         # 1. Contemporaneous Correlation Matrix R (symmetric)
         sync_matrix = np.zeros((n_firms, n_firms))
@@ -186,51 +202,69 @@ class CollusionNetworkDetector:
             except Exception:
                 centrality = {name: round(1.0 / n_firms, 4) for name in self.firm_names}
 
-            # Best price leader
-            if "IndiGo" in self.firm_names:
-                indigo_idx = self.firm_names.index("IndiGo")
-                # IndiGo holds 63% trunk route capacity, establishing price leadership dominance
-                max_rival_weight = max([out_weights.get(j, 0.0) for j in range(n_firms) if j != indigo_idx], default=0.1)
-                out_weights[indigo_idx] = max(out_weights.get(indigo_idx, 0.0), max_rival_weight * 1.35 + 0.15)
-                total_out = sum(out_weights.values()) or 1.0
-                centrality = {
-                    self.firm_names[i]: round(out_weights[i] / total_out, 4)
-                    for i in range(n_firms)
-                }
-                leader_idx = indigo_idx
-                leader_name = "IndiGo"
-                leader_score = centrality.get("IndiGo", 0.42)
-            else:
+            # A firm is a price leader only when the observed graph supports it;
+            # airline identity or market-share assumptions must not force a result.
+            if max(out_weights.values(), default=0.0) > 0.0:
                 leader_idx = max(range(n_firms), key=lambda i: out_weights.get(i, 0.0))
                 leader_name = self.firm_names[leader_idx]
                 leader_score = centrality.get(leader_name, 0.0)
+            else:
+                leader_idx = -1
+                leader_name = "None"
+                leader_score = 0.0
 
         else:
             # Fallback if NetworkX is somehow not installed
             density = 0.25
             clustering = 0.15
             centrality = {name: 0.20 for name in self.firm_names}
-            leader_idx = 0
-            leader_name = self.firm_names[0]
-            leader_score = 0.20
+            leader_idx = -1
+            leader_name = "None"
+            leader_score = 0.0
             cliques = []
             active_edges = 3
             total_possible = 20
 
-        # Verdict Determination
-        if density >= 0.65:
-            verdict = "tight_cartel_ring"
-            verdict_text = "Tightly coupled cartel ring with synchronized price-setting."
+        cartel_detected = False
+        # Co-movement can come from common costs, schedules, or demand shocks.
+        # Require market-wide supra-competitive prices and multiple high-priced
+        # firms in addition to a connected graph before flagging a ring pattern.
+        if market_lambda is not None and market_lambda < 0.3:
+            verdict = "decentralized_competitive"
+            verdict_text = (
+                f"Competitive market price level (mean Λ={market_lambda:.2f}); "
+                "observed co-movement alone does not indicate a cartel ring."
+            )
+        elif market_lambda is not None and market_lambda < 0.7:
+            verdict = "suspicious_price_level"
+            verdict_text = (
+                f"Elevated market price level (mean Λ={market_lambda:.2f}), "
+                "below the cartel-ring price threshold."
+            )
+        elif market_lambda is not None:
+            cartel_detected = density >= 0.35 and len(high_price_firms) >= 2
+            if cartel_detected and density >= 0.65:
+                verdict = "tight_cartel_ring"
+                verdict_text = "Supra-competitive prices and a dense price-response network; potential ring pattern flagged for review."
+            elif cartel_detected:
+                verdict = "partial_coordination"
+                verdict_text = "Supra-competitive prices and a connected price-response subgroup; potential coordination flagged for review."
+            else:
+                verdict = "supra_competitive_no_ring"
+                verdict_text = "Supra-competitive pricing observed, but the network and firm-level evidence do not support a cartel-ring label."
+        elif density >= 0.65:
+            verdict = "dense_price_comovement"
+            verdict_text = "Dense price co-movement observed; price-level benchmarks were unavailable, so no cartel-ring finding is made."
         elif density >= 0.35:
-            verdict = "partial_coordination"
-            verdict_text = "Partial coordination: core subgroup follows a dominant price leader."
+            verdict = "connected_price_response"
+            verdict_text = "A connected price-response pattern was observed; price-level benchmarks were unavailable, so no cartel-ring finding is made."
         else:
             verdict = "decentralized_competitive"
-            verdict_text = "Decentralized competitive market: low co-movement and independent pricing."
+            verdict_text = "Decentralized price movements: low co-movement was observed."
 
         summary_text = (
             f"Network density is {density:.2f} with clustering coefficient {clustering:.2f}. "
-            f"Identified Price Leader: {leader_name} (leadership centrality: {leader_score:.3f}). "
+            f"Observed price leader: {leader_name} (centrality: {leader_score:.3f}). "
             f"{verdict_text}"
         )
 
@@ -248,6 +282,8 @@ class CollusionNetworkDetector:
             active_edge_count=active_edges,
             total_possible_edges=total_possible,
             edge_list=edge_list if HAS_NETWORKX else [],
+            market_lambda=market_lambda,
+            cartel_detected=cartel_detected,
         )
 
     def _empty_result(self) -> NetworkAnalysisResult:
@@ -256,7 +292,7 @@ class CollusionNetworkDetector:
             density=0.0,
             clustering_coeff=0.0,
             price_leader="None",
-            leader_firm_id=0,
+            leader_firm_id=-1,
             leader_score=0.0,
             leadership_centrality={n: 0.0 for n in self.firm_names},
             sync_matrix=[[1.0 if i == j else 0.0 for j in range(self.n_firms)] for i in range(self.n_firms)],
@@ -275,7 +311,7 @@ class CollusionNetworkDetector:
         cartel_roster: dict[str, Any] | None = None,
     ) -> str | None:
         """
-        Generate a visual graph diagram of the cartel network with node centrality and directed edges.
+        Generate a visual price-response graph with centrality and directed edges.
         """
         if not HAS_NETWORKX:
             return None
@@ -305,8 +341,9 @@ class CollusionNetworkDetector:
                     if i != j and sync[i, j] >= self.sync_threshold:
                         G.add_edge(i, j, weight=sync[i, j])
 
-        # 2. If cartel ring members were identified, ensure mutual coordination edges exist
-        # between them so the cartel ring is visually explicit and connected!
+        # Only include roster links when independent price-level and network
+        # checks have already flagged a potential ring. Never invent edges to
+        # make a plot look more coordinated than the observed data.
         if ring_names:
             ring_indices = [i for i, name in enumerate(self.firm_names) if name in ring_names]
             for r1 in ring_indices:
@@ -329,14 +366,16 @@ class CollusionNetworkDetector:
             size = 1800 + score * 4500
             node_sizes.append(size)
 
-            if i == result.leader_firm_id:
-                node_colors.append("#B85A5A")  # Cartel Ring Leader (Red/Copper)
+            if result.cartel_detected and i == result.leader_firm_id:
+                node_colors.append("#B85A5A")  # Potential ring leader (requires price-level evidence)
             elif name in ring_names:
-                node_colors.append("#C17A4E")  # Cartel Ring Member (Warm Ochre / Terracotta)
-            elif name in coord_names or score >= 0.22:
-                node_colors.append("#D4A373")  # Coordinating Follower (Muted Gold)
+                node_colors.append("#C17A4E")  # Other potential ring member
+            elif result.cartel_detected and (name in coord_names or score >= 0.22):
+                node_colors.append("#D4A373")  # Potential coordinating follower
+            elif i == result.leader_firm_id:
+                node_colors.append("#D4A373")  # Price-response leader only; not a cartel finding
             else:
-                node_colors.append("#6B8CAE")  # Competitive / Maverick (Slate Blue)
+                node_colors.append("#6B8CAE")  # Other firm
 
         # Draw edges
         edges = G.edges()
@@ -390,21 +429,39 @@ class CollusionNetworkDetector:
         plot_density = round(G.number_of_edges() / max(1, self.n_firms * (self.n_firms - 1)), 2)
 
         # Title & Subtitle
-        title = "Dynamic Collusion & Price-Leadership Network (NetworkX)"
-        subtitle = (
-            f"Density: {plot_density:.2f}  |  Clustering: {plot_clustering:.2f}  |  "
-            f"Ring Leader: {result.price_leader} ({result.leader_score * 100:.1f}%)"
-        )
+        title = "Price Co-movement & Leadership Network (NetworkX)"
+        if result.cartel_detected:
+            subtitle = (
+                f"Potential ring pattern | Market Λ: {result.market_lambda:.2f}  |  "
+                f"Response density: {plot_density:.2f}  |  Price leader: {result.price_leader}"
+            )
+        else:
+            lambda_text = f"{result.market_lambda:.2f}" if result.market_lambda is not None else "unavailable"
+            leader_text = result.price_leader if result.price_leader != "None" else "none"
+            subtitle = (
+                f"No cartel ring detected (market Λ: {lambda_text})  |  "
+                f"Response density: {plot_density:.2f}  |  Price leader: {leader_text} (co-movement only)"
+            )
         ax.set_title(f"{title}\n{subtitle}", fontsize=11, fontweight="bold", pad=14, color="#2B2620")
 
         # Custom legend
         from matplotlib.lines import Line2D
-        legend_elements = [
-            Line2D([0], [0], marker='o', color='w', label=f'Ring Leader: {result.price_leader}', markerfacecolor='#B85A5A', markersize=11),
-            Line2D([0], [0], marker='o', color='w', label='Cartel Ring Member', markerfacecolor='#C17A4E', markersize=9),
-            Line2D([0], [0], marker='o', color='w', label='Independent / Maverick', markerfacecolor='#6B8CAE', markersize=8),
-            Line2D([0], [0], color='#8A8070', lw=2.5, label='Price Coordination Edge'),
-        ]
+        if result.cartel_detected:
+            legend_elements = [
+                Line2D([0], [0], marker='o', color='w', label=f'Potential ring leader: {result.price_leader}', markerfacecolor='#B85A5A', markersize=11),
+                Line2D([0], [0], marker='o', color='w', label='Potential ring member', markerfacecolor='#C17A4E', markersize=9),
+                Line2D([0], [0], marker='o', color='w', label='Other firm', markerfacecolor='#6B8CAE', markersize=8),
+            ]
+        elif result.price_leader != "None":
+            legend_elements = [
+                Line2D([0], [0], marker='o', color='w', label='Price leader (co-movement only)', markerfacecolor='#D4A373', markersize=10),
+                Line2D([0], [0], marker='o', color='w', label='Other firm', markerfacecolor='#6B8CAE', markersize=8),
+            ]
+        else:
+            legend_elements = [
+                Line2D([0], [0], marker='o', color='w', label='No distinct price leader identified', markerfacecolor='#6B8CAE', markersize=8),
+            ]
+        legend_elements.append(Line2D([0], [0], color='#8A8070', lw=2.5, label='Price co-movement edge'))
         ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.14), ncol=2, frameon=False, fontsize=8)
 
         ax.axis("off")

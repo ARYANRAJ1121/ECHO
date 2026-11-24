@@ -395,11 +395,14 @@ def generate_regulatory_dossier_markdown(
     g = m.git_provenance
 
     cur = d.get("currency", "$")
-    ring_leader = "N/A"
+    ring_leader = "No cartel ring detected"
     density = 0.0
+    cartel_detected = False
     if network_report:
-        ring_leader = network_report.get("ring_leader", "None detected")
-        density = network_report.get("network_density", 0.0)
+        cartel_detected = bool(network_report.get("cartel_detected", False))
+        if cartel_detected:
+            ring_leader = network_report.get("price_leader", network_report.get("ring_leader", "Not identified"))
+        density = network_report.get("density", network_report.get("network_density", 0.0))
 
     top_feature = "price_vs_nash"
     if shap_report and "global_importance" in shap_report:
@@ -438,13 +441,13 @@ def generate_regulatory_dossier_markdown(
         "",
         "## 2. STRUCTURAL EVIDENCE OF COORDINATION",
         "",
-        "### A. Temporal Coordination Graph & Ring Leadership (NetworkX)",
-        f"- **Identified Price Ring Leader**: **{ring_leader}**",
-        f"- **Algorithmic Network Density**: **{density:.2f}** (Values > 0.50 indicate dense, synchronized lead-lag price coupling)",
+        "### A. Temporal Price-Response Network (NetworkX)",
+        f"- **Potential Cartel-Ring Leader**: **{ring_leader}**",
+        f"- **Price-Response Network Density**: **{density:.2f}** (Co-movement is descriptive and is not, by itself, evidence of a cartel)",
         "",
         "### B. Explainable AI Strategy Attribution (SHAP)",
         f"- **Primary Explanatory Driver**: `{top_feature}`",
-        "- SHAP TreeExplainer attributions confirm pricing agents base pricing decisions on rival clustering and historical Nash distance rather than unilateral cost fluctuations.",
+        "- SHAP TreeExplainer attributions describe which features influenced the strategy classifier; they are model explanations, not independent proof of coordination.",
         "",
         "---",
         "",

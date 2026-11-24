@@ -125,7 +125,7 @@ flowchart LR
 
     subgraph DETECT["🔍 Detection Suite"]
         DT1["Λ Collusion Index<br/>Monitor"]
-        DT2["NetworkX Graph<br/>Ring Leader Detector"]
+        DT2["NetworkX Price-Response<br/>Network"]
         DT3["SHAP XAI<br/>Explainer"]
     end
 
@@ -144,7 +144,7 @@ flowchart LR
 |:---|:---|
 | 🤖 **Multi-Agent Simulation** | 6 agent architectures (Heuristics, Q-Learning, Deep Q-Networks, Google Gemini, Groq Allam 2, Maverick Defector) compete in repeated pricing games |
 | 📈 **Economic Benchmarking** | Continuous Λ (Lambda) collusion index anchored between analytically-solved Nash equilibrium and SciPy-optimized Monopoly benchmark |
-| 🕸️ **Graph-Theoretic Detection** | NetworkX directed lead-lag correlation graphs with PageRank centrality to identify the **Cartel Ring Leader** |
+| 🕸️ **Graph-Theoretic Detection** | NetworkX price-response graphs; a potential ring requires supra-competitive market Lambda and connected, multi-firm price evidence |
 | 🧠 **Explainable AI** | SHAP TreeExplainer Shapley feature attributions providing natural-language causal reasoning for every pricing decision |
 | ⚖️ **Policy Remedies** | Price caps, delayed transparency, and leniency/whistleblower programs — tested as regulatory counterfactuals |
 | 📊 **Welfare Quantification** | Small & Rosen (1981) exact logit Consumer Welfare Loss (CWL) and Deadweight Loss (DWL) |
@@ -252,7 +252,7 @@ flowchart TB
     subgraph Detection["🔍 Detection Suite (regulator/ + analysis/)"]
         DET1["LambdaMonitor<br/>(Streak Alerts,<br/>Threshold Triggers)"]
         DET2["NetworkDetector<br/>(Directed Lead-Lag<br/>Correlation Graph)"]
-        DET3["PageRank Centrality<br/>(Ring Leader<br/>Identification)"]
+        DET3["Price-Response Centrality<br/>(Descriptive Leader)"]
         DET4["StrategyClassifier<br/>(Random Forest,<br/>4 Behavioral Labels)"]
         DET5["SHAP XAI<br/>(TreeExplainer,<br/>Shapley Values)"]
         DET6["AuditManifest<br/>(SHA-256 Hash,<br/>Dossier Export)"]
@@ -305,7 +305,7 @@ ECHO/
 │
 ├── 📁 regulator/                 # Antitrust detection & compliance modules
 │   ├── detector.py               # Lambda monitor, streak alerts, threshold triggers
-│   ├── network_detector.py       # NetworkX temporal graph — Ring Leader via PageRank
+│   ├── network_detector.py       # Price-response graph with evidence-gated ring labels
 │   ├── audit_manifest.py         # SHA-256 reproducibility manifests & dossier export
 │   ├── perturbation.py           # Perturbation analysis for robustness testing
 │   ├── nlp_cluster.py            # NLP clustering of agent reasoning traces
@@ -428,7 +428,7 @@ Temporal cross-correlation between firms identifies who leads pricing:
 
 $$L_{ij} = \text{Corr}(\Delta p_{i,t}, \Delta p_{j,t+1})$$
 
-An asymmetric adjacency matrix $A_{ij} = \max(0, L_{ij} - L_{ji})$ defines a directed graph. **PageRank centrality** identifies the Cartel Ring Leader — the firm whose price movements the others follow.
+An edge records sufficiently strong contemporaneous price co-movement or lead-lag response. The graph reports observed price leadership, but correlation alone does not imply collusion. A potential ring is flagged only when mean market Lambda is at least 0.70, at least two firms are in the high-price band, and network density is at least 0.35.
 
 ---
 
@@ -594,18 +594,18 @@ Pipeline:
 <details>
 <summary><b>🕸️ Stage 5 — Temporal Graph Collusion Detection (regulator/network_detector.py)</b></summary>
 
-**Question:** *Who is the price leader — the "Ring Leader" — of the algorithmic cartel?*
+**Question:** *Do price-response patterns support a potential coordination ring, and is there an observed price leader?*
 
 Using NetworkX directed graphs:
-1. Compute **lead-lag cross-correlations** $L_{ij}$ between all firm pairs
-2. Build **asymmetric adjacency matrix**: $A_{ij} = \max(0, L_{ij} - L_{ji})$
-3. Compute **PageRank centrality** on the directed graph
-4. Firm with highest PageRank = **Cartel Ring Leader**
+1. Compute contemporaneous price synchronization and **lead-lag cross-correlations** $L_{ij}$ between firm pairs
+2. Add edges only when synchronization or lead-lag strength clears its configured threshold
+3. Measure outgoing price-response centrality to report an **observed price leader**
+4. Flag a potential ring only when mean market Λ ≥ 0.70, at least two firms have firm Λ ≥ 0.70, and price-response network density ≥ 0.35
 
 Additional metrics:
-- **Network Density**: 0.0–0.2 = decentralized competitive; 0.7–1.0 = tight cartel
-- **Clustering Coefficient**: Degree of mutual coordination sub-rings
-- **Maximal Cliques**: Identified cartel subgroups
+- **Network Density**: Share of observed price-response links; common shocks can also create co-movement
+- **Clustering Coefficient**: Descriptive measure of connected price-response neighborhoods
+- **Maximal Cliques**: Connected price-response groups; not cartel findings on their own
 
 </details>
 
@@ -691,7 +691,7 @@ flowchart TB
     PRICES --> CLASSIFY["3. Strategy<br/>Classifier"]
 
     LAMBDA --> |"Λ ≥ 0.70<br/>for 5+ rounds"| ALERT["🚨 Collusion<br/>Alert"]
-    GRAPH --> |"PageRank<br/>Centrality"| LEADER["🎯 Ring Leader<br/>Identified"]
+    GRAPH --> |"Price-response<br/>centrality"| LEADER["Observed Price Leader<br/>(descriptive)"]
     CLASSIFY --> |"Feature<br/>Vectors"| SHAP["4. SHAP XAI<br/>Explanations"]
 
     ALERT --> DOSSIER["📋 Regulatory Dossier"]
@@ -718,7 +718,7 @@ Every simulation automatically produces in `analysis/latest_run/`:
 | `05_snapshot.png` | Final-round price/profit/share snapshot |
 | `07_who_cartel.png` | Cartel roster — core members, partial coordinators, and mavericks |
 | `08_xai_shap.png` | SHAP feature importance (mean absolute Shapley values) |
-| `09_collusion_network.png` | Directed lead-lag network graph with Ring Leader highlighted |
+| `09_collusion_network.png` | Price-response network; potential ring labels require price-level and network evidence |
 | `summary.json` | Machine-readable complete metrics (JSON) |
 | `regulatory_dossier.md` | Human-readable antitrust enforcement report |
 
@@ -804,7 +804,7 @@ These figures are generated from multi-run experiments and stored in `analysis/f
 │  Small & Rosen Welfare · Macro Cycles · Policy Engine           │
 ├─────────────────────────────────────────────────────────────────┤
 │                  🔍 Detection Layer (Analysis)                   │
-│  NetworkX Graph Theory · PageRank Ring Leader                    │
+│  NetworkX Price-Response Graph · Evidence-Gated Ring Signal      │
 │  SHAP TreeExplainer · Random Forest Classifier                  │
 │  SHA-256 Audit Manifests · Regulatory Dossier Export             │
 ├─────────────────────────────────────────────────────────────────┤
@@ -963,7 +963,7 @@ ECHO maintains **30 comprehensive automated tests** across 8 test modules:
 | `test_mixed.py` | 4 | Maverick disruption, cartel fragility, mixed equilibrium |
 | `test_llm_provider.py` | 4 | Gemini/Groq fallback, timeout circuit breaker, XML parsing |
 | `test_xai_shap.py` | 4 | SHAP TreeExplainer values, feature importance ranking |
-| `test_network_detector.py` | 4 | Lead-lag graph, PageRank, Ring Leader identification |
+| `test_network_detector.py` | 4 | Lead-lag graph, price-response centrality, leader identification |
 | `test_macro.py` | 4 | Demand seasonality, cost inflation, recession shock recovery |
 | `test_audit_manifest.py` | 3 | SHA-256 hash determinism, dossier export format |
 | `test_info_structure.py` | 3 | Protocol switching, announcement anchoring, scratchpad sharing |

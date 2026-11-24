@@ -839,13 +839,17 @@ function showSummary(data, regulator, analysis, roster, network) {
 
     const net = (analysis && analysis.network_analysis) || network;
     let netBlock = '';
-    if (net && net.price_leader) {
+    if (net && net.price_leader && net.price_leader !== 'None') {
+        const leaderLabel = net.cartel_detected
+            ? 'Potential Ring Leader (simulation signal)'
+            : 'Observed Price Leader (co-movement only)';
         netBlock = `
             <div class="summary-network">
-                <div class="summary-network-title">🕸️ Temporal Graph Detection (NetworkX)</div>
+                <div class="summary-network-title">🕸️ Price-Response Network (NetworkX)</div>
                 <div class="summary-network-body">
-                    <div><strong>Cartel Ring Leader:</strong> <span class="net-leader">${net.price_leader}</span> (centrality: ${(net.leader_score * 100).toFixed(1)}%)</div>
-                    <div><strong>Network Density:</strong> ${Number(net.density).toFixed(2)} | <strong>Clustering Coeff:</strong> ${Number(net.clustering_coeff || 0).toFixed(2)}</div>
+                    <div><strong>${leaderLabel}:</strong> <span class="net-leader">${net.price_leader}</span> (centrality: ${(net.leader_score * 100).toFixed(1)}%)</div>
+                    <div><strong>Price-Response Density:</strong> ${Number(net.density).toFixed(2)} | <strong>Clustering Coeff:</strong> ${Number(net.clustering_coeff || 0).toFixed(2)}</div>
+                    ${net.cartel_detected ? '<div>Potential ring pattern: elevated market Λ and connected price responses; review the underlying rounds.</div>' : '<div>No cartel ring detected. Price co-movement alone is not evidence of collusion.</div>'}
                 </div>
             </div>
         `;
@@ -895,7 +899,7 @@ function showSummary(data, regulator, analysis, roster, network) {
             <div class="summary-verdict ${verdictClass}">${verdictText}</div>
             ${rosterBlock}
             ${netBlock}
-            <p class="summary-pack-hint">Red bars in Run analysis = cartel ring (named firms). Lab labels from prices vs Nash/monopoly, not a court finding.</p>
+            <p class="summary-pack-hint">Red bars require sustained supra-competitive market prices and a connected price-response network. These are simulation signals, not legal findings.</p>
             <button class="primary-btn summary-close" onclick="closeSummary()">Close &amp; view charts</button>
         </div>
     `;
@@ -932,6 +936,18 @@ function renderAnalysisPack(pack) {
     meta.className = 'badge done';
     note.textContent = `${pack.data_source || ''}  Final Λ=${pack.final_lambda} (${pack.verdict}). Previous run files were deleted.`;
     grid.innerHTML = pack.figures.map((fig) => {
+        const network = pack.network_analysis || {};
+        const cachedNetworkPredatesEvidenceGate = fig.id === 'network'
+            && Number(pack.mean_lambda ?? pack.final_lambda) < 0.3
+            && network.evidence_gated !== true;
+        if (cachedNetworkPredatesEvidenceGate) {
+            return `<figure class="analysis-pack-item">
+                <h3>Network figure needs a fresh run</h3>
+                <div style="min-height:220px;display:grid;place-items:center;padding:1.5rem;text-align:center;border:1px solid rgba(90,143,101,.35);border-radius:10px;background:rgba(90,143,101,.06);">
+                    <p><strong>No cartel ring detected.</strong><br>Mean market Λ=${Number(pack.mean_lambda ?? pack.final_lambda).toFixed(2)} is below the ring threshold. This cached graph predates the evidence check; run a new simulation to regenerate it.</p>
+                </div>
+            </figure>`;
+        }
         const url = fig.url || `/run-analysis/${fig.file}?t=${stamp}`;
         return `<figure class="analysis-pack-item">
             <h3>${fig.title}</h3>

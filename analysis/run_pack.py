@@ -49,11 +49,14 @@ def identify_cartel_roster(
     nash: float | None,
     monopoly: float | None,
     tail: int = 50,
+    network_evidence: bool = False,
 ) -> dict[str, Any]:
-    """Name which firms sit near monopoly vs Nash in the last `tail` rounds.
+    """Classify price bands and flag a ring only with corroborating evidence.
 
     Per-firm Lambda_i = (mean price_i - Nash) / (monopoly - Nash).
-    This is a lab label from posted prices, not a legal finding.
+    A high individual price is not sufficient to call a firm part of a cartel.
+    Ring labels additionally require market mean Lambda >= 0.7, at least two
+    firms in the high-price band, and a connected price-response network.
     """
     n_firms = prices.shape[1]
     names = (names or [f"Firm {i + 1}" for i in range(n_firms)])[:n_firms]
@@ -75,7 +78,7 @@ def identify_cartel_roster(
         else:
             lam = (p - float(nash)) / span
             if lam >= 0.7:
-                role = "cartel_ring"
+                role = "supra_competitive"
             elif lam >= 0.3:
                 role = "coordinating"
             elif lam < 0:
@@ -90,29 +93,38 @@ def identify_cartel_roster(
             "role": role,
         })
 
+    market_lambda = float(np.mean([f["lambda"] for f in firms if f["lambda"] is not None])) if span is not None else None
+    high_price_firms = [f for f in firms if f["role"] == "supra_competitive"]
+    if network_evidence and market_lambda is not None and market_lambda >= 0.7 and len(high_price_firms) >= 2:
+        for firm in high_price_firms:
+            firm["role"] = "cartel_ring"
     ring = [f["name"] for f in firms if f["role"] == "cartel_ring"]
     coordinating = [f["name"] for f in firms if f["role"] == "coordinating"]
     competitive = [f["name"] for f in firms if f["role"] in ("competitive", "price_war")]
 
-    if ring and not competitive and not coordinating:
-        headline = "Cartel ring (all firms): " + ", ".join(ring)
-    elif ring:
-        headline = "Cartel ring: " + ", ".join(ring)
+    if ring:
+        headline = "Potential cartel-ring pattern for review: " + ", ".join(ring)
         if competitive:
             headline += "  |  Competitive / undercutting: " + ", ".join(competitive)
         if coordinating:
-            headline += "  |  Partial: " + ", ".join(coordinating)
+            headline += "  |  Elevated: " + ", ".join(coordinating)
+    elif market_lambda is not None and market_lambda < 0.3:
+        headline = f"No cartel ring detected. Competitive market pricing (mean Λ={market_lambda:.2f})."
+    elif market_lambda is not None and market_lambda < 0.7:
+        headline = f"No cartel ring detected. Mean market Λ={market_lambda:.2f} is below the ring threshold."
+    elif high_price_firms:
+        headline = "Supra-competitive firm prices observed, but no connected cartel ring detected."
     elif coordinating:
-        headline = "No full ring. Partial coordination: " + ", ".join(coordinating)
-        if competitive:
-            headline += "  |  Competitive: " + ", ".join(competitive)
+        headline = "Elevated prices observed, but no cartel ring detected."
     else:
-        headline = "No cartel ring. Competitive: " + ", ".join(competitive or names)
+        headline = "No cartel ring detected. Firm prices are near or below the Nash benchmark."
 
     return {
         "headline": headline,
         "firms": firms,
         "cartel_ring": ring,
+        "market_lambda": None if market_lambda is None else round(market_lambda, 4),
+        "network_evidence": bool(network_evidence),
         "coordinating": coordinating,
         "competitive": competitive,
         "window_rounds": int(len(window)),
@@ -247,7 +259,37 @@ def build_run_pack(
     _save(fig, os.path.join(out, "05_snapshot.png"))
     figures.append({"id": "snapshot", "file": "05_snapshot.png", "title": "Final price / profit / share"})
 
-    roster = identify_cartel_roster(prices, names, nash, monopoly)
+    # Compute the price-response graph before assigning cartel-ring labels.
+    # This keeps correlated airline fare movements from becoming a ring finding
+    # unless both the market price level and the network meet the evidence gates.
+    net_detector = None
+    net_result = None
+    network_info: dict[str, Any] = {}
+    try:
+        from regulator.network_detector import CollusionNetworkDetector
+        net_detector = CollusionNetworkDetector(n_firms=n_firms, firm_names=names)
+        net_result = net_detector.analyze(
+            prices, window_size=50, nash_price=nash, monopoly_price=monopoly
+        )
+        network_info = {
+            "density": net_result.density,
+            "clustering_coeff": net_result.clustering_coeff,
+            "price_leader": net_result.price_leader,
+            "leader_score": net_result.leader_score,
+            "verdict": net_result.verdict,
+            "cartel_detected": net_result.cartel_detected,
+            "market_lambda": net_result.market_lambda,
+            "evidence_gated": True,
+            "summary_text": net_result.summary_text,
+            "cliques": net_result.cliques,
+        }
+    except Exception as e:
+        print(f"  [Network detector] Warning: could not run graph detection: {e}")
+
+    roster = identify_cartel_roster(
+        prices, names, nash, monopoly,
+        network_evidence=bool(net_result and net_result.cartel_detected),
+    )
     fig, ax = plt.subplots(figsize=(9.5, 4.2))
     y = np.arange(n_firms)
     lams = [f["lambda"] if f["lambda"] is not None else 0.0 for f in roster["firms"]]
@@ -257,22 +299,24 @@ def build_run_pack(
             bar_colors.append("#B85A5A")
         elif f["role"] == "coordinating":
             bar_colors.append("#C17A4E")
+        elif f["role"] == "supra_competitive":
+            bar_colors.append("#D4A373")
         elif f["role"] == "price_war":
             bar_colors.append("#6B8CAE")
         else:
             bar_colors.append("#5A8F65")
     ax.barh(y, lams, color=bar_colors)
     ax.axvline(0.0, color="#5A8F65", ls="--", lw=1.1, label="Nash (0)")
-    ax.axvline(0.7, color="#B85A5A", ls=":", lw=1.1, label="Cartel ring (0.7)")
+    ax.axvline(0.7, color="#B85A5A", ls=":", lw=1.1, label="Supra-competitive firm price (0.7)")
     ax.axvline(1.0, color="#8A8070", ls="--", lw=0.9, label="Monopoly (1)")
     ax.set_yticks(y)
     ax.set_yticklabels(names)
     ax.set_xlabel("Firm Lambda (last-window mean price vs Nash / monopoly)")
-    ax.set_title(roster["headline"][:90])
+    ax.set_title(roster["headline"][:105])
     ax.legend(fontsize=7, loc="lower right")
     ax.grid(True, axis="x", alpha=0.3)
     _save(fig, os.path.join(out, "07_who_cartel.png"))
-    figures.append({"id": "roster", "file": "07_who_cartel.png", "title": "Who is in the cartel ring"})
+    figures.append({"id": "roster", "file": "07_who_cartel.png", "title": "Firm price bands vs Nash and monopoly"})
     print(f"  [Cartel roster] {roster['headline']}")
 
     # 6. Real overlay only when this dataset has history
@@ -317,31 +361,19 @@ def build_run_pack(
     except Exception as e:
         print(f"  [XAI] Warning: could not generate SHAP figure: {e}")
 
-    # 8. Temporal Graph Collusion Detection & Ring Leader (NetworkX)
-    network_info: dict[str, Any] = {}
+    # 8. Temporal Price-Response Network (NetworkX)
     try:
-        from regulator.network_detector import CollusionNetworkDetector
-        net_detector = CollusionNetworkDetector(n_firms=n_firms, firm_names=names)
-        net_result = net_detector.analyze(prices)
-        net_fig = os.path.join(out, "09_collusion_network.png")
-        net_detector.generate_network_plot(net_result, output_path=net_fig, cartel_roster=roster)
-        figures.append({
-            "id": "network",
-            "file": "09_collusion_network.png",
-            "title": "Dynamic Collusion & Price-Leadership Network (NetworkX)",
-        })
-        network_info = {
-            "density": net_result.density,
-            "clustering_coeff": net_result.clustering_coeff,
-            "price_leader": net_result.price_leader,
-            "leader_score": net_result.leader_score,
-            "verdict": net_result.verdict,
-            "summary_text": net_result.summary_text,
-            "cliques": net_result.cliques,
-        }
-        print(f"  [Network detector] Ring Leader: {net_result.price_leader} | Density: {net_result.density:.2f}")
+        if net_detector is not None and net_result is not None:
+            net_fig = os.path.join(out, "09_collusion_network.png")
+            net_detector.generate_network_plot(net_result, output_path=net_fig, cartel_roster=roster)
+            figures.append({
+                "id": "network",
+                "file": "09_collusion_network.png",
+                "title": "Price Co-movement & Leadership Network (NetworkX)",
+            })
+            print(f"  [Price-response network] Leader: {net_result.price_leader} | Density: {net_result.density:.2f} | Cartel ring: {net_result.cartel_detected}")
     except Exception as e:
-        print(f"  [Network detector] Warning: could not run graph detection: {e}")
+        print(f"  [Price-response network] Warning: could not generate graph: {e}")
 
     final_l = float(lambdas[-1])
     peak_l = float(np.max(lambdas))
