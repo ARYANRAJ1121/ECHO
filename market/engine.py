@@ -396,6 +396,11 @@ class MarketEngine:
             jittered = [o + float(np.random.uniform(-30.0, 30.0)) for o in base_offsets]
             np.random.shuffle(jittered)
 
+            # Keep carrier fares distinct under a binding policy cap. Without
+            # this headroom, every above-cap fare is flattened to the same value.
+            if effective_ceiling < self.price_ceiling and base_p + max(jittered) > effective_ceiling:
+                base_p = effective_ceiling - max(jittered)
+
             raw_prices = [self._clamp(base_p + jittered[i], self.price_ceiling) for i in range(len(prices))]
             prices = [self._clamp(raw_prices[i], effective_ceiling) for i in range(len(prices))]
             # Preserve the post-cap/pre-macro prices for savings attribution.

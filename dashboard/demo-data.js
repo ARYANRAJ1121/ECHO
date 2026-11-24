@@ -309,6 +309,11 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol, macroStart
                 const j = Math.floor(rng() * (i + 1));
                 [baseOffsets[i], baseOffsets[j]] = [baseOffsets[j], baseOffsets[i]];
             }
+            // Preserve fare differences when the common target would otherwise
+            // put every carrier above a binding cap and flatten them all.
+            if (effCeiling < cfg.ceiling && target + Math.max(...baseOffsets) > effCeiling) {
+                target = effCeiling - Math.max(...baseOffsets);
+            }
             rawPrices = baseOffsets.map(offset =>
                 clamp(target + offset, cfg.floor, cfg.ceiling)
             );
