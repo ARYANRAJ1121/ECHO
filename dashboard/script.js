@@ -990,6 +990,20 @@ function pushChartData(chart, label, dataArrays) {
     });
 }
 
+// At Max speed the WebSocket can deliver rounds faster than the display can
+// paint. Keep appending every observation, but redraw each chart at most once
+// per browser frame so long DQN/airline runs remain visibly live and responsive.
+let liveChartRenderScheduled = false;
+function scheduleLiveChartRender() {
+    if (liveChartRenderScheduled) return;
+    liveChartRenderScheduled = true;
+    requestAnimationFrame(() => {
+        liveChartRenderScheduled = false;
+        if (priceChart) priceChart.update('none');
+        if (lambdaChart) lambdaChart.update('none');
+    });
+}
+
 // Index of the "Observed real market avg" dataset on the price chart.
 const REAL_SERIES_DATASET = 7;
 
@@ -1274,7 +1288,6 @@ function handleMessage(msg) {
             realSeriesValueForRound(msg.round),
         ];
         pushChartData(priceChart, msg.round, priceData);
-        priceChart.update('none');
 
         // Lambda chart — dynamically color the line
         lambdaChart.data.labels.push(msg.round);
@@ -1290,7 +1303,7 @@ function handleMessage(msg) {
         } else {
             lambdaChart.data.datasets[0].borderColor = '#3b82f6';
         }
-        lambdaChart.update('none');
+        scheduleLiveChartRender();
 
         // Firm table
         if (msg.profits && msg.shares) {
