@@ -99,7 +99,13 @@ def test_manifest_generation_and_export():
 
     # Test export to temporary directory
     with tempfile.TemporaryDirectory() as tmpdir:
-        network_rep = {"ring_leader": "Firm 0", "network_density": 0.75}
+        # Match the current evidence-gated report schema: a price leader is
+        # only named when the detector explicitly marks a cartel finding.
+        network_rep = {
+            "cartel_detected": True,
+            "price_leader": "Firm 0",
+            "density": 0.75,
+        }
         shap_rep = {"global_importance": {"price_vs_nash": 0.45, "is_cheapest": 0.22}}
 
         paths = export_audit_pack(
