@@ -34,6 +34,7 @@ def build_demand_model(market_ctx) -> LogitDemandModel:
         quality=[market_ctx.base_quality] * 5,
         outside_quality=0.0,
         market_size=1.0,
+        baseline_collusion_lambda=getattr(market_ctx, "baseline_collusion_lambda", None),
     )
 
 

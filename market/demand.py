@@ -89,11 +89,13 @@ class LogitDemandModel:
         quality: list | None = None,
         outside_quality: float = 0.0,
         market_size: float = 1.0,
+        baseline_collusion_lambda: float | None = None,
     ):
         self.n_firms = n_firms
         self.mu = mu
         self.market_size = market_size
         self.outside_quality = outside_quality
+        self.baseline_collusion_lambda = baseline_collusion_lambda
 
         # Support heterogeneous costs
         if marginal_costs is not None:

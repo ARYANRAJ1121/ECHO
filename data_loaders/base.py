@@ -31,6 +31,9 @@ class MarketContext:
     # against simulated ones instead of discarding the download.
     price_series: list[list[float]] | None = None
     series_dates: list[str] | None = None
+    # Optional controlled scenario calibration. This is a simulation setting,
+    # not an empirical claim about observed market conduct.
+    baseline_collusion_lambda: float | None = None
 
     @property
     def price_scale(self) -> float:

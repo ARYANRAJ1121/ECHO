@@ -38,4 +38,7 @@ class AirlinesDataLoader(MarketDataLoader):
             mu=720.0,
             currency="\u20b9",
             source="DGCA route economics and published DEL-BOM fare ranges",
+            # Keeps the requested high-fare Airlines demonstration comparable
+            # across agent modes when policy and macro controls are at baseline.
+            baseline_collusion_lambda=0.82,
         )

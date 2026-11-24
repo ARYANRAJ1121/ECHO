@@ -105,6 +105,7 @@ class MarketEngine:
         # Pre-compute benchmarks (Nash and Monopoly prices)
         # These are computed ONCE and reused every round for Lambda calculation
         self.benchmarks = demand_model.get_benchmarks()
+        self._baseline_costs = demand_model.costs.copy()
 
         # History storage -- grows by one entry per round
         self.price_history: list[list[float]] = []
@@ -356,21 +357,48 @@ class MarketEngine:
             or (float(np.mean(self.demand_model.costs)) > 2000.0 and self.demand_model.mu > 500.0)
         )
         if is_airlines and len(prices) == 5:
+            # Airlines has a deliberate high-fare demonstration baseline shared
+            # by every agent mode. Policies and macro regimes move this target;
+            # the calibration is explicitly synthetic, not inferred evidence.
+            target_price = None
+            baseline_lambda = getattr(self.demand_model, "baseline_collusion_lambda", None)
+            if baseline_lambda is not None:
+                span = self.benchmarks.monopoly_price - self.benchmarks.nash_price
+                target_price = self.benchmarks.nash_price + float(baseline_lambda) * span
+                # Shared repricing cycles create observable co-movement while
+                # carrier-specific offsets remain independently shuffled.
+                target_price += 0.12 * span * np.sin(2.0 * np.pi * round_number / 12.0)
+
+                # Cost inflation is passed through to the fare target.
+                target_price += float(np.mean(self.demand_model.costs - self._baseline_costs))
+
+                # Apply the same recession/seasonal direction as the general
+                # price path, but to the calibrated scenario anchor as well.
+                if macro_telemetry and macro_telemetry.get("is_shock"):
+                    target_price = self.price_floor + (target_price - self.price_floor) * 0.55
+                elif macro_telemetry:
+                    demand_mult = float(macro_telemetry.get("demand_multiplier", 1.0))
+                    target_price += (demand_mult - 1.0) * span * 0.35
+
+                # A delayed price feed weakens coordination incentives. Leniency
+                # additionally makes an undercut attractive through its bonus.
+                if is_policy_active and self.policy is not None:
+                    if self.policy.transparency_delay > 0:
+                        target_price -= min(0.24, 0.06 * self.policy.transparency_delay) * span
+                    if self.policy.leniency_bonus > 0:
+                        target_price -= min(0.40, self.policy.leniency_bonus / 125.0) * span
+
             indigo_idx = next((i for i, a in enumerate(self.agents) if "IndiGo" in getattr(a, "identity_name", "")), 0)
-            base_p = prices[indigo_idx] if 0 <= indigo_idx < len(prices) else float(np.median(prices))
+            agent_base = prices[indigo_idx] if 0 <= indigo_idx < len(prices) else float(np.median(prices))
+            base_p = target_price if target_price is not None else agent_base
 
             base_offsets = [-340.0, -180.0, 40.0, 190.0, 320.0]
             jittered = [o + float(np.random.uniform(-30.0, 30.0)) for o in base_offsets]
             np.random.shuffle(jittered)
 
-            prices = [
-                self._clamp(base_p + jittered[i], effective_ceiling)
-                for i in range(len(prices))
-            ]
-            raw_prices = [
-                self._clamp(base_p + jittered[i], self.price_ceiling)
-                for i in range(len(prices))
-            ]
+            raw_prices = [self._clamp(base_p + jittered[i], self.price_ceiling) for i in range(len(prices))]
+            prices = [self._clamp(raw_prices[i], effective_ceiling) for i in range(len(prices))]
+            # Preserve the post-cap/pre-macro prices for savings attribution.
             policy_prices = prices.copy()
 
         # Compute consumer savings from regulatory price cap

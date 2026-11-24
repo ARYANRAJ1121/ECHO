@@ -230,6 +230,13 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol, macroStart
         const t      = r / numRounds;
         let target = getTraj(t);
 
+        // The Airlines demo uses the same deliberate scenario anchor as the
+        // live engine, independent of agent mode. It is a calibrated simulation
+        // input and must not be presented as evidence of real-world collusion.
+        if (dataset === 'airlines') {
+            target = NASH + RANGE * (0.82 + 0.12 * Math.sin((2 * Math.PI * r) / 12.0));
+        }
+
         // Macro dynamic adjustments
         let macroScale = 1.0;
         let shockActive = false;
@@ -273,7 +280,10 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol, macroStart
 
         // Delayed transparency policy disrupts coordination convergence
         if (policy === 'delay_3' || policy === 'remedy') {
-            target = target - (rng() * 0.15 * RANGE);
+            target = target - (dataset === 'airlines' ? 0.18 * RANGE : rng() * 0.15 * RANGE);
+        }
+        if (dataset === 'airlines' && (policy === 'leniency' || policy === 'remedy')) {
+            target -= 0.40 * RANGE;
         }
 
         const spreadDecay = (mode === 'llm' || mode === 'gemini') ? 0.15 : mode === 'dummy' ? 0.55 : Math.max(0.08, 1 - t * 1.2);
