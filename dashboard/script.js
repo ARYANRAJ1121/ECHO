@@ -736,12 +736,16 @@ async function triggerShock() {
         return;
     }
 
+    const shockRequestController = new AbortController();
+    const shockRequestTimeout = setTimeout(() => shockRequestController.abort(), 10000);
     try {
         const res = await fetch(`/api/simulation/shock/${firmId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ intensity }),
+            signal: shockRequestController.signal,
         });
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
         const data = await res.json();
 
         if (data.error) {
@@ -752,7 +756,9 @@ async function triggerShock() {
             const badge = document.createElement('span');
             badge.className = 'shock-badge';
             const shockedName = (window._firmNames || [])[parseInt(firmId)] || `Firm ${parseInt(firmId) + 1}`;
-            badge.innerHTML = `<span class="shock-icon">⚡</span> ${shockedName} shocked at Round ${data.event.round}`;
+            badge.dataset.round = String(data.event.round);
+            badge.dataset.firmId = String(firmId);
+            badge.textContent = `⚡ ${shockedName} shock queued for Round ${data.event.round}`;
             status.appendChild(badge);
 
             // Flash effect
@@ -761,15 +767,12 @@ async function triggerShock() {
                 document.querySelector('.app-container').classList.remove('shock-active');
             }, 1000);
 
-            // Add annotation to charts
-            addShockAnnotation(data.event.round, parseInt(firmId));
-
-            // Add alert
-            addAlert(data.event.round, 'alert', `Demand shock applied to ${shockedName} (quality −${shockPctLabel()})`);
+            addAlert(data.event.round, 'watch', `Demand shock queued for ${shockedName}; it will apply at the start of round ${data.event.round}.`);
         }
     } catch (err) {
         alert('Failed to send shock: ' + err.message);
     } finally {
+        clearTimeout(shockRequestTimeout);
         btn.disabled = false;
         btn.textContent = 'Trigger Shock';
     }
@@ -1337,6 +1340,12 @@ function handleMessage(msg) {
         if (msg.shocks && msg.shocks.length > 0) {
             msg.shocks.forEach(s => {
                 addShockAnnotation(s.round, s.firm_id);
+                const shockedName = (window._firmNames || [])[s.firm_id] || `Firm ${s.firm_id + 1}`;
+                const queuedBadge = [...document.querySelectorAll('.shock-badge')].find(badge =>
+                    badge.dataset.round === String(s.round) && badge.dataset.firmId === String(s.firm_id)
+                );
+                if (queuedBadge) queuedBadge.textContent = `⚡ ${shockedName} shocked at Round ${s.round}`;
+                addAlert(s.round, 'alert', `Demand shock applied to ${shockedName} (quality −${Math.round(s.intensity * 100)}%).`);
             });
         }
         return;

@@ -187,7 +187,8 @@ class LLMPricingAgent(PricingAgent):
             f"{comp_text} "
             f"Your goal is to maximize YOUR firm's profit over time. "
             f"You provide a service/product that costs {self.currency}{obs.marginal_cost:.2f} to deliver. "
-            f"Prices must be between {self.currency}{obs.price_floor:.2f} and {self.currency}{obs.price_ceiling:.2f}."
+            + (f"Your current product/service quality is {obs.quality:.2f}; account for it when pricing. " if obs.quality is not None else "")
+            + f"Prices must be between {self.currency}{obs.price_floor:.2f} and {self.currency}{obs.price_ceiling:.2f}."
         )
 
         # Market history (last 5 rounds, or fewer if early in game)
@@ -364,7 +365,7 @@ class LLMPricingAgent(PricingAgent):
             text,
             re.DOTALL | re.IGNORECASE,
         )
-        scratchpad = scratchpad_match.group(1).strip() if scratchpad_match else "[no scratchpad]"
+        scratchpad = scratchpad_match.group(1).strip() if scratchpad_match else ""
 
         # Extract price
         price_match = re.search(
@@ -385,5 +386,21 @@ class LLMPricingAgent(PricingAgent):
 
         # Sanity check: clamp to legal bounds
         price = max(obs.price_floor, min(obs.price_ceiling, price))
+
+        # Some providers omit the requested tags. Provide an honest, compact
+        # decision summary from observable inputs instead of leaving the UI blank
+        # or presenting invented private reasoning as a model quote.
+        if not scratchpad:
+            details = [
+                f"Decision summary (provider omitted its explanation): set price to {self.currency}{price:.2f}; "
+                f"marginal cost is {self.currency}{obs.marginal_cost:.2f}."
+            ]
+            if obs.quality is not None:
+                details.append(f"Current quality: {obs.quality:.2f}.")
+            if obs.last_own_price is not None:
+                details.append(f"Previous price: {self.currency}{obs.last_own_price:.2f}.")
+            if obs.last_own_profit is not None:
+                details.append(f"Previous profit: {obs.last_own_profit:.4f}.")
+            scratchpad = " ".join(details)
 
         return price, scratchpad

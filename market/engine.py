@@ -323,6 +323,7 @@ class MarketEngine:
                 intended_prices=intended_prices if intended_prices else None,
                 private_messages=private_messages.get(agent.firm_id),
                 rival_scratchpads=rival_scratchpads if rival_scratchpads else None,
+                quality=float(self.demand_model.quality[agent.firm_id]),
             )
             raw_p = agent.choose_price(obs)
             raw_prices.append(round(raw_p, 4))

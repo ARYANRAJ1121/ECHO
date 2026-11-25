@@ -88,6 +88,7 @@ class SimulationState:
         self.records: list[dict] = []
         self.scratchpads: dict[int, list[str]] = {}  # firm_id -> list of texts
         self.shock_events: list[dict] = []
+        self.pending_shocks: list[dict] = []
         self.start_time: float = 0
         self.benchmarks: dict = {}
         self.sentiment_analyzer: ScratchpadSentimentAnalyzer | None = None
@@ -199,11 +200,9 @@ class ShockRequest(BaseModel):
 @app.post("/api/simulation/shock/{firm_id}")
 def trigger_demand_shock(firm_id: int, req: ShockRequest = ShockRequest()):
     """
-    Trigger a demand shock on a specific firm mid-simulation.
-
-    Reduces the firm's quality parameter by `intensity` (default 30%).
-    Other firms' quality stays the same. This is how we test whether
-    competitors respond to the shock — a sign of coordination.
+    Queue a quality reduction for the next round boundary. Other firms' quality
+    stays the same so their response to the affected firm's weaker position can
+    be observed in subsequent rounds.
     """
     if not sim_state.running:
         return JSONResponse(
@@ -223,24 +222,20 @@ def trigger_demand_shock(firm_id: int, req: ShockRequest = ShockRequest()):
 
     # Intensity is a fraction of current quality (0.3 = 30% reduction).
     intensity = min(max(float(req.intensity), 0.05), 0.8)
-    dm = sim_state.engine.demand_model
-    old_quality = float(dm.quality[firm_id])
-    dm.quality[firm_id] = old_quality * (1.0 - intensity)
-    new_quality = float(dm.quality[firm_id])
+    with sim_state.settings_lock:
+        if sim_state.current_round >= sim_state.total_rounds:
+            return JSONResponse(status_code=409, content={"error": "No upcoming round is available for this shock."})
+        apply_round = sim_state.current_round + 1
+        shock_request = {
+            "firm_id": firm_id,
+            "round": apply_round,
+            "intensity": intensity,
+            "timestamp": time.time(),
+        }
+        sim_state.pending_shocks.append(shock_request)
 
-    shock_event = {
-        "firm_id": firm_id,
-        "round": sim_state.current_round,
-        "intensity": req.intensity,
-        "old_quality": round(old_quality, 4),
-        "new_quality": round(new_quality, 4),
-        "timestamp": time.time(),
-    }
-    sim_state.shock_events.append(shock_event)
-
-    print(f"  *** SHOCK: Firm {firm_id} quality {old_quality:.3f} -> {new_quality:.3f} at round {sim_state.current_round}")
-
-    return {"status": "shock_applied", "event": shock_event}
+    print(f"  *** SHOCK QUEUED: Firm {firm_id} at round {apply_round}")
+    return {"status": "shock_queued", "event": {**shock_request, "queued": True}}
 
 
 class ControlRequest(BaseModel):
@@ -655,13 +650,15 @@ async def simulate_endpoint(websocket: WebSocket):
                 print(f"  Stop requested at round {round_num - 1}")
                 break
 
-            sim_state.current_round = round_num
-
             # Settings submitted through REST are committed at a round boundary,
-            # so every round uses one consistent market configuration.
+            # so every round uses one consistent market configuration. Advancing
+            # the round counter under the same lock also makes shock timing exact.
             with sim_state.settings_lock:
+                sim_state.current_round = round_num
                 pending_settings = sim_state.pending_settings
                 sim_state.pending_settings = {}
+                pending_shocks = sim_state.pending_shocks
+                sim_state.pending_shocks = []
             if pending_settings:
                 if "policy" in pending_settings:
                     engine.policy = pending_settings["policy"]
@@ -676,7 +673,25 @@ async def simulate_endpoint(websocket: WebSocket):
                     from market.info_structure import InfoConfig
                     engine.info_config = InfoConfig(protocol=pending_settings["info_protocol"])
 
-            record = engine._run_one_round(round_num)
+            # Apply queued quality shocks between rounds so demand parameters
+            # cannot change halfway through a market calculation.
+            for shock in pending_shocks:
+                firm_id = shock["firm_id"]
+                old_quality = float(engine.demand_model.quality[firm_id])
+                new_quality = old_quality * (1.0 - shock["intensity"])
+                engine.demand_model.quality[firm_id] = new_quality
+                shock_event = {
+                    **shock,
+                    "old_quality": round(old_quality, 4),
+                    "new_quality": round(new_quality, 4),
+                    "applied": True,
+                }
+                sim_state.shock_events.append(shock_event)
+                print(f"  *** SHOCK APPLIED: Firm {firm_id} quality {old_quality:.3f} -> {new_quality:.3f} at round {round_num}")
+
+            # LLM provider calls block while agents think. Keep REST controls
+            # responsive by running price collection outside the asyncio loop.
+            record = await asyncio.to_thread(engine._run_one_round, round_num)
             engine.records.append(record)
             engine.price_history.append(record.prices)
             engine.profit_history.append(record.profits)
@@ -694,6 +709,7 @@ async def simulate_endpoint(websocket: WebSocket):
                             price_ceiling=engine.price_ceiling,
                             price_history=engine.price_history,
                             profit_history=engine.profit_history,
+                            quality=float(engine.demand_model.quality[agent.firm_id]),
                         )
                         agent.learn(obs, record.prices, record.profits[i])
 
