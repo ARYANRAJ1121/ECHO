@@ -710,6 +710,7 @@ async def simulate_endpoint(websocket: WebSocket):
                             price_history=engine.price_history,
                             profit_history=engine.profit_history,
                             quality=float(engine.demand_model.quality[agent.firm_id]),
+                            quality_ratio=float(engine.demand_model.quality[agent.firm_id] / max(engine._baseline_quality[agent.firm_id], 1e-9)),
                         )
                         agent.learn(obs, record.prices, record.profits[i])
 

@@ -230,9 +230,9 @@ class DQNPricingAgent(PricingAgent):
         # Price grid
         self.price_grid = np.linspace(price_floor, price_ceiling, n_prices)
 
-        # State dimension: [my_price, avg_competitor_price, my_profit,
-        #                    avg_competitor_profit, round_normalized]
-        self.state_dim = 5
+        # State includes relative product quality so demand shocks are visible
+        # to the DQN on its next pricing decision.
+        self.state_dim = 6
 
         # Neural networks (policy + target)
         self.policy_net = SimpleNeuralNetwork(self.state_dim, 64, 32, n_prices)
@@ -260,7 +260,7 @@ class DQNPricingAgent(PricingAgent):
         continuous inputs directly.
         """
         if not obs.price_history:
-            return np.array([2.5, 2.5, 0.1, 0.1, 0.0])
+            return np.array([2.5, 2.5, 0.1, 0.1, 0.0, obs.quality_ratio])
 
         last_prices = obs.price_history[-1]
         last_profits = obs.profit_history[-1]
@@ -278,7 +278,7 @@ class DQNPricingAgent(PricingAgent):
         return np.array([
             my_price, avg_comp_price,
             my_profit, avg_comp_profit,
-            round_norm,
+            round_norm, obs.quality_ratio,
         ])
 
     def choose_price(self, observation: Observation) -> float:

@@ -727,8 +727,11 @@ async function triggerShock() {
     const isDemoMode = !ws || ws.readyState !== WebSocket.OPEN;
 
     if (isDemoMode) {
-        // Demo mode: simulate shock visually
-        const shockRound = currentRound || 1;
+        // Demo mode: change the affected firm's remaining fares and market
+        // outcomes, rather than only drawing a decorative shock marker.
+        const pendingRound = demoRuntime?.rounds[demoRuntime.index]?.round;
+        const shockRound = pendingRound || currentRound || 1;
+        applyDemoDemandShock(parseInt(firmId), intensity);
 
         const status = document.getElementById('shock-status');
         const badge = document.createElement('span');
@@ -789,6 +792,31 @@ async function triggerShock() {
         clearTimeout(shockRequestTimeout);
         btn.disabled = false;
         btn.textContent = 'Trigger Shock';
+    }
+}
+
+function applyDemoDemandShock(firmId, intensity) {
+    if (!demoRuntime?.market || !Number.isInteger(firmId)) return;
+    const { nash, monopoly, cost, mu, floor } = demoRuntime.market;
+    const span = monopoly - nash;
+    const priceDiscount = span * 0.35 * intensity;
+    const qualityPenalty = span * 0.10 * intensity;
+
+    for (let index = demoRuntime.index; index < demoRuntime.rounds.length; index++) {
+        const round = demoRuntime.rounds[index];
+        round.prices[firmId] = Math.max(floor, round.prices[firmId] - priceDiscount);
+        round.avg_price = round.prices.reduce((sum, price) => sum + price, 0) / round.prices.length;
+        round.lambda = (round.avg_price - nash) / Math.max(span, 1e-9);
+
+        const utilities = round.prices.map((price, i) => Math.exp(
+            Math.max(-50, Math.min(50, (nash - price - (i === firmId ? qualityPenalty : 0)) / mu))
+        ));
+        const denominator = 1 + utilities.reduce((sum, value) => sum + value, 0);
+        round.shares = utilities.map(value => value / denominator);
+        const costNow = cost * (round.macro?.cost_inflation_factor || 1.0);
+        const marketScale = round.macro?.scale || 1.0;
+        round.profits = round.prices.map((price, i) => (price - costNow) * round.shares[i] * marketScale);
+        round.total_profit = round.profits.reduce((sum, profit) => sum + profit, 0);
     }
 }
 
@@ -1698,7 +1726,7 @@ function runDemoMode(mode, dataset, policy, macro, infoProtocol) {
     }
 
     const demo = window.generateDemoData(mode, dataset || 'gasoline', policy, macro, infoProtocol);
-    demoRuntime = { mode, dataset: dataset || 'gasoline', rounds: demo.rounds, summary: demo.summary, index: 0, played: [] };
+    demoRuntime = { mode, dataset: dataset || 'gasoline', rounds: demo.rounds, summary: demo.summary, market: demo.market, index: 0, played: [] };
     totalRounds = demo.numRounds;
 
     // Update rounds input to match demo data

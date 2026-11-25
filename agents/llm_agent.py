@@ -187,7 +187,7 @@ class LLMPricingAgent(PricingAgent):
             f"{comp_text} "
             f"Your goal is to maximize YOUR firm's profit over time. "
             f"You provide a service/product that costs {self.currency}{obs.marginal_cost:.2f} to deliver. "
-            + (f"Your current product/service quality is {obs.quality:.2f}; account for it when pricing. " if obs.quality is not None else "")
+            + (f"Your current product/service quality is {obs.quality:.2f} ({obs.quality_ratio:.0%} of baseline); account for it when pricing. " if obs.quality is not None else "")
             + f"Prices must be between {self.currency}{obs.price_floor:.2f} and {self.currency}{obs.price_ceiling:.2f}."
         )
 

@@ -234,7 +234,7 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol, macroStart
         // live engine, independent of agent mode. It is a calibrated simulation
         // input and must not be presented as evidence of real-world collusion.
         if (dataset === 'airlines') {
-            target = NASH + RANGE * (0.82 + 0.02 * Math.sin((2 * Math.PI * r) / 40.0));
+            target = NASH + RANGE * 0.82;
         }
 
         // Macro dynamic adjustments
@@ -300,18 +300,21 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol, macroStart
         let rawPrices;
         let prices;
         if (dataset === 'airlines') {
-            // Realistic Indian domestic airline economics (DEL-BOM):
-            // Keep each carrier's fare position stable and add modest jitter.
-            const baseOffsets = [-340, -180, 40, 190, 320].map(o => o + (rng() - 0.5) * 20);
-            // Preserve fare differences when the common target would otherwise
-            // put every carrier above a binding cap and flatten them all.
-            if (effCeiling < cfg.ceiling && target + Math.max(...baseOffsets) > effCeiling) {
-                target = effCeiling - Math.max(...baseOffsets);
+            // Keep the high-fare scenario anchor, but let each mode's agent
+            // spread and independent per-firm moves shape its own trajectory.
+            const offsets = [-340, -180, 40, 190, 320];
+            const idiosyncraticMoves = offsets.map(() => (rng() - 0.5) * RANGE * 0.08);
+            const actionMoves = offsets.map((_, i) => firmSpreads[i] * spreadDecay);
+            const adjustments = offsets.map((offset, i) => offset + actionMoves[i] + idiosyncraticMoves[i]);
+
+            // Shift only the regulated path to leave headroom for each firm's
+            // move; keep the uncapped path for a truthful savings comparison.
+            let policyTarget = target;
+            if (effCeiling < cfg.ceiling && policyTarget + Math.max(...adjustments) > effCeiling) {
+                policyTarget = effCeiling - Math.max(...adjustments);
             }
-            rawPrices = baseOffsets.map(offset =>
-                clamp(target + offset, cfg.floor, cfg.ceiling)
-            );
-            prices = rawPrices.map(p => Math.min(p, effCeiling));
+            rawPrices = adjustments.map(a => clamp(target + a, cfg.floor, cfg.ceiling));
+            prices = adjustments.map(a => clamp(policyTarget + a, cfg.floor, effCeiling));
         } else {
             rawPrices = firmSpreads.map(s =>
                 clamp(target + s * spreadDecay + noise, cfg.floor, cfg.ceiling)
@@ -503,7 +506,13 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol, macroStart
         forecast,
     };
 
-    return { benchmarks, rounds, summary, numRounds };
+    return {
+        benchmarks,
+        rounds,
+        summary,
+        numRounds,
+        market: { nash: NASH, monopoly: MONO, cost: COST, mu: MU, floor: cfg.floor, ceiling: cfg.ceiling },
+    };
 }
 
 window.generateDemoData = generateDemoData;

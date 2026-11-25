@@ -106,6 +106,7 @@ class MarketEngine:
         # These are computed ONCE and reused every round for Lambda calculation
         self.benchmarks = demand_model.get_benchmarks()
         self._baseline_costs = demand_model.costs.copy()
+        self._baseline_quality = demand_model.quality.copy()
 
         # History storage -- grows by one entry per round
         self.price_history: list[list[float]] = []
@@ -172,6 +173,7 @@ class MarketEngine:
                         price_ceiling=self.price_ceiling,
                         price_history=self.price_history,
                         profit_history=self.profit_history,
+                        quality_ratio=float(self.demand_model.quality[agent.firm_id] / max(self._baseline_quality[agent.firm_id], 1e-9)),
                     )
                     agent.learn(obs, record.prices, record.profits[i])
 
@@ -187,6 +189,7 @@ class MarketEngine:
                             price_ceiling=self.price_ceiling,
                             price_history=self.price_history,
                             profit_history=self.profit_history,
+                            quality_ratio=float(self.demand_model.quality[agent.firm_id] / max(self._baseline_quality[agent.firm_id], 1e-9)),
                         )
                         # round_id from DB or use round_num as fallback
                         agent.store_round_memory(
@@ -324,6 +327,7 @@ class MarketEngine:
                 private_messages=private_messages.get(agent.firm_id),
                 rival_scratchpads=rival_scratchpads if rival_scratchpads else None,
                 quality=float(self.demand_model.quality[agent.firm_id]),
+                quality_ratio=float(self.demand_model.quality[agent.firm_id] / max(self._baseline_quality[agent.firm_id], 1e-9)),
             )
             raw_p = agent.choose_price(obs)
             raw_prices.append(round(raw_p, 4))
@@ -349,27 +353,22 @@ class MarketEngine:
             ]
 
         # Indian domestic airlines (DEL-BOM route) domain calibration:
-        # Airline dynamic repricing algorithms on a single trunk corridor maintain close price parity.
-        # Ticket price differences between any two airlines stay randomly between 100 and 800 INR (max 800 variation).
-        # Shuffled randomly each round so there is no fixed sequence or rank order.
+        # A synthetic high-fare anchor keeps scenario comparisons consistent,
+        # while each carrier's chosen action and independent movement remain visible.
         is_airlines = (
             getattr(self.demand_model, "dataset_name", "") == "Indian Airlines (DEL-BOM Route)"
             or any("IndiGo" in getattr(a, "identity_name", "") for a in self.agents)
             or (float(np.mean(self.demand_model.costs)) > 2000.0 and self.demand_model.mu > 500.0)
         )
         if is_airlines and len(prices) == 5:
-            # Airlines has a deliberate high-fare demonstration baseline shared
-            # by every agent mode. Policies and macro regimes move this target;
-            # the calibration is explicitly synthetic, not inferred evidence.
+            # Keep the synthetic high-fare scenario as the market anchor, while
+            # preserving agent-specific price choices and independent fare
+            # movements. This calibration is not evidence about real airlines.
             target_price = None
             baseline_lambda = getattr(self.demand_model, "baseline_collusion_lambda", None)
             if baseline_lambda is not None:
                 span = self.benchmarks.monopoly_price - self.benchmarks.nash_price
                 target_price = self.benchmarks.nash_price + float(baseline_lambda) * span
-                # A small, slow common movement keeps the scenario dynamic
-                # without the large artificial spikes of the earlier cycle.
-                target_price += 0.02 * span * np.sin(2.0 * np.pi * round_number / 40.0)
-
                 # Cost inflation is passed through to the fare target.
                 target_price += float(np.mean(self.demand_model.costs - self._baseline_costs))
 
@@ -393,17 +392,28 @@ class MarketEngine:
             agent_base = prices[indigo_idx] if 0 <= indigo_idx < len(prices) else float(np.median(prices))
             base_p = target_price if target_price is not None else agent_base
 
-            base_offsets = [-340.0, -180.0, 40.0, 190.0, 320.0]
-            # Keep carrier-specific fare positions stable; only vary them slightly.
-            jittered = [o + float(np.random.uniform(-10.0, 10.0)) for o in base_offsets]
+            # Preserve each agent's relative action while adding independent
+            # fare movement, instead of making every carrier trace one shared wave.
+            agent_prices = np.asarray(prices, dtype=float)
+            raw_action_deviations = agent_prices - float(np.mean(agent_prices))
+            action_deviations = np.clip(raw_action_deviations, -0.10 * span, 0.10 * span)
+            base_offsets = np.asarray([-340.0, -180.0, 40.0, 190.0, 320.0], dtype=float)
+            quality_ratios = self.demand_model.quality / np.maximum(self._baseline_quality, 1e-9)
+            quality_discounts = (
+                np.maximum(0.0, 1.0 - quality_ratios) * span * 0.35
+                if target_price is not None else np.zeros(5)
+            )
+            idiosyncratic_moves = np.random.normal(0.0, span * 0.04, size=5)
+            adjustments = base_offsets + action_deviations * 0.75 + idiosyncratic_moves - quality_discounts
 
             # Keep carrier fares distinct under a binding policy cap. Without
             # this headroom, every above-cap fare is flattened to the same value.
-            if effective_ceiling < self.price_ceiling and base_p + max(jittered) > effective_ceiling:
-                base_p = effective_ceiling - max(jittered)
+            policy_base = base_p
+            if effective_ceiling < self.price_ceiling and policy_base + float(np.max(adjustments)) > effective_ceiling:
+                policy_base = effective_ceiling - float(np.max(adjustments))
 
-            raw_prices = [self._clamp(base_p + jittered[i], self.price_ceiling) for i in range(len(prices))]
-            prices = [self._clamp(raw_prices[i], effective_ceiling) for i in range(len(prices))]
+            raw_prices = [self._clamp(base_p + adjustments[i], self.price_ceiling) for i in range(len(prices))]
+            prices = [self._clamp(policy_base + adjustments[i], effective_ceiling) for i in range(len(prices))]
             # Preserve the post-cap/pre-macro prices for savings attribution.
             policy_prices = prices.copy()
 

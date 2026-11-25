@@ -20,6 +20,7 @@ class Observation:
     private_messages: dict[int, str] | None = None
     rival_scratchpads: dict[int, str] | None = None
     quality: float | None = None
+    quality_ratio: float = 1.0
 
     @property
     def last_round_prices(self) -> list[float] | None:
