@@ -588,8 +588,15 @@ function updateNarrator(round, total, lambda, avgPrice, mode) {
                        mode === 'mixed' ? 'Mixed (4 Cartel vs 1 Maverick)' : 'Heuristic';
 
     let state, ico, msg;
+    const isAirlinesScenario = (window._datasetName || '').toLowerCase().includes('airline');
 
-    if (round === 1) {
+    if (isAirlinesScenario) {
+        state = lam >= 0.7 ? 'state-watch' : 'state-running';
+        ico = '✈️';
+        msg = `<strong>Round ${round} / ${total} — Calibrated Airlines scenario.</strong> ` +
+              `Average fare: ${price}. Λ = ${lam.toFixed(3)}. The high-fare level is set by this synthetic demonstration calibration; ` +
+              `it is not evidence that real airlines collude or that DQN learned this price. ${pct}% complete.`;
+    } else if (round === 1) {
         state = 'state-running';
         ico   = '🚀';
         msg   = mode === 'mixed'
@@ -671,6 +678,13 @@ function narratorDone(lambda, verdict) {
     if (!bar) return;
 
     bar.className = 'narrator-bar glass-panel state-done';
+    if ((window._datasetName || '').toLowerCase().includes('airline')) {
+        icon.textContent = '✈️';
+        text.innerHTML = `<strong>Airlines scenario complete — calibrated simulation.</strong> ` +
+            `Final Λ = ${lambda.toFixed(3)}. Fares were anchored to a synthetic high-price scenario across agent modes; ` +
+            `this result does not show that real airlines collude or that the DQN independently learned the fare level.`;
+        return;
+    }
     icon.textContent = verdict === 'collusion' ? '🚨' : verdict === 'suspicious' ? '⚠️' : '✅';
     text.innerHTML = verdict === 'collusion'
         ? `<strong>Simulation complete — Collusion emerged.</strong> 
@@ -1193,6 +1207,7 @@ function handleMessage(msg) {
 
         // Update dataset badge if present
         if (msg.dataset_name) {
+            window._datasetName = msg.dataset_name;
             const dsLabel = document.getElementById('dataset-label');
             if (dsLabel) dsLabel.textContent = msg.dataset_name;
         }

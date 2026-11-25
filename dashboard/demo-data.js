@@ -234,7 +234,7 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol, macroStart
         // live engine, independent of agent mode. It is a calibrated simulation
         // input and must not be presented as evidence of real-world collusion.
         if (dataset === 'airlines') {
-            target = NASH + RANGE * (0.82 + 0.12 * Math.sin((2 * Math.PI * r) / 12.0));
+            target = NASH + RANGE * (0.82 + 0.02 * Math.sin((2 * Math.PI * r) / 40.0));
         }
 
         // Macro dynamic adjustments
@@ -301,14 +301,8 @@ function generateDemoData(mode, dataset, policy, macro, infoProtocol, macroStart
         let prices;
         if (dataset === 'airlines') {
             // Realistic Indian domestic airline economics (DEL-BOM):
-            // Competing carriers price within a tight corridor where ticket price differences
-            // between any two airlines vary randomly between 100 and 800 INR (max 800 variation).
-            // Shuffled dynamically each round so there is no fixed sequence or rank order.
-            const baseOffsets = [-340, -180, 40, 190, 320].map(o => o + (rng() - 0.5) * 60);
-            for (let i = baseOffsets.length - 1; i > 0; i--) {
-                const j = Math.floor(rng() * (i + 1));
-                [baseOffsets[i], baseOffsets[j]] = [baseOffsets[j], baseOffsets[i]];
-            }
+            // Keep each carrier's fare position stable and add modest jitter.
+            const baseOffsets = [-340, -180, 40, 190, 320].map(o => o + (rng() - 0.5) * 20);
             // Preserve fare differences when the common target would otherwise
             // put every carrier above a binding cap and flatten them all.
             if (effCeiling < cfg.ceiling && target + Math.max(...baseOffsets) > effCeiling) {

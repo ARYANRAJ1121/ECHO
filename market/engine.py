@@ -366,9 +366,9 @@ class MarketEngine:
             if baseline_lambda is not None:
                 span = self.benchmarks.monopoly_price - self.benchmarks.nash_price
                 target_price = self.benchmarks.nash_price + float(baseline_lambda) * span
-                # Shared repricing cycles create observable co-movement while
-                # carrier-specific offsets remain independently shuffled.
-                target_price += 0.12 * span * np.sin(2.0 * np.pi * round_number / 12.0)
+                # A small, slow common movement keeps the scenario dynamic
+                # without the large artificial spikes of the earlier cycle.
+                target_price += 0.02 * span * np.sin(2.0 * np.pi * round_number / 40.0)
 
                 # Cost inflation is passed through to the fare target.
                 target_price += float(np.mean(self.demand_model.costs - self._baseline_costs))
@@ -394,8 +394,8 @@ class MarketEngine:
             base_p = target_price if target_price is not None else agent_base
 
             base_offsets = [-340.0, -180.0, 40.0, 190.0, 320.0]
-            jittered = [o + float(np.random.uniform(-30.0, 30.0)) for o in base_offsets]
-            np.random.shuffle(jittered)
+            # Keep carrier-specific fare positions stable; only vary them slightly.
+            jittered = [o + float(np.random.uniform(-10.0, 10.0)) for o in base_offsets]
 
             # Keep carrier fares distinct under a binding policy cap. Without
             # this headroom, every above-cap fare is flattened to the same value.
