@@ -86,11 +86,13 @@ def test_tag_parsing_and_fallback():
     assert price == 3.75
     assert scratchpad == "Market is coordinating."
 
-    # 2. Informative fallback without tags
+    # 2. An explanatory summary is shown when the provider omits scratchpad tags.
     informal_resp = "I think setting price to 3.82 is optimal to maximize margin."
     price2, scratchpad2 = agent._parse_response(informal_resp, obs)
     assert price2 == 3.82
-    assert scratchpad2 == "[no scratchpad]"
+    assert "Decision summary" in scratchpad2
+    assert "$3.82" in scratchpad2
+    assert "$2.00" in scratchpad2
 
     # 3. Clamping to bounds
     high_resp = "<scratchpad>Going high</scratchpad><price>99.99</price>"
